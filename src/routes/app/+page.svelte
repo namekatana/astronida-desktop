@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { signOut } from '$lib/auth/auth';
 	import ChannelPanel from '$lib/components/ChannelPanel.svelte';
@@ -141,8 +142,8 @@
 		if (!channel) return;
 
 		let stale = false;
-		const feed = feedFor(channel.id);
-		const unloaded = () => feed.messages.every((m) => m.status !== undefined);
+		const feed = untrack(() => feedFor(channel.id));
+		const unloaded = () => untrack(() => feed.messages.every((m) => m.status !== undefined));
 		messagesLoading = unloaded();
 		loadMessages({ channelId: channel.id }).then((loaded) => {
 			if (stale) return;
