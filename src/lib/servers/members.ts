@@ -9,11 +9,7 @@ export interface Member {
 	owner: boolean;
 }
 
-export async function loadMembers(
-	serverId: string,
-	ownerId: string,
-	currentUserId: string
-): Promise<Member[]> {
+export async function loadMembers(serverId: string, ownerId: string): Promise<Member[]> {
 	const { data, error } = await retryOnFreshToken(() =>
 		supabase
 			.from('server_members')
@@ -30,7 +26,7 @@ export async function loadMembers(
 			id: row.user_id,
 			username: row.profiles.username,
 			name: row.profiles.display_name,
-			online: row.user_id === currentUserId,
+			online: false,
 			owner: row.user_id === ownerId
 		};
 	});

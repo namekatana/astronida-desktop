@@ -29,6 +29,7 @@
 		type Message
 	} from '$lib/messages/messages';
 	import { mockFriends } from '$lib/mock/friends';
+	import { subscribeToServerPresence } from '$lib/presence/presence';
 	import { loadMembers, type Member } from '$lib/servers/members';
 	import { createServer, type Server } from '$lib/servers/servers';
 	import { lastSelection } from '$lib/ui/last-selection.svelte';
@@ -98,21 +99,20 @@
 
 		let stale = false;
 		channelsLoading = true;
-		Promise.all([
-			loadChannels(server.id),
-			loadMembers(server.id, server.ownerId, data.userId)
-		]).then(([loaded, loadedMembers]) => {
-			if (stale) return;
-			categories = loaded.categories;
-			channels = loaded.channels;
-			members = loadedMembers;
-			channelsLoading = false;
-			const remembered = lastSelection.channelFor(server.id);
-			selectedChannelId =
-				(remembered && channels.some((c) => c.id === remembered) ? remembered : null) ??
-				orderedChannels[0]?.id ??
-				null;
-		});
+		Promise.all([loadChannels(server.id), loadMembers(server.id, server.ownerId)]).then(
+			([loaded, loadedMembers]) => {
+				if (stale) return;
+				categories = loaded.categories;
+				channels = loaded.channels;
+				members = loadedMembers;
+				channelsLoading = false;
+				const remembered = lastSelection.channelFor(server.id);
+				selectedChannelId =
+					(remembered && channels.some((c) => c.id === remembered) ? remembered : null) ??
+					orderedChannels[0]?.id ??
+					null;
+			}
+		);
 		return () => {
 			stale = true;
 		};
@@ -122,6 +122,46 @@
 		if (selectedServerId && selectedChannelId) {
 			lastSelection.setChannel(selectedServerId, selectedChannelId);
 		}
+	});
+
+	let onlineByServer = $state<Record<string, Set<string>>>({});
+	const presenceSubscriptions = new Map<string, () => void>();
+
+	$effect(() => {
+		const ids = new Set(servers.map((server) => server.id));
+		untrack(() => {
+			for (const id of ids) {
+				if (presenceSubscriptions.has(id)) continue;
+				presenceSubscriptions.set(
+					id,
+					subscribeToServerPresence({
+						serverId: id,
+						onSync: (online) => (onlineByServer[id] = online)
+					})
+				);
+			}
+			for (const [id, unsubscribe] of presenceSubscriptions) {
+				if (ids.has(id)) continue;
+				unsubscribe();
+				presenceSubscriptions.delete(id);
+				delete onlineByServer[id];
+			}
+		});
+	});
+
+	$effect(() => {
+		return () => {
+			for (const unsubscribe of presenceSubscriptions.values()) unsubscribe();
+			presenceSubscriptions.clear();
+		};
+	});
+
+	const membersWithPresence = $derived.by(() => {
+		const online = selectedServer ? onlineByServer[selectedServer.id] : undefined;
+		return members.map((member) => ({
+			...member,
+			online: member.id === data.userId || (online?.has(member.id) ?? false)
+		}));
 	});
 
 	function mergeMessages(channelId: string, incoming: Message[]) {
@@ -437,7 +477,7 @@
 
 		<div class="relative flex shrink-0 flex-col gap-3" style="width: {panelWidths.members}px">
 			{#if selectedServer}
-				<MemberPanel {members} />
+				<MemberPanel members={membersWithPresence} />
 			{:else}
 				<div class="min-h-0 flex-1"></div>
 			{/if}
