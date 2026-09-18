@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Member } from '$lib/servers/members';
+	import { initials } from '$lib/ui/initials';
 	import Icon from './Icon.svelte';
 
 	interface Props {
@@ -8,14 +9,7 @@
 
 	let { member }: Props = $props();
 
-	const initials = $derived(
-		member.name
-			.split(/\s+/)
-			.filter(Boolean)
-			.slice(0, 2)
-			.map((word) => word[0]?.toUpperCase() ?? '')
-			.join('')
-	);
+	const avatar = $derived(initials(member.name));
 </script>
 
 <div
@@ -27,7 +21,7 @@
 		<span
 			class="flex h-7 w-7 items-center justify-center rounded-full bg-surface-raised text-[11px] font-medium text-ink"
 		>
-			{initials}
+			{avatar}
 		</span>
 		{#if member.online}
 			<span

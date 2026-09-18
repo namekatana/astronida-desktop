@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { fade, fly } from 'svelte/transition';
-	import { on } from 'svelte/events';
+	import { dismissOn } from '$lib/ui/dismiss';
 
 	interface Props {
 		username: string | null;
@@ -16,17 +16,8 @@
 	const avatarInitial = $derived(username?.[0]?.toUpperCase() ?? '?');
 
 	$effect(() => {
-		if (!open) return;
-		const offPointer = on(document, 'pointerdown', (event) => {
-			if (root && !root.contains(event.target as Node)) open = false;
-		});
-		const offKey = on(document, 'keydown', (event) => {
-			if (event.key === 'Escape') open = false;
-		});
-		return () => {
-			offPointer();
-			offKey();
-		};
+		if (!open || !root) return;
+		return dismissOn(root, () => (open = false));
 	});
 </script>
 

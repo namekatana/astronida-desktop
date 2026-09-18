@@ -1,5 +1,10 @@
+<script lang="ts" module>
+	const timeFormat = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' });
+</script>
+
 <script lang="ts">
 	import type { Message } from '$lib/messages/messages';
+	import { initials } from '$lib/ui/initials';
 
 	interface Props {
 		messages: Message[];
@@ -9,17 +14,7 @@
 	let { messages, onretry }: Props = $props();
 
 	const author = $derived(messages[0].author);
-
-	const initials = $derived(
-		author.name
-			.split(/\s+/)
-			.filter(Boolean)
-			.slice(0, 2)
-			.map((word) => word[0]?.toUpperCase() ?? '')
-			.join('')
-	);
-
-	const timeFormat = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' });
+	const avatar = $derived(initials(author.name));
 	const time = $derived(timeFormat.format(messages[0].sentAt));
 </script>
 
@@ -28,7 +23,7 @@
 		<span
 			class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[12px] font-medium text-ink"
 		>
-			{initials}
+			{avatar}
 		</span>
 
 		<div class="min-w-0 flex-1">

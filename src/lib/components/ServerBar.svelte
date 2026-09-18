@@ -160,8 +160,6 @@
 	});
 </script>
 
-<svelte:window onresize={() => placeIndicator(false)} />
-
 <div class="shrink-0 px-3 pt-3">
 	<div class="panel flex items-stretch">
 		<div class="flex items-center px-2">

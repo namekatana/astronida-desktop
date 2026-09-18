@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { initials } from '$lib/ui/initials';
+
 	interface Props {
 		name: string;
 		active?: boolean;
@@ -8,14 +10,7 @@
 
 	let { name, active = false, onclick, element = $bindable() }: Props = $props();
 
-	const initials = $derived(
-		name
-			.split(/\s+/)
-			.filter(Boolean)
-			.slice(0, 2)
-			.map((word) => word[0]?.toUpperCase() ?? '')
-			.join('')
-	);
+	const avatar = $derived(initials(name));
 </script>
 
 <button
@@ -28,7 +23,7 @@
 	<span
 		class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[12px] text-ink"
 	>
-		{initials}
+		{avatar}
 	</span>
 	<span
 		class="mix-blend-difference transition-colors duration-200 ease-soft {active
