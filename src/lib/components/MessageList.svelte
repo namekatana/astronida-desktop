@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Message } from '$lib/messages/messages';
 	import MessageGroup from './MessageGroup.svelte';
+	import Scrollbar from './Scrollbar.svelte';
 
 	interface Props {
 		messages: Message[];
@@ -85,28 +86,31 @@
 	}
 </script>
 
-<div
-	bind:this={scroller}
-	onscroll={handleScroll}
-	class="panel-deep flex min-h-0 flex-1 flex-col overflow-y-auto px-2 py-3 [scrollbar-color:var(--color-surface-raised)_transparent] [scrollbar-width:thin]"
->
-	{#if messages.length === 0 && !loading}
-		<div class="flex flex-1 items-center justify-center">
-			<span class="text-[13px] text-muted">Пока пусто — напиши первым</span>
-		</div>
-	{/if}
+<div class="panel-deep relative flex min-h-0 flex-1 flex-col overflow-hidden">
+	<div
+		bind:this={scroller}
+		onscroll={handleScroll}
+		class="scrollbar-none flex min-h-0 flex-1 flex-col overflow-y-auto px-2 py-3"
+	>
+		{#if messages.length === 0 && !loading}
+			<div class="flex flex-1 items-center justify-center">
+				<span class="text-[13px] text-muted">Пока пусто — напиши первым</span>
+			</div>
+		{/if}
 
-	{#each blocks as block (block.dateLabel)}
-		<div class="flex items-center gap-3 px-3 py-3">
-			<span class="h-px flex-1 bg-surface-line"></span>
-			<span class="text-[11px] font-medium tracking-[0.1em] text-muted uppercase">{block.dateLabel}</span>
-			<span class="h-px flex-1 bg-surface-line"></span>
-		</div>
+		{#each blocks as block (block.dateLabel)}
+			<div class="flex items-center gap-3 px-3 py-3">
+				<span class="h-px flex-1 bg-surface-line"></span>
+				<span class="text-[11px] font-medium tracking-[0.1em] text-muted uppercase">{block.dateLabel}</span>
+				<span class="h-px flex-1 bg-surface-line"></span>
+			</div>
 
-		<div class="flex flex-col gap-1">
-			{#each block.groups as group (group.key)}
-				<MessageGroup messages={group.messages} {onretry} />
-			{/each}
-		</div>
-	{/each}
+			<div class="flex flex-col gap-1">
+				{#each block.groups as group (group.key)}
+					<MessageGroup messages={group.messages} {onretry} />
+				{/each}
+			</div>
+		{/each}
+	</div>
+	<Scrollbar target={scroller} />
 </div>

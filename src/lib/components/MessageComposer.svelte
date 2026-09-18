@@ -81,7 +81,7 @@
 			disabled={!canSend}
 			onclick={send}
 			class="flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-200 ease-soft {canSend
-				? 'bg-brand text-white hover:bg-brand/85'
+				? 'bg-ink text-bg hover:bg-ink-hover active:bg-ink-pressed'
 				: 'bg-white/[0.06] text-muted'}"
 		>
 			<Icon name="arrow-up" />
