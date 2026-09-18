@@ -46,6 +46,7 @@ function fromPayload(payload: MessagePayload): Message {
 export async function loadMessages(input: {
 	channelId: string;
 	before?: string;
+	after?: string;
 }): Promise<{ messages: Message[]; hasMore: boolean }> {
 	let query = supabase
 		.from('messages')
@@ -55,6 +56,7 @@ export async function loadMessages(input: {
 		.order('id', { ascending: false })
 		.limit(pageSize);
 	if (input.before) query = query.lt('id', input.before);
+	if (input.after) query = query.gt('id', input.after);
 
 	const { data, error } = await retryOnFreshToken(() => query);
 	if (error || !data) return { messages: [], hasMore: false };
@@ -89,7 +91,9 @@ export function sendMessage(input: { channelId: string; text: string }): Promise
 	return new Promise((resolve) => {
 		room
 			.push('send', { content: input.text.trim() })
-			.receive('ok', (payload: MessagePayload) => resolve({ ok: true, message: fromPayload(payload) }))
+			.receive('ok', (payload: MessagePayload) =>
+				resolve({ ok: true, message: fromPayload(payload) })
+			)
 			.receive('error', (reply: { reason?: string }) =>
 				resolve({
 					ok: false,

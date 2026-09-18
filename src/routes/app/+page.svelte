@@ -126,10 +126,21 @@
 
 	function mergeMessages(channelId: string, incoming: Message[]) {
 		const feed = feedFor(channelId);
-		const fresh = incoming.filter((message) => !feed.messages.some((m) => m.id === message.id));
+		const known = new Set(feed.messages.map((m) => m.id));
+		const fresh = incoming.filter((message) => !known.has(message.id));
 		if (fresh.length === 0) return;
+		const last = feed.messages.at(-1);
+		const appendsInOrder =
+			fresh.every((m, i) => i === 0 || fresh[i - 1].id < m.id) && (!last || last.id < fresh[0].id);
 		feed.messages.push(...fresh);
-		sortMessages(feed);
+		if (!appendsInOrder) sortMessages(feed);
+	}
+
+	function newestConfirmedId(feed: Feed): string | undefined {
+		for (let i = feed.messages.length - 1; i >= 0; i--) {
+			if (feed.messages[i].status === undefined) return feed.messages[i].id;
+		}
+		return undefined;
 	}
 
 	function sortMessages(feed: Feed) {
@@ -145,7 +156,7 @@
 		const feed = untrack(() => feedFor(channel.id));
 		const unloaded = () => untrack(() => feed.messages.every((m) => m.status !== undefined));
 		messagesLoading = unloaded();
-		loadMessages({ channelId: channel.id }).then((loaded) => {
+		const initialLoad = loadMessages({ channelId: channel.id }).then((loaded) => {
 			if (stale) return;
 			const firstLoad = unloaded();
 			mergeMessages(channel.id, loaded.messages);
@@ -158,9 +169,14 @@
 				if (!stale) mergeMessages(channel.id, [message]);
 			},
 			onReady: () => {
-				loadMessages({ channelId: channel.id }).then((loaded) => {
-					if (!stale) mergeMessages(channel.id, loaded.messages);
-				});
+				initialLoad
+					.then(() => {
+						if (stale) return;
+						return loadMessages({ channelId: channel.id, after: newestConfirmedId(feed) });
+					})
+					.then((loaded) => {
+						if (loaded && !stale) mergeMessages(channel.id, loaded.messages);
+					});
 			}
 		});
 		return () => {

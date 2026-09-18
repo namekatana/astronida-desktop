@@ -23,21 +23,28 @@
 		return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 	}
 
-	function dateLabel(date: Date): string {
+	function makeDateLabel(): (date: Date) => string {
 		const today = new Date();
 		const yesterday = new Date();
 		yesterday.setDate(today.getDate() - 1);
-		if (dayKey(date) === dayKey(today)) return 'Сегодня';
-		if (dayKey(date) === dayKey(yesterday)) return 'Вчера';
-		return dateFormat.format(date);
+		const todayKey = dayKey(today);
+		const yesterdayKey = dayKey(yesterday);
+		return (date) => {
+			const key = dayKey(date);
+			if (key === todayKey) return 'Сегодня';
+			if (key === yesterdayKey) return 'Вчера';
+			return dateFormat.format(date);
+		};
 	}
 
 	const blocks = $derived.by(() => {
+		const dateLabel = makeDateLabel();
 		const result: Block[] = [];
 		for (const message of messages) {
+			const label = dateLabel(message.sentAt);
 			let block = result.at(-1);
-			if (!block || block.dateLabel !== dateLabel(message.sentAt)) {
-				block = { dateLabel: dateLabel(message.sentAt), groups: [] };
+			if (!block || block.dateLabel !== label) {
+				block = { dateLabel: label, groups: [] };
 				result.push(block);
 			}
 
