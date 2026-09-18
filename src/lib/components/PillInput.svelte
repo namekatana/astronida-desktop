@@ -50,7 +50,7 @@
 		</span>
 	{/if}
 
-	<!-- svelte-ignore a11y_autofocus -- единственная форма на экране, фокус в первом поле ожидаем -->
+	<!-- svelte-ignore a11y_autofocus -->
 	<input
 		type={inputType}
 		{value}
@@ -59,7 +59,6 @@
 		spellcheck="false"
 		oninput={(event) => {
 			const next = transform ? transform(event.currentTarget.value) : event.currentTarget.value;
-			// поле контролируемое: без явной записи отвергнутые символы остались бы видны
 			event.currentTarget.value = next;
 			value = next;
 		}}

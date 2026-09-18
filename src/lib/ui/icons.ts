@@ -1,4 +1,3 @@
-
 export type IconName =
 	| 'text'
 	| 'voice'

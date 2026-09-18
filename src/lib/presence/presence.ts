@@ -1,7 +1,6 @@
 import { Presence, type Channel as PhoenixChannel } from 'phoenix';
 import { phoenixSocket } from '$lib/realtime/socket';
 
-
 const channels = new Map<string, PhoenixChannel>();
 
 export function subscribeToServerPresence(input: {

@@ -23,7 +23,7 @@
 		onclose
 	}: Props = $props();
 
-	// svelte-ignore state_referenced_locally -- нужно именно начальное значение
+	// svelte-ignore state_referenced_locally
 	let kind = $state<ChannelKind>(initialKind);
 	let name = $state('');
 	let categoryId = $state<string | null>(null);

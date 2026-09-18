@@ -40,7 +40,7 @@
 
 	let { data }: { data: PageData } = $props();
 
-	// svelte-ignore state_referenced_locally -- нужно именно начальное значение
+	// svelte-ignore state_referenced_locally
 	let servers = $state<Server[]>(data.servers);
 	// svelte-ignore state_referenced_locally
 	let selectedServerId = $state<string | null>(

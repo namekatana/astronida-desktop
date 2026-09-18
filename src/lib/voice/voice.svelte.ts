@@ -1,4 +1,3 @@
-
 export interface VoiceConnection {
 	serverId: string;
 	serverName: string;
