@@ -2,7 +2,6 @@
 export type IconName =
 	| 'text'
 	| 'voice'
-	| 'announce'
 	| 'chevron'
 	| 'plus'
 	| 'gear'
@@ -24,7 +23,6 @@ export type IconName =
 export const iconPaths: Record<IconName, string[]> = {
 	text: ['M8 2.5c3.3 0 6 2.2 6 5s-2.7 5-6 5c-.7 0-1.3-.1-1.9-.3L3 13.5l.6-2.7C2.6 9.9 2 8.8 2 7.5c0-2.8 2.7-5 6-5Z'],
 	voice: ['M2.5 6.5v3M5.25 4.5v7M8 2.5v11M10.75 4.5v7M13.5 6.5v3'],
-	announce: ['M2 6.75 14 3v9.5L2 8.75v-2Z', 'M7.6 11a2 2 0 1 1-3.85-1.1'],
 	chevron: ['M4.5 6.25 8 9.75l3.5-3.5'],
 	plus: ['M8 3v10M3 8h10'],
 	gear: [
