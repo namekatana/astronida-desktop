@@ -1,13 +1,15 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
-	import type { Member } from '$lib/servers/members';
 	import type { IconName } from '$lib/ui/icons';
-	import { voice, type VoiceConnection } from '$lib/voice/voice.svelte';
+	import type { VoiceOccupant } from '$lib/voice/occupant';
+	import { voice, type VoiceConnection, type VoiceFailure } from '$lib/voice/voice.svelte';
+	import { describeStats, qualityColorClass } from '$lib/voice/quality';
 	import AvatarStack from './AvatarStack.svelte';
 	import Icon from './Icon.svelte';
+	import SignalBars from './SignalBars.svelte';
 
 	interface Props {
-		occupants?: Member[];
+		occupants?: VoiceOccupant[];
 		ondisconnect?: () => void;
 	}
 
@@ -21,7 +23,7 @@
 	}
 
 	let shown = $state<VoiceConnection | null>(null);
-	let shownOccupants = $state<Member[]>([]);
+	let shownOccupants = $state<VoiceOccupant[]>([]);
 	$effect(() => {
 		if (voice.connected) {
 			shown = voice.connected;
@@ -29,12 +31,20 @@
 		}
 	});
 
+	const failureLabels: Record<VoiceFailure, string> = {
+		duplicate: 'Уже в этом канале из другого окна',
+		removed: 'Отключён от канала',
+		error: 'Не удалось подключиться'
+	};
+
 	const statusLabel = $derived(
 		voice.status === 'connecting'
 			? 'Подключаюсь…'
-			: voice.status === 'failed'
-				? 'Не удалось подключиться'
-				: 'Подключено'
+			: voice.status === 'reconnecting'
+				? 'Переподключение…'
+				: voice.status === 'failed'
+					? failureLabels[voice.failure ?? 'error']
+					: 'Подключено'
 	);
 	const statusColor = $derived(
 		voice.status === 'connected'
@@ -50,15 +60,17 @@
 				? 'bg-danger'
 				: 'bg-muted'
 	);
-	const pingColor = $derived(
-		voice.ping === null
-			? 'text-muted'
-			: voice.ping < 100
-				? 'text-online'
-				: voice.ping < 200
-					? 'text-muted'
-					: 'text-danger'
+	const dotPulse = $derived(voice.status === 'connecting' || voice.status === 'reconnecting');
+
+	const rtt = $derived(
+		voice.stats?.rttMs === null || voice.stats?.rttMs === undefined
+			? null
+			: Math.max(1, voice.stats.rttMs)
 	);
+	const rttColor = $derived(
+		voice.quality === null ? 'text-muted' : qualityColorClass(voice.quality)
+	);
+	const qualityTitle = $derived(describeStats(voice.stats, voice.quality));
 </script>
 
 {#snippet toggle(icon: IconName, label: string, off: boolean, onclick: () => void)}
@@ -96,14 +108,36 @@
 		<div>
 			<div class="flex items-end gap-3 pb-2.5">
 				<div class="min-w-0 flex-1">
-					<div
-						class="flex items-center gap-1.5 text-[11px] font-medium tracking-[0.1em] uppercase transition-colors duration-200 {statusColor}"
-					>
-						<span class="h-1.5 w-1.5 rounded-full transition-colors duration-200 {dotColor}"></span>
-						<span class="truncate">{statusLabel}</span>
-						{#if voice.status === 'connected' && voice.ping !== null}
-							<span class="text-muted">·</span>
-							<span class="tabular-nums transition-colors duration-200 {pingColor}">{voice.ping} мс</span>
+					<div class="flex h-4 items-center gap-2">
+						<div
+							class="flex min-w-0 flex-1 items-center gap-1.5 text-[11px] font-medium tracking-[0.1em] uppercase transition-colors duration-200 {statusColor}"
+						>
+							<span
+								class="h-1.5 w-1.5 shrink-0 rounded-full transition-colors duration-200 {dotColor} {dotPulse
+									? 'animate-pulse'
+									: ''}"
+							></span>
+							<span class="min-w-0 truncate">{statusLabel}</span>
+							{#if voice.status === 'connected' && voice.encrypted}
+								<span title="Сквозное шифрование" class="flex shrink-0 text-muted">
+									<Icon name="lock" size={11} />
+								</span>
+							{/if}
+						</div>
+						{#if voice.status === 'connected' && (voice.quality !== null || rtt !== null)}
+							<span
+								title={qualityTitle}
+								class="flex shrink-0 items-center gap-1 text-[11px] whitespace-nowrap"
+							>
+								{#if voice.quality !== null}
+									<SignalBars quality={voice.quality} />
+								{/if}
+								{#if rtt !== null}
+									<span class="whitespace-nowrap tabular-nums transition-colors duration-200 {rttColor}">
+										{rtt}&nbsp;мс
+									</span>
+								{/if}
+							</span>
 						{/if}
 					</div>
 					<div class="mt-1 truncate text-[13px] font-medium text-ink">{shown?.channelName ?? ''}</div>

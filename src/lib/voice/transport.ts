@@ -1,15 +1,35 @@
 export interface VoiceCredentials {
 	url: string;
 	token: string;
+	e2eeKey: string;
 }
 
+export type VoiceQuality = 'excellent' | 'good' | 'poor' | 'lost';
+
+export interface VoiceStats {
+	rttMs: number | null;
+	lossPercent: number | null;
+}
+
+export type DisconnectCause = 'network' | 'duplicate' | 'removed' | 'client';
+
+export type TransportState =
+	| { kind: 'connected' }
+	| { kind: 'reconnecting' }
+	| { kind: 'disconnected'; cause: DisconnectCause };
+
 export interface VoiceTransportHandlers {
-	onPing: (ms: number | null) => void;
-	onDisconnected: () => void;
+	onState: (state: TransportState) => void;
+	onQuality: (quality: VoiceQuality) => void;
+	onParticipantQuality: (userId: string, quality: VoiceQuality | null) => void;
+	onParticipantStats: (userId: string, stats: VoiceStats | null) => void;
+	onEncryption: (encrypted: boolean) => void;
+	onStats: (stats: VoiceStats) => void;
+	onSpeaking: (userIds: string[]) => void;
 }
 
 export interface VoiceTransport {
-	connect(credentials: VoiceCredentials): Promise<void>;
+	connect(credentials: VoiceCredentials, options: { microphone: boolean }): Promise<void>;
 	disconnect(): Promise<void>;
 	setMicrophoneEnabled(enabled: boolean): Promise<void>;
 	setDeafened(deafened: boolean): void;

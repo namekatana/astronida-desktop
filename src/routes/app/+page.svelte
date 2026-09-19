@@ -27,13 +27,19 @@
 	import {
 		setVoiceChannel,
 		subscribeToServerPresence,
-		type ServerPresence
+		type ServerPresence,
+		type VoiceAnnouncement
 	} from '$lib/presence/presence';
-	import { loadMembers, type Member } from '$lib/servers/members';
+	import { loadMembers } from '$lib/servers/members';
 	import { createServer, type Server } from '$lib/servers/servers';
 	import { lastSelection } from '$lib/ui/last-selection.svelte';
 	import { panelLimits, panelWidths } from '$lib/ui/panel-widths.svelte';
 	import { windowTitle } from '$lib/ui/title.svelte';
+	import type { VoiceOccupant } from '$lib/voice/occupant';
+	import { qualityFromStats, worstQuality } from '$lib/voice/quality';
+	import { createRosterWatcher } from '$lib/voice/roster-watch';
+	import type { VoiceQuality, VoiceStats } from '$lib/voice/transport';
+	import { playToggleSound } from '$lib/voice/sounds';
 	import { voice } from '$lib/voice/voice.svelte';
 	import type { PageData } from './$types';
 
@@ -160,10 +166,20 @@
 	let presenceByServer = $state<Record<string, ServerPresence>>({});
 	const presenceSubscriptions = new Map<string, () => void>();
 
-	function announcedVoiceChannel(serverId: string): string | null {
+	function currentAnnouncement(): (VoiceAnnouncement & { serverId: string }) | null {
 		const connected = voice.connected;
-		if (!connected || connected.serverId !== serverId || voice.status !== 'connected') return null;
-		return connected.channelId;
+		if (!connected || (voice.status !== 'connected' && voice.status !== 'reconnecting')) return null;
+		return {
+			serverId: connected.serverId,
+			channelId: connected.channelId,
+			micMuted: voice.micMuted,
+			deafened: voice.deafened
+		};
+	}
+
+	function announcementFor(serverId: string): VoiceAnnouncement | null {
+		const announcement = currentAnnouncement();
+		return announcement?.serverId === serverId ? announcement : null;
 	}
 
 	$effect(() => {
@@ -175,7 +191,7 @@
 					id,
 					subscribeToServerPresence({
 						serverId: id,
-						voiceChannelId: () => announcedVoiceChannel(id),
+						voiceAnnouncement: () => announcementFor(id),
 						onSync: (presence) => (presenceByServer[id] = presence)
 					})
 				);
@@ -189,18 +205,21 @@
 		});
 	});
 
-	let announcedVoice: { serverId: string; channelId: string } | null = null;
+	let announcedVoice: (VoiceAnnouncement & { serverId: string }) | null = null;
 
 	$effect(() => {
-		const connected = voice.connected;
-		const next =
-			connected && voice.status === 'connected'
-				? { serverId: connected.serverId, channelId: connected.channelId }
-				: null;
+		const next = currentAnnouncement();
 		const previous = announcedVoice;
-		if (previous?.serverId === next?.serverId && previous?.channelId === next?.channelId) return;
+		if (
+			previous?.serverId === next?.serverId &&
+			previous?.channelId === next?.channelId &&
+			previous?.micMuted === next?.micMuted &&
+			previous?.deafened === next?.deafened
+		) {
+			return;
+		}
 		if (previous && previous.serverId !== next?.serverId) setVoiceChannel(previous.serverId, null);
-		if (next) setVoiceChannel(next.serverId, next.channelId);
+		if (next) setVoiceChannel(next.serverId, next);
 		announcedVoice = next;
 	});
 
@@ -219,16 +238,42 @@
 		}));
 	});
 
-	function occupantsOf(serverId: string, channelId: string): Member[] {
+	function occupantsOf(serverId: string, channelId: string): VoiceOccupant[] {
 		const roster = workspaces[serverId]?.members ?? [];
-		const userIds = presenceByServer[serverId]?.voice[channelId] ?? [];
-		const listed = userIds.flatMap((id) => roster.filter((member) => member.id === id));
+		const inVoice = presenceByServer[serverId]?.voice[channelId] ?? [];
+		const inMyRoom = voice.connected?.channelId === channelId;
+		const speakingHere = inMyRoom ? voice.speakingIds : [];
+		const statsOf = (userId: string): VoiceStats | null => {
+			if (!inMyRoom) return null;
+			if (userId === data.userId) return voice.stats;
+			return voice.participantStats[userId] ?? null;
+		};
+		const qualityOf = (userId: string, stats: VoiceStats | null): VoiceQuality | null => {
+			if (!inMyRoom) return null;
+			if (userId === data.userId) return voice.quality;
+			return worstQuality(qualityFromStats(stats), voice.participantQuality[userId]);
+		};
+		const listed = inVoice.flatMap((entry) =>
+			roster
+				.filter((member) => member.id === entry.userId)
+				.map((member) => {
+					const stats = statsOf(member.id);
+					return {
+						...member,
+						micMuted: entry.micMuted,
+						deafened: entry.deafened,
+						speaking: speakingHere.includes(member.id),
+						quality: qualityOf(member.id, stats),
+						stats
+					};
+				})
+		);
 		const selfIndex = listed.findIndex((member) => member.id === data.userId);
 		if (selfIndex <= 0) return listed;
 		return [listed[selfIndex], ...listed.slice(0, selfIndex), ...listed.slice(selfIndex + 1)];
 	}
 
-	const voiceOccupants = $derived.by((): Record<string, Member[]> => {
+	const voiceOccupants = $derived.by((): Record<string, VoiceOccupant[]> => {
 		const serverId = selectedServerId;
 		if (!serverId) return {};
 		const byChannel = presenceByServer[serverId]?.voice ?? {};
@@ -237,10 +282,25 @@
 		);
 	});
 
-	const voiceParticipants = $derived.by((): Member[] => {
+	const voiceParticipants = $derived.by((): VoiceOccupant[] => {
 		const connected = voice.connected;
 		if (!connected) return [];
 		return occupantsOf(connected.serverId, connected.channelId);
+	});
+
+	// svelte-ignore state_referenced_locally
+	const roster = createRosterWatcher(data.userId);
+
+	$effect(() => {
+		const connected = voice.connected;
+		const settled = voice.status === 'connected' || voice.status === 'reconnecting';
+		const room = connected && settled ? connected : null;
+		const userIds = room
+			? (presenceByServer[room.serverId]?.voice[room.channelId] ?? []).map((entry) => entry.userId)
+			: [];
+		const change = roster.update(room?.channelId ?? null, userIds);
+		if (change.joined.length > 0) playToggleSound('user-joined');
+		if (change.left.length > 0) playToggleSound('user-left');
 	});
 
 	function mergeMessages(channelId: string, incoming: Message[]) {
@@ -467,6 +527,11 @@
 		}
 	}
 
+	function prefetchVoice(channelId: string) {
+		if (!selectedServerId) return;
+		voice.prefetch({ serverId: selectedServerId, channelId });
+	}
+
 	function firstTextChannel() {
 		return orderedChannels.find((c) => c.kind === 'text') ?? null;
 	}
@@ -534,6 +599,7 @@
 				{voiceOccupants}
 				bind:width={panelWidths.channels}
 				onselect={selectChannel}
+				onprefetch={prefetchVoice}
 				oncreatecategory={() => openChannelDialog('category')}
 				oncreatechannel={openChannelDialog}
 			/>
