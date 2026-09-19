@@ -104,6 +104,50 @@ export function sendMessage(input: { channelId: string; text: string }): Promise
 	});
 }
 
+const roomWaiters = new Map<string, Array<(room: PhoenixChannel) => void>>();
+const roomWaitMs = 5000;
+
+function waitForRoom(channelId: string): Promise<PhoenixChannel | null> {
+	const room = rooms.get(channelId);
+	if (room) return Promise.resolve(room);
+
+	return new Promise((resolve) => {
+		const waiters = roomWaiters.get(channelId) ?? [];
+		const timer = setTimeout(() => {
+			roomWaiters.set(
+				channelId,
+				(roomWaiters.get(channelId) ?? []).filter((waiter) => waiter !== settle)
+			);
+			resolve(null);
+		}, roomWaitMs);
+		const settle = (joined: PhoenixChannel) => {
+			clearTimeout(timer);
+			resolve(joined);
+		};
+		waiters.push(settle);
+		roomWaiters.set(channelId, waiters);
+	});
+}
+
+export type VoiceTokenResult =
+	| { ok: true; value: { url: string; token: string } }
+	| { ok: false; message: string };
+
+export async function requestVoiceToken(channelId: string): Promise<VoiceTokenResult> {
+	const room = await waitForRoom(channelId);
+	if (!room) return { ok: false, message: 'Нет соединения с сервером' };
+
+	return new Promise((resolve) => {
+		room
+			.push('voice_token', {})
+			.receive('ok', (payload: { url: string; token: string }) =>
+				resolve({ ok: true, value: payload })
+			)
+			.receive('error', () => resolve({ ok: false, message: 'Не удалось подключиться к голосу' }))
+			.receive('timeout', () => resolve({ ok: false, message: sendErrors.timeout }));
+	});
+}
+
 export function subscribeToChannel(input: {
 	channelId: string;
 	onMessage: (message: Message) => void;
@@ -111,6 +155,8 @@ export function subscribeToChannel(input: {
 }): () => void {
 	const room = phoenixSocket().channel(`room:${input.channelId}`);
 	rooms.set(input.channelId, room);
+	for (const waiter of roomWaiters.get(input.channelId) ?? []) waiter(room);
+	roomWaiters.delete(input.channelId);
 
 	room.on('message', (payload: MessagePayload) => input.onMessage(fromPayload(payload)));
 	room.join().receive('ok', () => input.onReady());

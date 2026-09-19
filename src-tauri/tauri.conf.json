@@ -25,7 +25,7 @@
     ],
     "security": {
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'self'",
-      "devCsp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' http://localhost:1420 ws://localhost:1420 https://*.supabase.co wss://*.supabase.co; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'self'",
+      "devCsp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' http://localhost:1420 ws://localhost:1420 https://*.supabase.co wss://*.supabase.co ws://localhost:7880 http://localhost:7880; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'self'",
       "freezePrototype": true
     }
   },
