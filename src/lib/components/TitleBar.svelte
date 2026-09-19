@@ -7,7 +7,7 @@
 
 <div
 	data-tauri-drag-region
-	class="relative flex h-9 shrink-0 items-center justify-end gap-1 px-2 select-none"
+	class="relative flex h-9 shrink-0 items-center justify-end gap-1 border-b border-surface-line px-2 select-none"
 >
 	{#if windowTitle.value}
 		<span
