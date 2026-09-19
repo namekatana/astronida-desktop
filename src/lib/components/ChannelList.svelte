@@ -1,46 +1,82 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import type { Channel } from '$lib/channels/channels';
+	import type { Member } from '$lib/servers/members';
 	import ChannelItem from './ChannelItem.svelte';
 
 	interface Props {
 		channels: Channel[];
 		selectedChannelId: string | null;
+		voiceOccupants?: Record<string, Member[]>;
 		onselect: (channelId: string) => void;
 	}
 
-	let { channels, selectedChannelId, onselect }: Props = $props();
+	let { channels, selectedChannelId, voiceOccupants = {}, onselect }: Props = $props();
 
 	let itemElements = $state<Record<string, HTMLButtonElement>>({});
 
 	let highlightY = $state(0);
 	let highlightVisible = $state(false);
-	let slide = $state(false);
+	let move = $state<'none' | 'slide' | 'follow'>('none');
+
+	const layoutSettleMs = 500;
+	let followUntil = 0;
+	let followFrame: number | null = null;
+
+	function selectedItem() {
+		return selectedChannelId ? itemElements[selectedChannelId] : undefined;
+	}
+
+	function followLayout() {
+		followFrame = null;
+		const item = untrack(selectedItem);
+		if (item) {
+			highlightY = item.offsetTop;
+			move = 'follow';
+		}
+		if (performance.now() < followUntil) followFrame = requestAnimationFrame(followLayout);
+	}
+
+	function handleLayoutTransition(event: TransitionEvent) {
+		if (event.propertyName !== 'grid-template-rows') return;
+		followUntil = performance.now() + layoutSettleMs;
+		if (followFrame === null) followFrame = requestAnimationFrame(followLayout);
+	}
 
 	$effect(() => {
-		const item = selectedChannelId ? itemElements[selectedChannelId] : undefined;
+		const item = selectedItem();
 
 		if (!item) {
 			highlightVisible = false;
 			return;
 		}
 
-		slide = untrack(() => highlightVisible);
+		move = untrack(() => (highlightVisible ? 'slide' : 'none'));
 		highlightY = item.offsetTop;
 		highlightVisible = true;
 	});
 
+	$effect(() => {
+		return () => {
+			if (followFrame !== null) cancelAnimationFrame(followFrame);
+		};
+	});
+
 	const transition = $derived(
-		(slide ? 'translate 320ms cubic-bezier(0.4, 0, 0.2, 1), ' : '') +
-			'scale 220ms var(--ease-soft), opacity 220ms ease-out'
+		(move === 'slide'
+			? 'translate 320ms cubic-bezier(0.4, 0, 0.2, 1), '
+			: move === 'follow'
+				? 'translate 120ms ease-out, '
+				: '') + 'scale 220ms var(--ease-soft), opacity 220ms ease-out'
 	);
 </script>
 
-<div class="relative flex flex-col gap-0.5">
+<div class="relative flex flex-col gap-0.5" ontransitionrun={handleLayoutTransition}>
 	{#each channels as channel (channel.id)}
 		<ChannelItem
 			{channel}
 			active={channel.id === selectedChannelId}
+			occupants={voiceOccupants[channel.id]}
 			onclick={() => onselect(channel.id)}
 			bind:element={itemElements[channel.id]}
 		/>

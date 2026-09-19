@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Category, Channel, ChannelKind } from '$lib/channels/channels';
+	import type { Member } from '$lib/servers/members';
 	import { panelLimits } from '$lib/ui/panel-widths.svelte';
 	import ChannelList from './ChannelList.svelte';
 	import Icon from './Icon.svelte';
@@ -11,6 +12,7 @@
 		categories: Category[];
 		channels: Channel[];
 		selectedChannelId: string | null;
+		voiceOccupants: Record<string, Member[]>;
 		width: number;
 		onselect: (channelId: string) => void;
 		oncreatecategory: () => void;
@@ -22,6 +24,7 @@
 		categories,
 		channels,
 		selectedChannelId,
+		voiceOccupants,
 		width = $bindable(),
 		onselect,
 		oncreatecategory,
@@ -57,7 +60,7 @@
 	<div class="scrollbar-none min-h-0 flex-1 overflow-y-auto px-2.5 py-3">
 		{#if uncategorized.length > 0}
 			<div class="mb-2">
-				<ChannelList channels={uncategorized} {selectedChannelId} {onselect} />
+				<ChannelList channels={uncategorized} {selectedChannelId} {voiceOccupants} {onselect} />
 			</div>
 		{/if}
 
@@ -81,7 +84,12 @@
 				<div class="collapsible {isCollapsed ? '' : 'is-open'}" inert={isCollapsed}>
 					<div>
 						<div class="pt-0.5">
-							<ChannelList channels={channelsOf(category.id)} {selectedChannelId} {onselect} />
+							<ChannelList
+								channels={channelsOf(category.id)}
+								{selectedChannelId}
+								{voiceOccupants}
+								{onselect}
+							/>
 						</div>
 					</div>
 				</div>
