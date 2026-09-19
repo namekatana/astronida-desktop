@@ -2,6 +2,7 @@
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { signOut } from '$lib/auth/auth';
+	import { workspaceCache, type Workspace } from '$lib/cache/workspace-cache';
 	import ChannelPanel from '$lib/components/ChannelPanel.svelte';
 	import ChatHeader from '$lib/components/ChatHeader.svelte';
 	import CreateCategoryDialog from '$lib/components/CreateCategoryDialog.svelte';
@@ -14,22 +15,20 @@
 	import ResizeHandle from '$lib/components/ResizeHandle.svelte';
 	import ServerBar from '$lib/components/ServerBar.svelte';
 	import VoiceDock from '$lib/components/VoiceDock.svelte';
-	import {
-		createCategory,
-		createChannel,
-		loadChannels,
-		type Category,
-		type Channel,
-		type ChannelKind
-	} from '$lib/channels/channels';
+	import { createCategory, createChannel, loadChannels, type ChannelKind } from '$lib/channels/channels';
 	import {
 		loadMessages,
+		pageSize,
 		sendMessage,
 		subscribeToChannel,
 		type Message
 	} from '$lib/messages/messages';
 	import { mockFriends } from '$lib/mock/friends';
-	import { subscribeToServerPresence } from '$lib/presence/presence';
+	import {
+		setVoiceChannel,
+		subscribeToServerPresence,
+		type ServerPresence
+	} from '$lib/presence/presence';
 	import { loadMembers, type Member } from '$lib/servers/members';
 	import { createServer, type Server } from '$lib/servers/servers';
 	import { lastSelection } from '$lib/ui/last-selection.svelte';
@@ -41,10 +40,12 @@
 	let { data }: { data: PageData } = $props();
 
 	// svelte-ignore state_referenced_locally
-	let servers = $state<Server[]>(data.servers);
+	let servers = $state<Server[]>(data.account.servers);
+	// svelte-ignore state_referenced_locally
+	let username = $state<string | null>(data.account.username);
 	// svelte-ignore state_referenced_locally
 	let selectedServerId = $state<string | null>(
-		data.servers.some((server) => server.id === lastSelection.serverId)
+		data.account.servers.some((server) => server.id === lastSelection.serverId)
 			? lastSelection.serverId
 			: null
 	);
@@ -55,21 +56,37 @@
 	let createSubmitting = $state(false);
 	let createError = $state('');
 
-	let categories = $state<Category[]>([]);
-	let channels = $state<Channel[]>([]);
-	let members = $state<Member[]>([]);
-	let channelsLoading = $state(false);
+	// svelte-ignore state_referenced_locally
+	let workspaces = $state<Record<string, Workspace>>(data.cache.workspaces);
+	const workspace = $derived(selectedServerId ? workspaces[selectedServerId] : undefined);
+	const categories = $derived(workspace?.categories ?? []);
+	const channels = $derived(workspace?.channels ?? []);
+	const members = $derived(workspace?.members ?? []);
+	const channelsLoading = $derived(selectedServerId !== null && workspace === undefined);
 
 	let channelDialog = $state<'category' | ChannelKind | null>(null);
 	let channelSubmitting = $state(false);
 	let channelError = $state('');
 
 	type Feed = { messages: Message[]; hasMore: boolean };
-	let feeds = $state<Record<string, Feed>>({});
+	// svelte-ignore state_referenced_locally
+	let feeds = $state<Record<string, Feed>>(
+		Object.fromEntries(
+			Object.entries(data.cache.feeds).map(([channelId, messages]) => [
+				channelId,
+				{ messages, hasMore: messages.length >= pageSize }
+			])
+		)
+	);
 	let messagesLoading = $state(false);
 
 	function feedFor(channelId: string): Feed {
 		return (feeds[channelId] ??= { messages: [], hasMore: false });
+	}
+
+	function persistFeed(channelId: string) {
+		const feed = feeds[channelId];
+		if (feed) workspaceCache.saveFeed(data.userId, channelId, feed.messages);
 	}
 
 	const selectedServer = $derived(servers.find((server) => server.id === selectedServerId) ?? null);
@@ -88,34 +105,50 @@
 	});
 
 	$effect(() => {
-		const server = selectedServer;
-		lastSelection.serverId = server?.id ?? null;
-		categories = [];
-		channels = [];
-		members = [];
-		feeds = {};
-		selectedChannelId = null;
-		if (!server) return;
+		data.refresh.then((account) => {
+			servers = account.servers;
+			username = account.username;
+		});
+	});
 
-		let stale = false;
-		channelsLoading = true;
-		Promise.all([loadChannels(server.id), loadMembers(server.id, server.ownerId)]).then(
-			([loaded, loadedMembers]) => {
-				if (stale) return;
-				categories = loaded.categories;
-				channels = loaded.channels;
-				members = loadedMembers;
-				channelsLoading = false;
-				const remembered = lastSelection.channelFor(server.id);
-				selectedChannelId =
-					(remembered && channels.some((c) => c.id === remembered) ? remembered : null) ??
-					orderedChannels[0]?.id ??
-					null;
-			}
-		);
-		return () => {
-			stale = true;
-		};
+	const refreshedServers = new Set<string>();
+
+	async function refreshWorkspace(server: Server) {
+		const [loaded, loadedMembers] = await Promise.all([
+			loadChannels(server.id),
+			loadMembers(server.id, server.ownerId)
+		]);
+		const fresh = { categories: loaded.categories, channels: loaded.channels, members: loadedMembers };
+		workspaces[server.id] = fresh;
+		workspaceCache.saveWorkspace(data.userId, server.id, fresh);
+	}
+
+	$effect(() => {
+		for (const server of servers) {
+			if (refreshedServers.has(server.id)) continue;
+			refreshedServers.add(server.id);
+			void refreshWorkspace(server);
+		}
+	});
+
+	$effect(() => {
+		const server = selectedServer;
+		const current = workspace;
+		lastSelection.serverId = server?.id ?? null;
+		if (!server || !current) {
+			selectedChannelId = null;
+			return;
+		}
+		untrack(() => {
+			if (current.channels.some((c) => c.id === selectedChannelId)) return;
+			const remembered = current.channels.find(
+				(c) => c.id === lastSelection.channelFor(server.id)
+			);
+			const rememberedVisible =
+				remembered && (remembered.kind === 'text' || voice.connected?.channelId === remembered.id);
+			selectedChannelId =
+				(rememberedVisible ? remembered.id : null) ?? firstTextChannel()?.id ?? null;
+		});
 	});
 
 	$effect(() => {
@@ -124,8 +157,14 @@
 		}
 	});
 
-	let onlineByServer = $state<Record<string, Set<string>>>({});
+	let presenceByServer = $state<Record<string, ServerPresence>>({});
 	const presenceSubscriptions = new Map<string, () => void>();
+
+	function announcedVoiceChannel(serverId: string): string | null {
+		const connected = voice.connected;
+		if (!connected || connected.serverId !== serverId || voice.status !== 'connected') return null;
+		return connected.channelId;
+	}
 
 	$effect(() => {
 		const ids = new Set(servers.map((server) => server.id));
@@ -136,7 +175,8 @@
 					id,
 					subscribeToServerPresence({
 						serverId: id,
-						onSync: (online) => (onlineByServer[id] = online)
+						voiceChannelId: () => announcedVoiceChannel(id),
+						onSync: (presence) => (presenceByServer[id] = presence)
 					})
 				);
 			}
@@ -144,9 +184,24 @@
 				if (ids.has(id)) continue;
 				unsubscribe();
 				presenceSubscriptions.delete(id);
-				delete onlineByServer[id];
+				delete presenceByServer[id];
 			}
 		});
+	});
+
+	let announcedVoice: { serverId: string; channelId: string } | null = null;
+
+	$effect(() => {
+		const connected = voice.connected;
+		const next =
+			connected && voice.status === 'connected'
+				? { serverId: connected.serverId, channelId: connected.channelId }
+				: null;
+		const previous = announcedVoice;
+		if (previous?.serverId === next?.serverId && previous?.channelId === next?.channelId) return;
+		if (previous && previous.serverId !== next?.serverId) setVoiceChannel(previous.serverId, null);
+		if (next) setVoiceChannel(next.serverId, next.channelId);
+		announcedVoice = next;
 	});
 
 	$effect(() => {
@@ -157,11 +212,35 @@
 	});
 
 	const membersWithPresence = $derived.by(() => {
-		const online = selectedServer ? onlineByServer[selectedServer.id] : undefined;
+		const online = selectedServer ? presenceByServer[selectedServer.id]?.online : undefined;
 		return members.map((member) => ({
 			...member,
 			online: member.id === data.userId || (online?.has(member.id) ?? false)
 		}));
+	});
+
+	function occupantsOf(serverId: string, channelId: string): Member[] {
+		const roster = workspaces[serverId]?.members ?? [];
+		const userIds = presenceByServer[serverId]?.voice[channelId] ?? [];
+		const listed = userIds.flatMap((id) => roster.filter((member) => member.id === id));
+		const selfIndex = listed.findIndex((member) => member.id === data.userId);
+		if (selfIndex <= 0) return listed;
+		return [listed[selfIndex], ...listed.slice(0, selfIndex), ...listed.slice(selfIndex + 1)];
+	}
+
+	const voiceOccupants = $derived.by((): Record<string, Member[]> => {
+		const serverId = selectedServerId;
+		if (!serverId) return {};
+		const byChannel = presenceByServer[serverId]?.voice ?? {};
+		return Object.fromEntries(
+			Object.keys(byChannel).map((channelId) => [channelId, occupantsOf(serverId, channelId)])
+		);
+	});
+
+	const voiceParticipants = $derived.by((): Member[] => {
+		const connected = voice.connected;
+		if (!connected) return [];
+		return occupantsOf(connected.serverId, connected.channelId);
 	});
 
 	function mergeMessages(channelId: string, incoming: Message[]) {
@@ -174,6 +253,7 @@
 			fresh.every((m, i) => i === 0 || fresh[i - 1].id < m.id) && (!last || last.id < fresh[0].id);
 		feed.messages.push(...fresh);
 		if (!appendsInOrder) sortMessages(feed);
+		persistFeed(channelId);
 	}
 
 	function newestConfirmedId(feed: Feed): string | undefined {
@@ -275,7 +355,7 @@
 			channelError = result.message;
 			return;
 		}
-		categories.push(result.value);
+		workspace?.categories.push(result.value);
 		channelDialog = null;
 	}
 
@@ -300,7 +380,7 @@
 			channelError = result.message;
 			return;
 		}
-		channels.push(result.value);
+		workspace?.channels.push(result.value);
 		selectedChannelId = result.value.id;
 		channelDialog = null;
 	}
@@ -324,12 +404,12 @@
 
 	function handleSend(text: string) {
 		const channel = selectedChannel;
-		if (!channel || !data.username) return;
+		if (!channel || !username) return;
 
 		const self = members.find((member) => member.id === data.userId);
 		const pending: Message = {
 			id: `pending:${String(++pendingCounter).padStart(6, '0')}`,
-			author: { id: data.userId, username: data.username, name: self?.name ?? data.username },
+			author: { id: data.userId, username, name: self?.name ?? username },
 			text: text.trim(),
 			sentAt: new Date(),
 			status: 'sending'
@@ -355,6 +435,7 @@
 		}
 		feed.messages[index] = result.message;
 		sortMessages(feed);
+		persistFeed(channelId);
 	}
 
 	function retrySend(messageId: string) {
@@ -368,6 +449,7 @@
 	async function handleSignOut() {
 		signingOut = true;
 		await signOut();
+		workspaceCache.clear(data.userId);
 		signingOut = false;
 		await goto('/');
 	}
@@ -383,6 +465,15 @@
 				channelName: channel.name
 			});
 		}
+	}
+
+	function firstTextChannel() {
+		return orderedChannels.find((c) => c.kind === 'text') ?? null;
+	}
+
+	function handleVoiceDisconnect() {
+		if (selectedChannel?.kind !== 'voice') return;
+		selectedChannelId = firstTextChannel()?.id ?? null;
 	}
 </script>
 
@@ -425,7 +516,7 @@
 	<ServerBar
 		{servers}
 		selectedId={selectedServerId}
-		username={data.username}
+		{username}
 		{signingOut}
 		onselect={(id) => (selectedServerId = id)}
 		onhome={() => (selectedServerId = null)}
@@ -440,6 +531,7 @@
 				{categories}
 				{channels}
 				{selectedChannelId}
+				{voiceOccupants}
 				bind:width={panelWidths.channels}
 				onselect={selectChannel}
 				oncreatecategory={() => openChannelDialog('category')}
@@ -481,7 +573,7 @@
 			{:else}
 				<div class="min-h-0 flex-1"></div>
 			{/if}
-			<VoiceDock />
+			<VoiceDock occupants={voiceParticipants} ondisconnect={handleVoiceDisconnect} />
 			{#if selectedServer}
 				<ResizeHandle
 					side="left"
