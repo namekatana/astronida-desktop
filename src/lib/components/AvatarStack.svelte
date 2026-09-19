@@ -1,9 +1,9 @@
 <script lang="ts">
-	import type { Member } from '$lib/servers/members';
 	import { initials } from '$lib/ui/initials';
+	import type { VoiceOccupant } from '$lib/voice/occupant';
 
 	interface Props {
-		members: Member[];
+		members: VoiceOccupant[];
 		max?: number;
 	}
 
@@ -16,8 +16,10 @@
 <div class="flex -space-x-2">
 	{#each visible as member (member.id)}
 		<span
-			title="@{member.username}"
-			class="flex h-6 w-6 items-center justify-center rounded-full border-2 border-surface bg-surface-raised text-[10px] font-medium text-ink"
+			title="@{member.username}{member.quality === 'lost' ? ' · связь потеряна' : ''}"
+			class="flex h-6 w-6 items-center justify-center rounded-full border-2 bg-surface-raised text-[10px] font-medium text-ink transition-[border-color,opacity] duration-150 {member.speaking
+				? 'border-online'
+				: 'border-surface'} {member.quality === 'lost' ? 'animate-pulse opacity-40' : ''}"
 		>
 			{initials(member.name)}
 		</span>

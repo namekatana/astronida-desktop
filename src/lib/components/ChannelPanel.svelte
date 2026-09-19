@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Category, Channel, ChannelKind } from '$lib/channels/channels';
-	import type { Member } from '$lib/servers/members';
 	import { panelLimits } from '$lib/ui/panel-widths.svelte';
+	import type { VoiceOccupant } from '$lib/voice/occupant';
 	import ChannelList from './ChannelList.svelte';
 	import Icon from './Icon.svelte';
 	import ResizeHandle from './ResizeHandle.svelte';
@@ -12,9 +12,10 @@
 		categories: Category[];
 		channels: Channel[];
 		selectedChannelId: string | null;
-		voiceOccupants: Record<string, Member[]>;
+		voiceOccupants: Record<string, VoiceOccupant[]>;
 		width: number;
 		onselect: (channelId: string) => void;
+		onprefetch: (channelId: string) => void;
 		oncreatecategory: () => void;
 		oncreatechannel: (kind: ChannelKind) => void;
 	}
@@ -27,6 +28,7 @@
 		voiceOccupants,
 		width = $bindable(),
 		onselect,
+		onprefetch,
 		oncreatecategory,
 		oncreatechannel
 	}: Props = $props();
@@ -60,7 +62,13 @@
 	<div class="scrollbar-none min-h-0 flex-1 overflow-y-auto px-2.5 py-3">
 		{#if uncategorized.length > 0}
 			<div class="mb-2">
-				<ChannelList channels={uncategorized} {selectedChannelId} {voiceOccupants} {onselect} />
+				<ChannelList
+					channels={uncategorized}
+					{selectedChannelId}
+					{voiceOccupants}
+					{onselect}
+					{onprefetch}
+				/>
 			</div>
 		{/if}
 
@@ -89,6 +97,7 @@
 								{selectedChannelId}
 								{voiceOccupants}
 								{onselect}
+								{onprefetch}
 							/>
 						</div>
 					</div>
