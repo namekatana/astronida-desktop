@@ -486,6 +486,7 @@
 
 	async function handleSignOut() {
 		signingOut = true;
+		voice.disconnect();
 		await signOut();
 		workspaceCache.clear(data.userId);
 		signingOut = false;
