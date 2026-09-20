@@ -231,12 +231,6 @@ export type Database = {
 			[_ in never]: never;
 		};
 		Functions: {
-			is_channel_member: {
-				Args: { target_channel_id: string };
-				Returns: boolean;
-			};
-			is_server_member: { Args: { target_server_id: string }; Returns: boolean };
-			is_server_owner: { Args: { target_server_id: string }; Returns: boolean };
 			is_username_available: { Args: { candidate: string }; Returns: boolean };
 			uuid_v7: { Args: never; Returns: string };
 		};
