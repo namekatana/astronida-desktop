@@ -29,9 +29,18 @@
       "freezePrototype": true
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJGNUM5QzFEODY4QkU4RTEKUldUaDZJdUdIWnhjTHcyR1RJUC81aEJwcEhrbVh0Wkh4SEJsWWplQUlZd085RXBkU0pKdUhTQjYK",
+      "endpoints": [
+        "https://github.com/namekatana/astronida-desktop/releases/latest/download/latest.json"
+      ]
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

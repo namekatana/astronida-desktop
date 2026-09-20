@@ -2,6 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import '../app.css';
 	import TitleBar from '$lib/components/TitleBar.svelte';
+	import { updates } from '$lib/updates/updates.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -13,6 +14,7 @@
 
 	$effect(() => {
 		updateActivity();
+		updates.schedule();
 	});
 </script>
 

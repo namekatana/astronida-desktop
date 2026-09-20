@@ -6,6 +6,7 @@
 	import Icon from './Icon.svelte';
 	import ProfileMenu from './ProfileMenu.svelte';
 	import ServerTab from './ServerTab.svelte';
+	import UpdateButton from './UpdateButton.svelte';
 
 	interface Props {
 		servers: Server[];
@@ -227,6 +228,7 @@
 
 		<div class="flex shrink-0 items-center gap-1 pr-3 pl-2">
 			<ProfileMenu {username} {signingOut} {onsignout} />
+			<UpdateButton />
 
 			<button
 				type="button"
