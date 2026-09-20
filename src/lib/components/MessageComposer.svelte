@@ -31,6 +31,14 @@
 	});
 
 	const canSend = $derived(value.trim().length > 0);
+	const length = $derived(value.length);
+	const counterColor = $derived(
+		length >= messageMaxLength
+			? 'text-danger'
+			: length >= messageMaxLength - 200
+				? 'text-warning'
+				: 'text-muted'
+	);
 
 	function send() {
 		if (!canSend) return;
@@ -73,6 +81,15 @@
 	</div>
 
 	<div class="flex shrink-0 items-center gap-1 pb-1">
+		<span
+			aria-live="polite"
+			class="w-[72px] shrink-0 pr-1 text-right text-[11px] whitespace-nowrap transition-[color,opacity] duration-200 tabular-nums {counterColor} {length >
+			0
+				? 'opacity-100'
+				: 'opacity-0'}"
+		>
+			{length}/{messageMaxLength}
+		</span>
 		<button
 			type="button"
 			aria-label="Прикрепить файл"
