@@ -31,6 +31,7 @@ export interface VoiceTransportHandlers {
 	onEncryption: (encrypted: boolean) => void;
 	onStats: (stats: VoiceStats) => void;
 	onSpeaking: (userIds: string[]) => void;
+	volumeFor: (userId: string) => number;
 }
 
 export interface VoiceTransport {
@@ -38,5 +39,6 @@ export interface VoiceTransport {
 	disconnect(): Promise<void>;
 	setMicrophoneEnabled(enabled: boolean): Promise<void>;
 	setDeafened(deafened: boolean): void;
+	setParticipantVolume(userId: string, volume: number): void;
 	rotateKey(next: EncryptionKey): Promise<void>;
 }

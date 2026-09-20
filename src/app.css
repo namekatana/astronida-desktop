@@ -271,6 +271,38 @@ input {
 	}
 }
 
+.range {
+	appearance: none;
+	height: 14px;
+	background: transparent;
+	cursor: pointer;
+}
+
+.range::-webkit-slider-runnable-track {
+	height: 2px;
+	border-radius: 9999px;
+	background: linear-gradient(
+		to right,
+		var(--color-ink) var(--range-fill, 50%),
+		rgba(255, 255, 255, 0.12) var(--range-fill, 50%)
+	);
+}
+
+.range::-webkit-slider-thumb {
+	appearance: none;
+	width: 14px;
+	height: 14px;
+	margin-top: -6px;
+	border-radius: 9999px;
+	background: var(--color-ink);
+	box-shadow: 0 0 0 3px var(--color-surface);
+	transition: transform 150ms var(--ease-soft);
+}
+
+.range:active::-webkit-slider-thumb {
+	transform: scale(1.15);
+}
+
 .link-underline {
 	position: relative;
 }

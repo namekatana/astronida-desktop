@@ -12,6 +12,7 @@ import { createLiveKitTransport, warmUp } from './livekit-transport';
 import { qualityFromStats, worstQuality } from './quality';
 import { playToggleSound } from './sounds';
 import type { TransportState, VoiceQuality, VoiceStats, VoiceTransport } from './transport';
+import { participantAudio } from './volumes.svelte';
 
 export interface VoiceConnection {
 	serverId: string;
@@ -181,7 +182,8 @@ async function establish(
 		},
 		onSpeaking: (ids) => {
 			if (transport === next) speakingIds = ids;
-		}
+		},
+		volumeFor: (userId) => participantAudio.effective(userId)
 	});
 	transport = next;
 
@@ -273,6 +275,15 @@ export const voice = {
 		return fingerprint;
 	},
 
+	setParticipantVolume(userId: string, volume: number) {
+		participantAudio.setVolume(userId, volume);
+		transport?.setParticipantVolume(userId, participantAudio.effective(userId));
+	},
+
+	setParticipantMuted(userId: string, muted: boolean) {
+		participantAudio.setMuted(userId, muted);
+		transport?.setParticipantVolume(userId, participantAudio.effective(userId));
+	},
 
 	toggleMic() {
 		if (deafened) {

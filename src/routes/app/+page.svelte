@@ -240,6 +240,7 @@
 					const stats = statsOf(member.id);
 					return {
 						...member,
+						self: member.id === data.userId,
 						micMuted: entry.micMuted,
 						deafened: entry.deafened,
 						speaking: speakingHere.includes(member.id),

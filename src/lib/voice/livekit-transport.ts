@@ -8,6 +8,7 @@ import {
 	Track,
 	type AudioCaptureOptions,
 	type Participant,
+	type RemoteParticipant,
 	type RemoteTrack
 } from 'livekit-client';
 import E2EEWorker from 'livekit-client/e2ee-worker?worker';
@@ -155,6 +156,7 @@ export function createLiveKitTransport(handlers: VoiceTransportHandlers): VoiceT
 		adaptiveStream: true,
 		audioCaptureDefaults: captureDefaults,
 		publishDefaults: { audioPreset: { maxBitrate: microphoneBitrate }, red: true, dtx: false },
+		webAudioMix: true,
 		encryption: { keyProvider, worker }
 	});
 
@@ -163,10 +165,12 @@ export function createLiveKitTransport(handlers: VoiceTransportHandlers): VoiceT
 	const lastStatsAt = new Map<string, number>();
 	const speaking = createSpeakingDetector(handlers.onSpeaking);
 
+	function applyVolume(participant: RemoteParticipant) {
+		participant.setVolume(deafened ? 0 : handlers.volumeFor(participant.identity));
+	}
+
 	function applyDeafen() {
-		for (const participant of room.remoteParticipants.values()) {
-			participant.setVolume(deafened ? 0 : 1);
-		}
+		for (const participant of room.remoteParticipants.values()) applyVolume(participant);
 	}
 
 	function microphoneTrack(): LocalAudioTrack | undefined {
@@ -329,6 +333,10 @@ export function createLiveKitTransport(handlers: VoiceTransportHandlers): VoiceT
 		setDeafened(next: boolean) {
 			deafened = next;
 			applyDeafen();
+		},
+
+		setParticipantVolume(userId: string, volume: number) {
+			room.remoteParticipants.get(userId)?.setVolume(deafened ? 0 : volume);
 		},
 
 		async rotateKey(next: EncryptionKey) {

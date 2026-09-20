@@ -6,6 +6,8 @@
 	import Icon from './Icon.svelte';
 	import SignalBars from './SignalBars.svelte';
 	import StrikedIcon from './StrikedIcon.svelte';
+	import OccupantMenu from './OccupantMenu.svelte';
+	import { participantAudio } from '$lib/voice/volumes.svelte';
 
 	interface Props {
 		channel: Channel;
@@ -30,6 +32,18 @@
 	let shown = $state<VoiceOccupant[]>([]);
 	$effect(() => {
 		if (occupants.length > 0) shown = occupants;
+	});
+
+	let menu = $state<{ occupant: VoiceOccupant; x: number; y: number } | null>(null);
+
+	function openMenu(event: MouseEvent, occupant: VoiceOccupant) {
+		if (occupant.self) return;
+		event.preventDefault();
+		menu = { occupant, x: event.clientX, y: event.clientY };
+	}
+
+	$effect(() => {
+		if (menu && !occupants.some((occupant) => occupant.id === menu?.occupant.id)) menu = null;
 	});
 </script>
 
@@ -64,13 +78,15 @@
 
 	<div class="collapsible relative z-10 {occupied ? 'is-open' : ''}" inert={!occupied}>
 		<div>
-			<div class="flex flex-col gap-0.5 pt-0.5 pb-1 pr-2.5 pl-[38px]">
+			<div role="list" class="flex flex-col gap-0.5 pt-0.5 pb-1 pr-2.5 pl-[38px]">
 				{#each shown as occupant (occupant.id)}
 					<div
+						role="listitem"
+						oncontextmenu={(event) => openMenu(event, occupant)}
 						class="-mx-1.5 flex h-8 items-center gap-2 rounded-md px-1.5 transition-[background-color,opacity] duration-200 hover:bg-white/[0.05] {occupant.quality ===
 						'lost'
 							? 'opacity-40'
-							: ''}"
+							: ''} {menu?.occupant.id === occupant.id ? 'bg-white/[0.05]' : ''}"
 					>
 						<span
 							class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[10px] font-medium text-ink ring-online transition-shadow duration-150 {occupant.speaking
@@ -82,6 +98,9 @@
 						<span class="min-w-0 flex-1 truncate text-[12px] text-ink-secondary">
 							@{occupant.username}
 						</span>
+						{#if !occupant.self && participantAudio.muted(occupant.id)}
+							<Icon name="volume-off" size={14} class="shrink-0 text-danger" />
+						{/if}
 						{#if occupant.quality !== null}
 							<SignalBars
 								quality={occupant.quality}
@@ -99,4 +118,8 @@
 			</div>
 		</div>
 	</div>
+
+	{#if menu}
+		<OccupantMenu occupant={menu.occupant} x={menu.x} y={menu.y} onclose={() => (menu = null)} />
+	{/if}
 </div>
