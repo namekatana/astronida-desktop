@@ -57,7 +57,7 @@
 			<div class="flex flex-col gap-0.5 pt-0.5 pb-1 pr-2.5 pl-[38px]">
 				{#each shown as occupant (occupant.id)}
 					<div
-						class="-mx-1.5 flex h-7 items-center gap-2 rounded-md px-1.5 transition-[background-color,opacity] duration-200 hover:bg-white/[0.05] {occupant.quality ===
+						class="-mx-1.5 flex h-8 items-center gap-2 rounded-md px-1.5 transition-[background-color,opacity] duration-200 hover:bg-white/[0.05] {occupant.quality ===
 						'lost'
 							? 'opacity-40'
 							: ''}"

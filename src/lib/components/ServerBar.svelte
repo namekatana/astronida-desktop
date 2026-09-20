@@ -168,7 +168,7 @@
 				aria-label="Друзья"
 				aria-pressed={isHome}
 				onclick={onhome}
-				class="flex h-10 items-center rounded-full px-3 transition-all duration-200 ease-soft active:scale-[1.04] {isHome
+				class="flex h-10 items-center rounded-full px-3 transition-all duration-200 ease-soft {isHome
 					? 'bg-white/[0.08] opacity-100'
 					: 'opacity-60 hover:opacity-100'}"
 			>

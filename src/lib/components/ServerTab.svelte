@@ -18,7 +18,7 @@
 	type="button"
 	aria-pressed={active}
 	{onclick}
-	class="group relative flex h-10 shrink-0 items-center gap-2.5 rounded-full py-1 pr-4 pl-1 text-[13px] font-medium whitespace-nowrap transition-transform duration-200 ease-soft active:scale-[1.04]"
+	class="group relative flex h-10 shrink-0 items-center gap-2.5 rounded-full py-1 pr-4 pl-1 text-[13px] font-medium whitespace-nowrap"
 >
 	<span
 		class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[12px] text-ink"
