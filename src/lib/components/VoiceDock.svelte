@@ -135,7 +135,10 @@
 					</div>
 					<div class="mt-1 flex items-center gap-1.5 text-[13px] font-medium text-ink">
 						{#if voice.status === 'connected' && voice.encrypted}
-							<span title="Сквозное шифрование" class="flex shrink-0 text-muted">
+							<span
+								title="Сквозное шифрование: медиасервер не видит содержимое разговора"
+								class="flex shrink-0 text-muted"
+							>
 								<Icon name="lock" size={12} />
 							</span>
 						{/if}
