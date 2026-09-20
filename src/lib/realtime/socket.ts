@@ -7,6 +7,8 @@ const ticketUrl = PUBLIC_PHOENIX_URL.replace(/^ws/, 'http').replace(
 	'/api/socket/ticket'
 );
 
+const ticketTimeoutMs = 10_000;
+
 let socket: Socket | null = null;
 let ticket = '';
 let pendingTicket: Promise<void> | null = null;
@@ -17,7 +19,8 @@ async function fetchTicket(): Promise<string> {
 	try {
 		const response = await fetch(ticketUrl, {
 			method: 'POST',
-			headers: { Authorization: `Bearer ${token}` }
+			headers: { Authorization: `Bearer ${token}` },
+			signal: AbortSignal.timeout(ticketTimeoutMs)
 		});
 		if (!response.ok) return '';
 		const body = (await response.json()) as { ticket?: unknown };
