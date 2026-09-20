@@ -1,5 +1,6 @@
 import type { Category, Channel } from '$lib/channels/channels';
 import { pageSize, type Message } from '$lib/messages/messages';
+import type { ServerPresence, VoiceMember } from '$lib/presence/presence';
 import type { Member } from '$lib/servers/members';
 import type { Server } from '$lib/servers/servers';
 
@@ -21,22 +22,29 @@ interface StoredMessage {
 	sentAt: string;
 }
 
+interface StoredPresence {
+	online: string[];
+	voice: Record<string, VoiceMember[]>;
+}
+
 interface StoredCache {
 	account: CachedAccount | null;
 	workspaces: Record<string, Workspace>;
 	feeds: Record<string, StoredMessage[]>;
+	presence: Record<string, StoredPresence>;
 }
 
 export interface WorkspaceCache {
 	account: CachedAccount | null;
 	workspaces: Record<string, Workspace>;
 	feeds: Record<string, Message[]>;
+	presence: Record<string, ServerPresence>;
 }
 
 const keyPrefix = 'astronida.cache.';
 const writeDelayMs = 300;
 
-const empty = (): StoredCache => ({ account: null, workspaces: {}, feeds: {} });
+const empty = (): StoredCache => ({ account: null, workspaces: {}, feeds: {}, presence: {} });
 
 let stored: StoredCache = empty();
 let storedFor: string | null = null;
@@ -68,7 +76,8 @@ function load(userId: string): StoredCache {
 		stored = {
 			account: parsed.account ?? null,
 			workspaces: parsed.workspaces ?? {},
-			feeds: parsed.feeds ?? {}
+			feeds: parsed.feeds ?? {},
+			presence: parsed.presence ?? {}
 		};
 	} catch {
 		stored = empty();
@@ -98,8 +107,19 @@ export const workspaceCache = {
 					channelId,
 					messages.map(fromStored)
 				])
+			),
+			presence: Object.fromEntries(
+				Object.entries(current.presence).map(([serverId, presence]) => [
+					serverId,
+					{ online: new Set(presence.online), voice: presence.voice }
+				])
 			)
 		};
+	},
+
+	savePresence(userId: string, serverId: string, presence: ServerPresence) {
+		load(userId).presence[serverId] = { online: [...presence.online], voice: presence.voice };
+		scheduleWrite(userId);
 	},
 
 	saveAccount(userId: string, account: CachedAccount) {

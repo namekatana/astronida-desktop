@@ -164,7 +164,8 @@
 		}
 	});
 
-	let presenceByServer = $state<Record<string, ServerPresence>>({});
+	// svelte-ignore state_referenced_locally
+	let presenceByServer = $state<Record<string, ServerPresence>>(data.cache.presence);
 	const presenceSubscriptions = new Map<string, () => void>();
 
 	function announcementFor(serverId: string): VoiceAnnouncement | null {
@@ -187,7 +188,10 @@
 					subscribeToServerPresence({
 						serverId: id,
 						voiceAnnouncement: () => announcementFor(id),
-						onSync: (presence) => (presenceByServer[id] = presence),
+						onSync: (presence) => {
+							presenceByServer[id] = presence;
+							workspaceCache.savePresence(data.userId, id, presence);
+						},
 						onVoiceKeyRotated: (channelId, version) =>
 							voice.handleKeyRotation(id, channelId, version),
 						onVoiceRejoined: (channelId, key) => voice.handleRejoin(id, channelId, key)
