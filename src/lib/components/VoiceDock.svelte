@@ -118,29 +118,29 @@
 									: ''}"
 							></span>
 							<span class="min-w-0 truncate">{statusLabel}</span>
-							{#if voice.status === 'connected' && voice.encrypted}
-								<span title="Сквозное шифрование" class="flex shrink-0 text-muted">
-									<Icon name="lock" size={11} />
-								</span>
-							{/if}
 						</div>
 						{#if voice.status === 'connected' && (voice.quality !== null || rtt !== null)}
 							<span
 								title={qualityTitle}
-								class="flex shrink-0 items-center gap-1 text-[11px] whitespace-nowrap"
+								class="ml-auto flex shrink-0 items-center gap-1.5 text-[11px] whitespace-nowrap transition-colors duration-200 {rttColor}"
 							>
 								{#if voice.quality !== null}
 									<SignalBars quality={voice.quality} />
 								{/if}
 								{#if rtt !== null}
-									<span class="whitespace-nowrap tabular-nums transition-colors duration-200 {rttColor}">
-										{rtt}&nbsp;мс
-									</span>
+									<span class="tabular-nums">{rtt}&nbsp;мс</span>
 								{/if}
 							</span>
 						{/if}
 					</div>
-					<div class="mt-1 truncate text-[13px] font-medium text-ink">{shown?.channelName ?? ''}</div>
+					<div class="mt-1 flex items-center gap-1.5 text-[13px] font-medium text-ink">
+						{#if voice.status === 'connected' && voice.encrypted}
+							<span title="Сквозное шифрование" class="flex shrink-0 text-muted">
+								<Icon name="lock" size={12} />
+							</span>
+						{/if}
+						<span class="min-w-0 truncate">{shown?.channelName ?? ''}</span>
+					</div>
 					<div class="truncate text-[12px] text-muted">{shown?.serverName ?? ''}</div>
 				</div>
 				{#if shownOccupants.length > 0}
