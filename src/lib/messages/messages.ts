@@ -104,15 +104,23 @@ export function sendMessage(input: { channelId: string; text: string }): Promise
 	});
 }
 
+export function sendTyping(channelId: string) {
+	rooms.get(channelId)?.push('typing', {});
+}
+
 export function subscribeToChannel(input: {
 	channelId: string;
 	onMessage: (message: Message) => void;
+	onTyping: (userId: string) => void;
 	onReady: () => void;
 }): () => void {
 	const room = phoenixSocket().channel(`room:${input.channelId}`);
 	rooms.set(input.channelId, room);
 
 	room.on('message', (payload: MessagePayload) => input.onMessage(fromPayload(payload)));
+	room.on('typing', (payload: { user_id?: unknown }) => {
+		if (typeof payload?.user_id === 'string') input.onTyping(payload.user_id);
+	});
 	room.join().receive('ok', () => input.onReady());
 
 	return () => {

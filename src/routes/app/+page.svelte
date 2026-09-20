@@ -20,9 +20,11 @@
 		loadMessages,
 		pageSize,
 		sendMessage,
+		sendTyping,
 		subscribeToChannel,
 		type Message
 	} from '$lib/messages/messages';
+	import { clearTyping, createTypingSender, markTyping, typingIn } from '$lib/messages/typing.svelte';
 	import { mockFriends } from '$lib/mock/friends';
 	import {
 		subscribeToServerPresence,
@@ -350,7 +352,12 @@
 		const unsubscribe = subscribeToChannel({
 			channelId: channel.id,
 			onMessage: (message) => {
-				if (!stale) mergeMessages(channel.id, [message]);
+				if (stale) return;
+				clearTyping(channel.id, message.author.id);
+				mergeMessages(channel.id, [message]);
+			},
+			onTyping: (userId) => {
+				if (!stale && userId !== data.userId) markTyping(channel.id, userId);
 			},
 			onReady: () => {
 				initialLoad
@@ -466,9 +473,26 @@
 
 	let pendingCounter = 0;
 
+	const typingSender = createTypingSender(() => {
+		if (selectedChannel) sendTyping(selectedChannel.id);
+	});
+
+	$effect(() => {
+		void selectedChannelId;
+		typingSender.reset();
+	});
+
+	const typingNames = $derived.by(() => {
+		if (!selectedChannel) return [];
+		return typingIn(selectedChannel.id)
+			.map((userId) => members.find((member) => member.id === userId)?.username)
+			.filter((name): name is string => name !== undefined);
+	});
+
 	function handleSend(text: string) {
 		const channel = selectedChannel;
 		if (!channel || !username) return;
+		typingSender.reset();
 
 		const self = members.find((member) => member.id === data.userId);
 		const pending: Message = {
@@ -618,11 +642,16 @@
 					{messages}
 					hasMore={hasMoreMessages}
 					loading={messagesLoading}
+					typing={typingNames}
 					onloadolder={loadOlderMessages}
 					onretry={retrySend}
 				/>
 				{#key selectedChannel.id}
-					<MessageComposer channelName={selectedChannel.name} onsend={handleSend} />
+					<MessageComposer
+						channelName={selectedChannel.name}
+						onsend={handleSend}
+						ontyping={typingSender.touch}
+					/>
 				{/key}
 			{:else if selectedServer}
 				<div class="flex flex-1 items-center justify-center">

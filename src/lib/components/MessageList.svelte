@@ -2,16 +2,25 @@
 	import type { Message } from '$lib/messages/messages';
 	import MessageGroup from './MessageGroup.svelte';
 	import Scrollbar from './Scrollbar.svelte';
+	import TypingIndicator from './TypingIndicator.svelte';
 
 	interface Props {
 		messages: Message[];
 		hasMore?: boolean;
 		loading?: boolean;
+		typing?: string[];
 		onloadolder?: () => void;
 		onretry?: (messageId: string) => void;
 	}
 
-	let { messages, hasMore = false, loading = false, onloadolder, onretry }: Props = $props();
+	let {
+		messages,
+		hasMore = false,
+		loading = false,
+		typing = [],
+		onloadolder,
+		onretry
+	}: Props = $props();
 
 	const groupGapMs = 5 * 60 * 1000;
 
@@ -115,7 +124,7 @@
 	<div
 		bind:this={scroller}
 		onscroll={handleScroll}
-		class="scrollbar-none flex min-h-0 flex-1 flex-col overflow-y-auto px-2 py-3"
+		class="scrollbar-none flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pt-3 pb-7"
 	>
 		{#if messages.length === 0 && !loading}
 			<div class="flex flex-1 items-center justify-center">
@@ -138,4 +147,5 @@
 		{/each}
 	</div>
 	<Scrollbar target={scroller} />
+	<TypingIndicator names={typing} />
 </div>

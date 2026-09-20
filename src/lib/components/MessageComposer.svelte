@@ -5,9 +5,10 @@
 	interface Props {
 		channelName: string;
 		onsend?: (text: string) => void;
+		ontyping?: () => void;
 	}
 
-	let { channelName, onsend }: Props = $props();
+	let { channelName, onsend, ontyping }: Props = $props();
 
 	const lineHeight = 20;
 	const paddingY = 10;
@@ -37,6 +38,10 @@
 		value = '';
 	}
 
+	function handleInput() {
+		if (value.trim().length > 0) ontyping?.();
+	}
+
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
 		event.preventDefault();
@@ -61,6 +66,7 @@
 			placeholder="Написать в {channelName}"
 			aria-label="Сообщение"
 			onkeydown={handleKeydown}
+			oninput={handleInput}
 			style="height: {height}px"
 			class="scrollbar-none block w-full resize-none rounded-xl bg-transparent px-4 py-2.5 text-[14px] leading-5 text-ink transition-[height] duration-[180ms] ease-soft outline-none placeholder:text-muted"
 		></textarea>
