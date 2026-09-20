@@ -1,7 +1,12 @@
+export interface EncryptionKey {
+	key: string;
+	version: number;
+}
+
 export interface VoiceCredentials {
 	url: string;
 	token: string;
-	e2eeKey: string;
+	e2ee: EncryptionKey;
 }
 
 export type VoiceQuality = 'excellent' | 'good' | 'poor' | 'lost';
@@ -33,4 +38,5 @@ export interface VoiceTransport {
 	disconnect(): Promise<void>;
 	setMicrophoneEnabled(enabled: boolean): Promise<void>;
 	setDeafened(deafened: boolean): void;
+	rotateKey(next: EncryptionKey): Promise<void>;
 }

@@ -192,7 +192,9 @@
 					subscribeToServerPresence({
 						serverId: id,
 						voiceAnnouncement: () => announcementFor(id),
-						onSync: (presence) => (presenceByServer[id] = presence)
+						onSync: (presence) => (presenceByServer[id] = presence),
+						onVoiceKeyRotated: (channelId, version) =>
+							voice.handleKeyRotation(id, channelId, version)
 					})
 				);
 			}

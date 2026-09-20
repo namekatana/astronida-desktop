@@ -58,12 +58,16 @@ export function subscribeToServerPresence(input: {
 	serverId: string;
 	voiceAnnouncement: () => VoiceAnnouncement | null;
 	onSync: (presence: ServerPresence) => void;
+	onVoiceKeyRotated: (channelId: string, version: number) => void;
 }): () => void {
 	const channel = phoenixSocket().channel(`server:${input.serverId}`);
 	channels.set(input.serverId, channel);
 
 	const presence = new Presence(channel);
 	presence.onSync(() => input.onSync(collect(presence)));
+	channel.on('voice_key_rotated', (payload: { channel_id: string; version: number }) => {
+		input.onVoiceKeyRotated(payload.channel_id, payload.version);
+	});
 	channel.join().receive('ok', () => {
 		const announcement = input.voiceAnnouncement();
 		if (announcement) announce(channel, announcement);
@@ -80,10 +84,15 @@ export function setVoiceChannel(serverId: string, announcement: VoiceAnnouncemen
 	if (channel) announce(channel, announcement);
 }
 
+export interface VoiceKey {
+	key: string;
+	version: number;
+}
+
 export interface VoiceCredentials {
 	url: string;
 	token: string;
-	e2eeKey: string;
+	e2ee: VoiceKey;
 	expiresAt: number;
 }
 
@@ -100,18 +109,37 @@ export function requestVoiceToken(serverId: string, channelId: string): Promise<
 			.push('voice_token', { channel_id: channelId })
 			.receive(
 				'ok',
-				(payload: { url: string; token: string; expires_in: number; e2ee_key: string }) =>
+				(payload: {
+					url: string;
+					token: string;
+					expires_in: number;
+					e2ee_key: string;
+					e2ee_version: number;
+				}) =>
 					resolve({
 						ok: true,
 						value: {
 							url: payload.url,
 							token: payload.token,
-							e2eeKey: payload.e2ee_key,
+							e2ee: { key: payload.e2ee_key, version: payload.e2ee_version },
 							expiresAt: Date.now() + payload.expires_in * 1000
 						}
 					})
 			)
 			.receive('error', () => resolve({ ok: false, message: 'Не удалось подключиться к голосу' }))
 			.receive('timeout', () => resolve({ ok: false, message: 'Нет соединения с сервером' }));
+	});
+}
+
+export function requestVoiceKey(serverId: string, channelId: string): Promise<VoiceKey | null> {
+	const channel = channels.get(serverId);
+	if (!channel) return Promise.resolve(null);
+
+	return new Promise((resolve) => {
+		channel
+			.push('voice_key', { channel_id: channelId })
+			.receive('ok', (payload: VoiceKey) => resolve(payload))
+			.receive('error', () => resolve(null))
+			.receive('timeout', () => resolve(null));
 	});
 }

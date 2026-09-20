@@ -1,4 +1,8 @@
-import { requestVoiceToken, type VoiceCredentials } from '$lib/presence/presence';
+import {
+	requestVoiceKey,
+	requestVoiceToken,
+	type VoiceCredentials
+} from '$lib/presence/presence';
 import { createLiveKitTransport, warmUp } from './livekit-transport';
 import { qualityFromStats, worstQuality } from './quality';
 import { playToggleSound } from './sounds';
@@ -33,6 +37,7 @@ let micMutedBeforeDeafen = false;
 
 let transport: VoiceTransport | null = null;
 let attempt = 0;
+let keyVersion = 0;
 let retryCount = 0;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let onlineListener: (() => void) | null = null;
@@ -187,8 +192,17 @@ async function establish(
 	retryCount = 0;
 	status = 'connected';
 	failure = null;
+	keyVersion = credentials.e2ee.version;
 	if (!options.reconnect) playToggleSound('voice-connected');
 	next.setDeafened(deafened);
+	void syncKey(target, next);
+}
+
+async function syncKey(target: VoiceConnection, owner: VoiceTransport) {
+	const latest = await requestVoiceKey(target.serverId, target.channelId);
+	if (!latest || transport !== owner || latest.version <= keyVersion) return;
+	keyVersion = latest.version;
+	await owner.rotateKey(latest);
 }
 
 function handleTransportState(state: TransportState, target: VoiceConnection) {
@@ -277,6 +291,15 @@ export const voice = {
 		void fetchCredentials(target.serverId, target.channelId);
 	},
 
+	handleKeyRotation(serverId: string, channelId: string, version: number) {
+		credentialsCache.delete(channelId);
+		const owner = transport;
+		if (!owner || !connected) return;
+		if (connected.serverId !== serverId || connected.channelId !== channelId) return;
+		if (version <= keyVersion) return;
+		void syncKey(connected, owner);
+	},
+
 	connect(target: VoiceConnection) {
 		if (connected?.channelId === target.channelId && status !== 'failed') return;
 		const current = ++attempt;
@@ -298,6 +321,7 @@ export const voice = {
 		connected = null;
 		status = null;
 		failure = null;
+		keyVersion = 0;
 		resetLiveState();
 	}
 };

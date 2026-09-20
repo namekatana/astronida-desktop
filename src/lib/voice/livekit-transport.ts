@@ -2,7 +2,6 @@ import {
 	ConnectionQuality,
 	createLocalAudioTrack,
 	DisconnectReason,
-	ExternalE2EEKeyProvider,
 	LocalAudioTrack,
 	Room,
 	RoomEvent,
@@ -12,9 +11,11 @@ import {
 	type RemoteTrack
 } from 'livekit-client';
 import E2EEWorker from 'livekit-client/e2ee-worker?worker';
+import { keyIndexFor, RotatingKeyProvider } from './rotating-key-provider';
 import { createSpeakingDetector } from './speaking-detector';
 import type {
 	DisconnectCause,
+	EncryptionKey,
 	VoiceCredentials,
 	VoiceQuality,
 	VoiceStats,
@@ -29,6 +30,7 @@ const statsTopic = 'stats';
 const statsMinGapMs = 500;
 const maxRttMs = 10_000;
 const e2eeKeyBytes = 32;
+const keySwitchGraceMs = 800;
 
 const captureDefaults: AudioCaptureOptions = {
 	echoCancellation: true,
@@ -146,8 +148,9 @@ export function warmUp(url: string) {
 }
 
 export function createLiveKitTransport(handlers: VoiceTransportHandlers): VoiceTransport {
-	const keyProvider = new ExternalE2EEKeyProvider({ keySize: 128 });
+	const keyProvider = new RotatingKeyProvider();
 	const worker: Worker = new E2EEWorker();
+	let keySwitchTimer: ReturnType<typeof setTimeout> | null = null;
 	const room = new Room({
 		adaptiveStream: true,
 		audioCaptureDefaults: captureDefaults,
@@ -228,8 +231,14 @@ export function createLiveKitTransport(handlers: VoiceTransportHandlers): VoiceT
 		}
 	}
 
+	function cancelKeySwitch() {
+		if (keySwitchTimer) clearTimeout(keySwitchTimer);
+		keySwitchTimer = null;
+	}
+
 	function teardown() {
 		stopStats();
+		cancelKeySwitch();
 		speaking.dispose();
 		lastStatsAt.clear();
 	}
@@ -283,9 +292,9 @@ export function createLiveKitTransport(handlers: VoiceTransportHandlers): VoiceT
 
 	return {
 		async connect(credentials: VoiceCredentials, options: { microphone: boolean }) {
-			const key = decodeKey(credentials.e2eeKey);
+			const key = decodeKey(credentials.e2ee.key);
 			if (!key) throw new Error('invalid_e2ee_key');
-			await keyProvider.setKey(key);
+			await keyProvider.activate(key, keyIndexFor(credentials.e2ee.version));
 			await room.setE2EEEnabled(true);
 
 			const microphone = acquireMicrophone();
@@ -320,6 +329,18 @@ export function createLiveKitTransport(handlers: VoiceTransportHandlers): VoiceT
 		setDeafened(next: boolean) {
 			deafened = next;
 			applyDeafen();
+		},
+
+		async rotateKey(next: EncryptionKey) {
+			const key = decodeKey(next.key);
+			if (!key) return;
+			const index = keyIndexFor(next.version);
+			cancelKeySwitch();
+			await keyProvider.install(key, index);
+			keySwitchTimer = setTimeout(() => {
+				keySwitchTimer = null;
+				void keyProvider.activate(key, index);
+			}, keySwitchGraceMs);
 		}
 	};
 }
