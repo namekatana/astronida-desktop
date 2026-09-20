@@ -65,22 +65,47 @@
 	let scroller = $state<HTMLDivElement>();
 
 	let heightBeforePrepend: number | null = null;
+	let pinnedToBottom = true;
+
+	const loadOlderThreshold = 48;
+	const bottomThreshold = 24;
+
+	function scrollToBottom(element: HTMLDivElement) {
+		element.scrollTop = element.scrollHeight;
+	}
+
+	let shownList: Message[] | null = null;
 
 	$effect(() => {
 		void blocks;
 		if (!scroller) return;
+		if (shownList !== messages) {
+			shownList = messages;
+			pinnedToBottom = true;
+		}
 		if (heightBeforePrepend !== null) {
 			scroller.scrollTop += scroller.scrollHeight - heightBeforePrepend;
 			heightBeforePrepend = null;
-		} else {
-			scroller.scrollTop = scroller.scrollHeight;
+		} else if (pinnedToBottom) {
+			scrollToBottom(scroller);
 		}
 	});
 
-	const loadOlderThreshold = 48;
+	$effect(() => {
+		const element = scroller;
+		if (!element) return;
+		const observer = new ResizeObserver(() => {
+			if (pinnedToBottom) scrollToBottom(element);
+		});
+		observer.observe(element);
+		return () => observer.disconnect();
+	});
 
 	function handleScroll() {
-		if (!scroller || !hasMore || loading || scroller.scrollTop > loadOlderThreshold) return;
+		if (!scroller) return;
+		const distanceToBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+		pinnedToBottom = distanceToBottom <= bottomThreshold;
+		if (!hasMore || loading || scroller.scrollTop > loadOlderThreshold) return;
 		heightBeforePrepend = scroller.scrollHeight;
 		onloadolder?.();
 	}
