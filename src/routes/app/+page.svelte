@@ -281,11 +281,36 @@
 		if (change.left.length > 0) playToggleSound('user-left');
 	});
 
-	function mergeMessages(channelId: string, incoming: Message[]) {
+	interface PageCoverage {
+		before?: string;
+		hasMore: boolean;
+	}
+
+	function dropMissing(feed: Feed, incoming: Message[], coverage: PageCoverage): boolean {
+		const oldest = coverage.hasMore ? incoming[0]?.id : undefined;
+		if (coverage.hasMore && oldest === undefined) return false;
+		const present = new Set(incoming.map((m) => m.id));
+		const kept = feed.messages.filter(
+			(m) =>
+				m.status !== undefined ||
+				present.has(m.id) ||
+				(oldest !== undefined && m.id < oldest) ||
+				(coverage.before !== undefined && m.id >= coverage.before)
+		);
+		if (kept.length === feed.messages.length) return false;
+		feed.messages = kept;
+		return true;
+	}
+
+	function mergeMessages(channelId: string, incoming: Message[], coverage?: PageCoverage) {
 		const feed = feedFor(channelId);
+		const removed = coverage ? dropMissing(feed, incoming, coverage) : false;
 		const known = new Set(feed.messages.map((m) => m.id));
 		const fresh = incoming.filter((message) => !known.has(message.id));
-		if (fresh.length === 0) return;
+		if (fresh.length === 0) {
+			if (removed) persistFeed(channelId);
+			return;
+		}
 		const last = feed.messages.at(-1);
 		const appendsInOrder =
 			fresh.every((m, i) => i === 0 || fresh[i - 1].id < m.id) && (!last || last.id < fresh[0].id);
@@ -316,10 +341,11 @@
 		messagesLoading = unloaded();
 		const initialLoad = loadMessages({ channelId: channel.id }).then((loaded) => {
 			if (stale) return;
-			const firstLoad = unloaded();
-			mergeMessages(channel.id, loaded.messages);
-			if (firstLoad) feed.hasMore = loaded.hasMore;
 			messagesLoading = false;
+			if (!loaded) return;
+			const firstLoad = unloaded();
+			mergeMessages(channel.id, loaded.messages, { hasMore: loaded.hasMore });
+			if (firstLoad) feed.hasMore = loaded.hasMore;
 		});
 		const unsubscribe = subscribeToChannel({
 			channelId: channel.id,
@@ -431,8 +457,8 @@
 		messagesLoading = true;
 		const loaded = await loadMessages({ channelId: channel.id, before: oldest.id });
 		const feed = feeds[channel.id];
-		if (feed) {
-			mergeMessages(channel.id, loaded.messages);
+		if (feed && loaded) {
+			mergeMessages(channel.id, loaded.messages, { before: oldest.id, hasMore: loaded.hasMore });
 			feed.hasMore = loaded.hasMore;
 		}
 		if (selectedChannel?.id === channel.id) messagesLoading = false;

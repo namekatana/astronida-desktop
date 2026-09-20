@@ -47,7 +47,7 @@ export async function loadMessages(input: {
 	channelId: string;
 	before?: string;
 	after?: string;
-}): Promise<{ messages: Message[]; hasMore: boolean }> {
+}): Promise<{ messages: Message[]; hasMore: boolean } | null> {
 	let query = supabase
 		.from('messages')
 		.select('id, author_id, content, created_at, profiles (username, display_name)')
@@ -59,7 +59,7 @@ export async function loadMessages(input: {
 	if (input.after) query = query.gt('id', input.after);
 
 	const { data, error } = await retryOnFreshToken(() => query);
-	if (error || !data) return { messages: [], hasMore: false };
+	if (error || !data) return null;
 
 	const messages = data.map((row) => ({
 		id: row.id,
