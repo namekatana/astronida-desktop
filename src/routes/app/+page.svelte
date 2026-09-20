@@ -25,7 +25,6 @@
 	} from '$lib/messages/messages';
 	import { mockFriends } from '$lib/mock/friends';
 	import {
-		setVoiceChannel,
 		subscribeToServerPresence,
 		type ServerPresence,
 		type VoiceAnnouncement
@@ -166,20 +165,14 @@
 	let presenceByServer = $state<Record<string, ServerPresence>>({});
 	const presenceSubscriptions = new Map<string, () => void>();
 
-	function currentAnnouncement(): (VoiceAnnouncement & { serverId: string }) | null {
+	function announcementFor(serverId: string): VoiceAnnouncement | null {
 		const connected = voice.connected;
-		if (!connected || (voice.status !== 'connected' && voice.status !== 'reconnecting')) return null;
+		if (!connected || connected.serverId !== serverId || voice.status === 'failed') return null;
 		return {
-			serverId: connected.serverId,
 			channelId: connected.channelId,
 			micMuted: voice.micMuted,
 			deafened: voice.deafened
 		};
-	}
-
-	function announcementFor(serverId: string): VoiceAnnouncement | null {
-		const announcement = currentAnnouncement();
-		return announcement?.serverId === serverId ? announcement : null;
 	}
 
 	$effect(() => {
@@ -194,7 +187,8 @@
 						voiceAnnouncement: () => announcementFor(id),
 						onSync: (presence) => (presenceByServer[id] = presence),
 						onVoiceKeyRotated: (channelId, version) =>
-							voice.handleKeyRotation(id, channelId, version)
+							voice.handleKeyRotation(id, channelId, version),
+						onVoiceRejoined: (channelId, key) => voice.handleRejoin(id, channelId, key)
 					})
 				);
 			}
@@ -205,24 +199,6 @@
 				delete presenceByServer[id];
 			}
 		});
-	});
-
-	let announcedVoice: (VoiceAnnouncement & { serverId: string }) | null = null;
-
-	$effect(() => {
-		const next = currentAnnouncement();
-		const previous = announcedVoice;
-		if (
-			previous?.serverId === next?.serverId &&
-			previous?.channelId === next?.channelId &&
-			previous?.micMuted === next?.micMuted &&
-			previous?.deafened === next?.deafened
-		) {
-			return;
-		}
-		if (previous && previous.serverId !== next?.serverId) setVoiceChannel(previous.serverId, null);
-		if (next) setVoiceChannel(next.serverId, next);
-		announcedVoice = next;
 	});
 
 	$effect(() => {
@@ -529,9 +505,8 @@
 		}
 	}
 
-	function prefetchVoice(channelId: string) {
-		if (!selectedServerId) return;
-		voice.prefetch({ serverId: selectedServerId, channelId });
+	function prefetchVoice() {
+		if (selectedServerId) voice.prefetch(selectedServerId);
 	}
 
 	function firstTextChannel() {

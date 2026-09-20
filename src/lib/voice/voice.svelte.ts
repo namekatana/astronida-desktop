@@ -1,7 +1,11 @@
 import {
+	joinVoice,
+	leaveVoice,
 	requestVoiceKey,
-	requestVoiceToken,
-	type VoiceCredentials
+	updateVoiceState,
+	voiceUrl,
+	type VoiceCredentials,
+	type VoiceKey
 } from '$lib/presence/presence';
 import { createLiveKitTransport, warmUp } from './livekit-transport';
 import { qualityFromStats, worstQuality } from './quality';
@@ -18,7 +22,6 @@ export interface VoiceConnection {
 export type VoiceStatus = 'connecting' | 'connected' | 'reconnecting' | 'failed';
 export type VoiceFailure = 'duplicate' | 'removed' | 'error';
 
-const tokenSafetyMs = 5 * 60 * 1000;
 const retryBaseMs = 1000;
 const retryMaxMs = 10_000;
 
@@ -42,39 +45,33 @@ let retryCount = 0;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let onlineListener: (() => void) | null = null;
 
-const credentialsCache = new Map<string, VoiceCredentials>();
-const pendingTokens = new Map<string, Promise<VoiceCredentials | null>>();
-
-function cachedCredentials(channelId: string): VoiceCredentials | null {
-	const cached = credentialsCache.get(channelId);
-	if (!cached) return null;
-	if (cached.expiresAt - tokenSafetyMs <= Date.now()) {
-		credentialsCache.delete(channelId);
-		return null;
-	}
-	return cached;
-}
-
-function fetchCredentials(serverId: string, channelId: string): Promise<VoiceCredentials | null> {
-	const cached = cachedCredentials(channelId);
-	if (cached) return Promise.resolve(cached);
-	const pending = pendingTokens.get(channelId);
-	if (pending) return pending;
-
-	const request = requestVoiceToken(serverId, channelId)
-		.then((result) => {
-			if (!result.ok) return null;
-			credentialsCache.set(channelId, result.value);
-			warmUp(result.value.url);
-			return result.value;
-		})
-		.finally(() => pendingTokens.delete(channelId));
-	pendingTokens.set(channelId, request);
-	return request;
-}
-
 function microphoneEnabled() {
 	return !micMuted && !deafened;
+}
+
+function announcedState() {
+	return { micMuted: deafened || micMuted, deafened };
+}
+
+async function fetchCredentials(target: VoiceConnection): Promise<VoiceCredentials | null> {
+	const result = await joinVoice(target.serverId, {
+		channelId: target.channelId,
+		...announcedState()
+	});
+	return result.ok ? result.value : null;
+}
+
+function announceState() {
+	if (connected) updateVoiceState(connected.serverId, announcedState());
+}
+
+function adoptKey(serverId: string, channelId: string, key: VoiceKey) {
+	const owner = transport;
+	if (!owner || !connected) return;
+	if (connected.serverId !== serverId || connected.channelId !== channelId) return;
+	if (key.version <= keyVersion) return;
+	keyVersion = key.version;
+	void owner.rotateKey(key);
 }
 
 function releaseTransport() {
@@ -140,7 +137,7 @@ async function establish(
 	options: { reconnect: boolean; attemptId: number }
 ) {
 	const current = options.attemptId;
-	const credentials = await fetchCredentials(target.serverId, target.channelId);
+	const credentials = await fetchCredentials(target);
 	if (current !== attempt) return;
 	if (!credentials) {
 		if (options.reconnect) scheduleReconnect(target);
@@ -182,7 +179,6 @@ async function establish(
 		await next.connect(credentials, { microphone: microphoneEnabled() });
 	} catch {
 		if (current !== attempt || transport !== next) return;
-		credentialsCache.delete(target.channelId);
 		if (options.reconnect) scheduleReconnect(target);
 		else failWith('error');
 		return;
@@ -200,9 +196,8 @@ async function establish(
 
 async function syncKey(target: VoiceConnection, owner: VoiceTransport) {
 	const latest = await requestVoiceKey(target.serverId, target.channelId);
-	if (!latest || transport !== owner || latest.version <= keyVersion) return;
-	keyVersion = latest.version;
-	await owner.rotateKey(latest);
+	if (!latest || transport !== owner) return;
+	adoptKey(target.serverId, target.channelId, latest);
 }
 
 function handleTransportState(state: TransportState, target: VoiceConnection) {
@@ -271,6 +266,7 @@ export const voice = {
 		}
 		transport?.setDeafened(deafened);
 		void transport?.setMicrophoneEnabled(microphoneEnabled());
+		announceState();
 		playToggleSound(micMuted ? 'mic-off' : 'mic-on');
 	},
 
@@ -284,20 +280,25 @@ export const voice = {
 		}
 		transport?.setDeafened(deafened);
 		void transport?.setMicrophoneEnabled(microphoneEnabled());
+		announceState();
 		playToggleSound(deafened ? 'deafen-on' : 'deafen-off');
 	},
 
-	prefetch(target: { serverId: string; channelId: string }) {
-		void fetchCredentials(target.serverId, target.channelId);
+	prefetch(serverId: string) {
+		const url = voiceUrl(serverId);
+		if (url) warmUp(url);
 	},
 
 	handleKeyRotation(serverId: string, channelId: string, version: number) {
-		credentialsCache.delete(channelId);
 		const owner = transport;
 		if (!owner || !connected) return;
 		if (connected.serverId !== serverId || connected.channelId !== channelId) return;
 		if (version <= keyVersion) return;
 		void syncKey(connected, owner);
+	},
+
+	handleRejoin(serverId: string, channelId: string, key: VoiceKey) {
+		adoptKey(serverId, channelId, key);
 	},
 
 	connect(target: VoiceConnection) {
@@ -317,6 +318,7 @@ export const voice = {
 		attempt++;
 		cancelRetry();
 		releaseTransport();
+		if (connected) leaveVoice(connected.serverId);
 		if (status === 'connected') playToggleSound('voice-disconnected');
 		connected = null;
 		status = null;
