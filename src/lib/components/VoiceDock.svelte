@@ -5,6 +5,7 @@
 	import { voice, type VoiceConnection, type VoiceFailure } from '$lib/voice/voice.svelte';
 	import { describeStats, qualityColorClass } from '$lib/voice/quality';
 	import AvatarStack from './AvatarStack.svelte';
+	import EncryptionBadge from './EncryptionBadge.svelte';
 	import Icon from './Icon.svelte';
 	import SignalBars from './SignalBars.svelte';
 
@@ -22,6 +23,7 @@
 		ondisconnect?.();
 	}
 
+	let securityOpen = $state(false);
 	let shown = $state<VoiceConnection | null>(null);
 	let shownOccupants = $state<VoiceOccupant[]>([]);
 	$effect(() => {
@@ -103,9 +105,9 @@
 	</button>
 {/snippet}
 
-<div class="panel shrink-0 px-4 py-3">
+<div class="panel relative shrink-0 px-4 py-3">
 	<div class="collapsible {connected ? 'is-open' : ''}" inert={!connected}>
-		<div>
+		<div class={securityOpen ? 'overflow-visible!' : ''}>
 			<div class="flex items-end gap-3 pb-2.5">
 				<div class="min-w-0 flex-1">
 					<div class="flex h-4 items-center gap-2">
@@ -134,14 +136,7 @@
 						{/if}
 					</div>
 					<div class="mt-1 flex items-center gap-1.5 text-[13px] font-medium text-ink">
-						{#if voice.status === 'connected' && voice.encrypted}
-							<span
-								title="Сквозное шифрование: медиасервер не видит содержимое разговора"
-								class="flex shrink-0 text-muted"
-							>
-								<Icon name="lock" size={12} />
-							</span>
-						{/if}
+						<EncryptionBadge bind:open={securityOpen} />
 						<span class="min-w-0 truncate">{shown?.channelName ?? ''}</span>
 					</div>
 					<div class="truncate text-[12px] text-muted">{shown?.serverName ?? ''}</div>

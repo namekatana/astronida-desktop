@@ -7,6 +7,7 @@ import {
 	type VoiceCredentials,
 	type VoiceKey
 } from '$lib/presence/presence';
+import { keyFingerprint } from './fingerprint';
 import { createLiveKitTransport, warmUp } from './livekit-transport';
 import { qualityFromStats, worstQuality } from './quality';
 import { playToggleSound } from './sounds';
@@ -36,11 +37,12 @@ let speakingIds = $state<string[]>([]);
 let participantQuality = $state<Record<string, VoiceQuality>>({});
 let participantStats = $state<Record<string, VoiceStats>>({});
 let encrypted = $state(false);
+let fingerprint = $state<string | null>(null);
 let micMutedBeforeDeafen = false;
 
 let transport: VoiceTransport | null = null;
 let attempt = 0;
-let keyVersion = 0;
+let keyVersion = $state(0);
 let retryCount = 0;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let onlineListener: (() => void) | null = null;
@@ -65,12 +67,19 @@ function announceState() {
 	if (connected) updateVoiceState(connected.serverId, announcedState());
 }
 
+function rememberKey(channelId: string, key: VoiceKey) {
+	keyVersion = key.version;
+	void keyFingerprint(channelId, key).then((code) => {
+		if (keyVersion === key.version && connected?.channelId === channelId) fingerprint = code;
+	});
+}
+
 function adoptKey(serverId: string, channelId: string, key: VoiceKey) {
 	const owner = transport;
 	if (!owner || !connected) return;
 	if (connected.serverId !== serverId || connected.channelId !== channelId) return;
 	if (key.version <= keyVersion) return;
-	keyVersion = key.version;
+	rememberKey(channelId, key);
 	void owner.rotateKey(key);
 }
 
@@ -94,6 +103,7 @@ function resetLiveState() {
 	participantQuality = {};
 	participantStats = {};
 	encrypted = false;
+	fingerprint = null;
 }
 
 function scheduleReconnect(target: VoiceConnection) {
@@ -188,7 +198,7 @@ async function establish(
 	retryCount = 0;
 	status = 'connected';
 	failure = null;
-	keyVersion = credentials.e2ee.version;
+	rememberKey(target.channelId, credentials.e2ee);
 	if (!options.reconnect) playToggleSound('voice-connected');
 	next.setDeafened(deafened);
 	void syncKey(target, next);
@@ -256,6 +266,13 @@ export const voice = {
 	get encrypted() {
 		return encrypted;
 	},
+	get keyVersion() {
+		return keyVersion;
+	},
+	get keyFingerprint() {
+		return fingerprint;
+	},
+
 
 	toggleMic() {
 		if (deafened) {
