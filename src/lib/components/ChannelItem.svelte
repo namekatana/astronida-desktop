@@ -45,10 +45,20 @@
 			? 'text-ink'
 			: 'text-ink-secondary hover:bg-white/[0.04] hover:text-ink'}"
 	>
-		<Icon name={channel.kind} class={active ? 'text-ink' : 'text-muted'} />
+		<Icon
+			name={channel.kind}
+			class="transition-colors duration-200 {occupied ? 'voice-live' : ''} {occupied
+				? 'text-online'
+				: active
+					? 'text-ink'
+					: 'text-muted'}"
+		/>
 		<span class="min-w-0 flex-1 truncate">{channel.name}</span>
 		{#if occupied}
-			<span class="shrink-0 text-[12px] text-muted tabular-nums">{occupants.length}</span>
+			<span class="flex shrink-0 items-center gap-1 text-[12px] text-online tabular-nums">
+				<Icon name="users" size={12} />
+				{occupants.length}
+			</span>
 		{/if}
 	</button>
 
