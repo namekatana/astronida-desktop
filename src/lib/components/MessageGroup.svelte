@@ -36,7 +36,7 @@
 
 			{#each messages as message (message.id)}
 				<p
-					class="py-0.5 text-[14px] leading-5 break-words whitespace-pre-wrap text-ink-secondary transition-opacity duration-200 {message.status ===
+					class="py-0.5 text-[14px] leading-5 break-words whitespace-pre-wrap text-ink-secondary transition-opacity duration-200 select-text {message.status ===
 					'sending'
 						? 'opacity-50'
 						: ''}"
