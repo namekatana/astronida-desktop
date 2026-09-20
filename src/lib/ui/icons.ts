@@ -22,7 +22,8 @@ export type IconName =
 	| 'lock'
 	| 'download'
 	| 'user'
-	| 'volume-off';
+	| 'volume-off'
+	| 'copy';
 
 export const iconPaths: Record<IconName, string[]> = {
 	text: ['M8 2.5c3.3 0 6 2.2 6 5s-2.7 5-6 5c-.7 0-1.3-.1-1.9-.3L3 13.5l.6-2.7C2.6 9.9 2 8.8 2 7.5c0-2.8 2.7-5 6-5Z'],
@@ -58,5 +59,6 @@ export const iconPaths: Record<IconName, string[]> = {
 	lock: ['M4 7.5V5.5a4 4 0 0 1 8 0v2', 'M3.5 7.5h9a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1Z'],
 	download: ['M8 2.5v7.5', 'M4.75 7 8 10.25 11.25 7', 'M2.75 11.5v1a1 1 0 0 0 1 1h8.5a1 1 0 0 0 1-1v-1'],
 	user: ['M8 8a2.75 2.75 0 1 0 0-5.5A2.75 2.75 0 0 0 8 8Z', 'M3 13.5c.45-2.4 2.5-3.75 5-3.75s4.55 1.35 5 3.75'],
-	'volume-off': ['M2.5 6.25h2.25L8 3.5v9L4.75 9.75H2.5Z', 'M10.5 6.5 13.5 9.5M13.5 6.5l-3 3']
+	'volume-off': ['M2.5 6.25h2.25L8 3.5v9L4.75 9.75H2.5Z', 'M10.5 6.5 13.5 9.5M13.5 6.5l-3 3'],
+	copy: ['M6 6h7a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1Z', 'M10 6V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2']
 };

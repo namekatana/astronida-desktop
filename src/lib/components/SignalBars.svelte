@@ -29,6 +29,7 @@
 				height={bar * 3}
 				rx="0.75"
 				fill="currentColor"
+				class="transition-opacity duration-300"
 				opacity={bar <= bars ? 1 : 0.25}
 			/>
 		{/each}

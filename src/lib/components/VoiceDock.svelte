@@ -3,9 +3,9 @@
 	import type { IconName } from '$lib/ui/icons';
 	import type { VoiceOccupant } from '$lib/voice/occupant';
 	import { voice, type VoiceConnection, type VoiceFailure } from '$lib/voice/voice.svelte';
-	import { describeStats, qualityColorClass } from '$lib/voice/quality';
+	import { qualityColorClass } from '$lib/voice/quality';
 	import AvatarStack from './AvatarStack.svelte';
-	import EncryptionBadge from './EncryptionBadge.svelte';
+	import ConnectionDetails from './ConnectionDetails.svelte';
 	import Icon from './Icon.svelte';
 	import SignalBars from './SignalBars.svelte';
 
@@ -23,7 +23,8 @@
 		ondisconnect?.();
 	}
 
-	let securityOpen = $state(false);
+	let detailsOpen = $state(false);
+	let detailsAnchor = $state<HTMLButtonElement | null>(null);
 	let shown = $state<VoiceConnection | null>(null);
 	let shownOccupants = $state<VoiceOccupant[]>([]);
 	$effect(() => {
@@ -31,6 +32,9 @@
 			shown = voice.connected;
 			shownOccupants = occupants;
 		}
+	});
+	$effect(() => {
+		if (voice.status !== 'connected') detailsOpen = false;
 	});
 
 	const failureLabels: Record<VoiceFailure, string> = {
@@ -55,13 +59,6 @@
 				? 'text-danger'
 				: 'text-muted'
 	);
-	const dotColor = $derived(
-		voice.status === 'connected'
-			? 'bg-online'
-			: voice.status === 'failed'
-				? 'bg-danger'
-				: 'bg-muted'
-	);
 	const dotPulse = $derived(voice.status === 'connecting' || voice.status === 'reconnecting');
 
 	const rtt = $derived(
@@ -72,7 +69,6 @@
 	const rttColor = $derived(
 		voice.quality === null ? 'text-muted' : qualityColorClass(voice.quality)
 	);
-	const qualityTitle = $derived(describeStats(voice.stats, voice.quality));
 </script>
 
 {#snippet toggle(icon: IconName, label: string, off: boolean, onclick: () => void)}
@@ -107,38 +103,47 @@
 
 <div class="panel relative shrink-0 px-4 py-3">
 	<div class="collapsible {connected ? 'is-open' : ''}" inert={!connected}>
-		<div class={securityOpen ? 'overflow-visible!' : ''}>
+		<div>
 			<div class="flex items-end gap-3 pb-2.5">
 				<div class="min-w-0 flex-1">
-					<div class="flex h-4 items-center gap-2">
+					<div class="flex h-6 items-center gap-2">
 						<div
 							class="flex min-w-0 flex-1 items-center gap-1.5 text-[11px] font-medium tracking-[0.1em] uppercase transition-colors duration-200 {statusColor}"
 						>
-							<span
-								class="h-1.5 w-1.5 shrink-0 rounded-full transition-colors duration-200 {dotColor} {dotPulse
+							<Icon
+								name="voice"
+								size={14}
+								class="{voice.status === 'connected' ? 'voice-live' : ''} {dotPulse
 									? 'animate-pulse'
 									: ''}"
-							></span>
+							/>
 							<span class="min-w-0 truncate">{statusLabel}</span>
 						</div>
-						{#if voice.status === 'connected' && (voice.quality !== null || rtt !== null)}
-							<span
-								title={qualityTitle}
-								class="ml-auto flex shrink-0 items-center gap-1.5 text-[11px] whitespace-nowrap transition-colors duration-200 {rttColor}"
+						{#if voice.status === 'connected'}
+							<button
+								bind:this={detailsAnchor}
+								type="button"
+								aria-label="Сведения о соединении"
+								aria-haspopup="dialog"
+								aria-expanded={detailsOpen}
+								onclick={() => (detailsOpen = !detailsOpen)}
+								class="ml-auto flex h-6 shrink-0 items-center gap-1.5 rounded-full px-2 text-[11px] whitespace-nowrap transition-colors duration-200 {detailsOpen
+									? 'bg-white/[0.08]'
+									: 'bg-white/[0.04] hover:bg-white/[0.08]'}"
 							>
-								{#if voice.quality !== null}
-									<SignalBars quality={voice.quality} />
-								{/if}
-								{#if rtt !== null}
-									<span class="tabular-nums">{rtt}&nbsp;мс</span>
-								{/if}
-							</span>
+								<span class="flex items-center gap-1.5 {rttColor}">
+									{#if voice.quality !== null}
+										<SignalBars quality={voice.quality} />
+									{/if}
+									<span class="tabular-nums">{rtt === null ? '—' : `${rtt} мс`}</span>
+								</span>
+								<span class="flex text-muted">
+									<Icon name="lock" size={11} />
+								</span>
+							</button>
 						{/if}
 					</div>
-					<div class="mt-1 flex items-center gap-1.5 text-[13px] font-medium text-ink">
-						<EncryptionBadge bind:open={securityOpen} />
-						<span class="min-w-0 truncate">{shown?.channelName ?? ''}</span>
-					</div>
+					<div class="mt-0.5 truncate text-[13px] font-medium text-ink">{shown?.channelName ?? ''}</div>
 					<div class="truncate text-[12px] text-muted">{shown?.serverName ?? ''}</div>
 				</div>
 				{#if shownOccupants.length > 0}
@@ -178,4 +183,8 @@
 			{@render toggle('headphones', 'Наушники', voice.deafened, voice.toggleDeafen)}
 		</div>
 	</div>
+
+	{#if detailsOpen}
+		<ConnectionDetails anchor={detailsAnchor} onclose={() => (detailsOpen = false)} />
+	{/if}
 </div>

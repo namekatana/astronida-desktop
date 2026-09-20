@@ -69,7 +69,7 @@
 		/>
 		<span class="min-w-0 flex-1 truncate">{channel.name}</span>
 		{#if occupied}
-			<span class="flex shrink-0 items-center gap-1 text-[12px] text-online tabular-nums">
+			<span class="flex shrink-0 items-center gap-1 text-[12px] text-muted tabular-nums">
 				<Icon name="users" size={12} />
 				{occupants.length}
 			</span>
