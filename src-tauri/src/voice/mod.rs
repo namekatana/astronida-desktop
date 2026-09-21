@@ -1,5 +1,6 @@
 mod audio;
 mod session;
+mod stats;
 
 use base64::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -41,6 +42,7 @@ pub struct ConnectOptions {
 pub struct Connected {
     generation: u64,
     encrypted: bool,
+    participants: Vec<String>,
 }
 
 pub fn init(app: &AppHandle) {
@@ -48,7 +50,8 @@ pub fn init(app: &AppHandle) {
 }
 
 fn validate_url(url: &str) -> Result<(), String> {
-    if url.starts_with("ws://") || url.starts_with("wss://") {
+    let plain_allowed = cfg!(debug_assertions);
+    if url.starts_with("wss://") || (plain_allowed && url.starts_with("ws://")) {
         Ok(())
     } else {
         Err("invalid_url".to_string())
@@ -97,8 +100,9 @@ pub async fn voice_connect(
         return Err("superseded".to_string());
     }
     let encrypted = session.encrypted();
+    let participants = session.participants();
     *slot = Some(session);
-    Ok(Connected { generation, encrypted })
+    Ok(Connected { generation, encrypted, participants })
 }
 
 #[tauri::command]

@@ -1,3 +1,4 @@
+use super::activity::Activity;
 use super::{FRAME_SAMPLES, SAMPLE_RATE};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{FromSample, SampleFormat, SizedSample, Stream, StreamConfig};
@@ -8,54 +9,73 @@ use livekit::webrtc::native::audio_resampler::AudioResampler;
 use ringbuf::traits::{Consumer, Producer, Split};
 use ringbuf::{HeapCons, HeapProd, HeapRb};
 use std::collections::{HashMap, VecDeque};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::async_runtime::JoinHandle;
 
 const BUFFER_SECONDS: usize = 1;
 const MAX_GAIN: f32 = 2.0;
+const DEFAULT_GAIN: f32 = 1.0;
 const PENDING_CAPACITY: usize = SAMPLE_RATE as usize;
 
 struct Slot {
     consumer: HeapCons<i16>,
     gain: f32,
+    activity: Arc<Activity>,
     reader: JoinHandle<()>,
 }
 
 pub struct Mixer {
     slots: Mutex<HashMap<String, Slot>>,
+    gains: Mutex<HashMap<String, f32>>,
+    occupied: AtomicUsize,
     deafened: AtomicBool,
 }
 
 impl Mixer {
     pub fn new() -> Mixer {
-        Mixer { slots: Mutex::new(HashMap::new()), deafened: AtomicBool::new(false) }
+        Mixer {
+            slots: Mutex::new(HashMap::new()),
+            gains: Mutex::new(HashMap::new()),
+            occupied: AtomicUsize::new(0),
+            deafened: AtomicBool::new(false),
+        }
     }
 
-    pub fn add(&self, identity: String, track: RtcAudioTrack, gain: f32) {
+    pub fn add(&self, identity: String, track: RtcAudioTrack) {
         let (mut producer, consumer): (HeapProd<i16>, HeapCons<i16>) =
             HeapRb::<i16>::new(SAMPLE_RATE as usize * BUFFER_SECONDS).split();
+        let activity = Arc::new(Activity::new());
+        let observed = activity.clone();
         let reader = tauri::async_runtime::spawn(async move {
             let mut frames = NativeAudioStream::new(track, SAMPLE_RATE as i32, 1);
             while let Some(frame) = frames.next().await {
+                observed.observe(&frame.data);
                 producer.push_slice(&frame.data);
             }
         });
-        let slot = Slot { consumer, gain: clamp_gain(gain), reader };
-        if let Some(previous) = self.slots.lock().unwrap().insert(identity, slot) {
+        let gain = self.gains.lock().unwrap().get(&identity).copied().unwrap_or(DEFAULT_GAIN);
+        let slot = Slot { consumer, gain, activity, reader };
+        let mut slots = self.slots.lock().unwrap();
+        if let Some(previous) = slots.insert(identity, slot) {
             previous.reader.abort();
         }
+        self.occupied.store(slots.len(), Ordering::Relaxed);
     }
 
     pub fn remove(&self, identity: &str) {
-        if let Some(slot) = self.slots.lock().unwrap().remove(identity) {
+        let mut slots = self.slots.lock().unwrap();
+        if let Some(slot) = slots.remove(identity) {
             slot.reader.abort();
         }
+        self.occupied.store(slots.len(), Ordering::Relaxed);
     }
 
     pub fn set_gain(&self, identity: &str, gain: f32) {
+        let gain = clamp_gain(gain);
+        self.gains.lock().unwrap().insert(identity.to_string(), gain);
         if let Some(slot) = self.slots.lock().unwrap().get_mut(identity) {
-            slot.gain = clamp_gain(gain);
+            slot.gain = gain;
         }
     }
 
@@ -64,8 +84,30 @@ impl Mixer {
     }
 
     pub fn clear(&self) {
-        for (_, slot) in self.slots.lock().unwrap().drain() {
+        let mut slots = self.slots.lock().unwrap();
+        for (_, slot) in slots.drain() {
             slot.reader.abort();
+        }
+        self.occupied.store(0, Ordering::Relaxed);
+        self.gains.lock().unwrap().clear();
+    }
+
+    pub fn identities(&self) -> Vec<String> {
+        self.slots.lock().unwrap().keys().cloned().collect()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.occupied.load(Ordering::Relaxed) == 0
+    }
+
+    pub fn speaking(&self, out: &mut Vec<String>) {
+        if self.is_empty() {
+            return;
+        }
+        for (identity, slot) in self.slots.lock().unwrap().iter() {
+            if slot.activity.active() {
+                out.push(identity.clone());
+            }
         }
     }
 

@@ -1,3 +1,4 @@
+use super::activity::Activity;
 use super::{FRAME_SAMPLES, SAMPLE_RATE};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{FromSample, Sample, SampleFormat, SizedSample, Stream, StreamConfig};
@@ -9,6 +10,7 @@ use ringbuf::traits::{Consumer, Observer, Producer};
 use ringbuf::{HeapCons, HeapProd};
 use std::borrow::Cow;
 use std::sync::mpsc::{Receiver, SyncSender};
+use std::sync::Arc;
 
 const ESTIMATED_DELAY_MS: i32 = 40;
 
@@ -74,6 +76,7 @@ pub struct Processor {
     raw: HeapCons<i16>,
     far_end: HeapCons<i16>,
     source: NativeAudioSource,
+    activity: Arc<Activity>,
     apm: AudioProcessingModule,
     resampler: AudioResampler,
     device_chunk: Vec<i16>,
@@ -87,6 +90,7 @@ impl Processor {
         raw: HeapCons<i16>,
         far_end: HeapCons<i16>,
         source: NativeAudioSource,
+        activity: Arc<Activity>,
     ) -> Processor {
         let mut apm = AudioProcessingModule::new(true, true, true, true);
         let _ = apm.set_stream_delay_ms(ESTIMATED_DELAY_MS);
@@ -96,6 +100,7 @@ impl Processor {
             raw,
             far_end,
             source,
+            activity,
             apm,
             resampler: AudioResampler::default(),
             device_chunk,
@@ -111,6 +116,7 @@ impl Processor {
                 self.to_native_frame();
                 self.feed_far_end();
                 let _ = self.apm.process_stream(&mut self.frame, SAMPLE_RATE as i32, 1);
+                self.activity.observe(&self.frame);
                 let frame = AudioFrame {
                     data: Cow::Borrowed(&self.frame[..]),
                     sample_rate: SAMPLE_RATE,
