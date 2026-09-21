@@ -8,7 +8,7 @@ import {
 	type VoiceKey
 } from '$lib/presence/presence';
 import { keyFingerprint } from './fingerprint';
-import { createLiveKitTransport, warmUp } from './livekit-transport';
+import { createVoiceTransport, prepareTransport } from './transport-factory';
 import { qualityFromStats, worstQuality } from './quality';
 import { playToggleSound } from './sounds';
 import type { TransportState, VoiceQuality, VoiceStats, VoiceTransport } from './transport';
@@ -156,7 +156,7 @@ async function establish(
 		return;
 	}
 
-	const next = createLiveKitTransport({
+	const next = createVoiceTransport({
 		onState: (state) => {
 			if (transport !== next) return;
 			handleTransportState(state, target);
@@ -314,7 +314,7 @@ export const voice = {
 
 	prefetch(serverId: string) {
 		const url = voiceUrl(serverId);
-		if (url) warmUp(url);
+		if (url) prepareTransport(url);
 	},
 
 	handleKeyRotation(serverId: string, channelId: string, version: number) {
