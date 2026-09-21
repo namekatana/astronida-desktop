@@ -9,6 +9,8 @@
 	import CreateChannelDialog from '$lib/components/CreateChannelDialog.svelte';
 	import CreateServerDialog from '$lib/components/CreateServerDialog.svelte';
 	import FriendsPanel from '$lib/components/FriendsPanel.svelte';
+	import type { Friend } from '$lib/friends/friends';
+	import { subscribeToFriendsPresence } from '$lib/friends/presence';
 	import { history, type HistoryCoverage } from '$lib/history/history';
 	import MemberPanel from '$lib/components/MemberPanel.svelte';
 	import MessageComposer from '$lib/components/MessageComposer.svelte';
@@ -26,7 +28,6 @@
 		type Message
 	} from '$lib/messages/messages';
 	import { clearTyping, createTypingSender, markTyping, typingIn } from '$lib/messages/typing.svelte';
-	import { mockFriends } from '$lib/mock/friends';
 	import {
 		subscribeToServerPresence,
 		type ServerPresence,
@@ -51,6 +52,8 @@
 	let servers = $state<Server[]>(data.account.servers);
 	// svelte-ignore state_referenced_locally
 	let username = $state<string | null>(data.account.username);
+	// svelte-ignore state_referenced_locally
+	let friends = $state<Friend[]>(data.account.friends ?? []);
 	// svelte-ignore state_referenced_locally
 	let selectedServerId = $state<string | null>(
 		data.account.servers.some((server) => server.id === lastSelection.serverId)
@@ -108,6 +111,7 @@
 		data.refresh.then((account) => {
 			servers = account.servers;
 			username = account.username;
+			friends = account.friends;
 		});
 	});
 
@@ -206,6 +210,23 @@
 			presenceSubscriptions.clear();
 		};
 	});
+
+	// svelte-ignore state_referenced_locally
+	let friendsOnline = $state<Set<string>>(data.cache.friendsOnline);
+
+	$effect(() => {
+		return subscribeToFriendsPresence({
+			userId: data.userId,
+			onSync: (online) => {
+				friendsOnline = online;
+				workspaceCache.saveFriendsOnline(data.userId, online);
+			}
+		});
+	});
+
+	const friendsWithPresence = $derived(
+		friends.map((friend) => ({ ...friend, online: friendsOnline.has(friend.id), owner: false }))
+	);
 
 	const membersWithPresence = $derived.by(() => {
 		const online = selectedServer ? presenceByServer[selectedServer.id]?.online : undefined;
@@ -717,7 +738,11 @@
 				oncreatechannel={openChannelDialog}
 			/>
 		{:else}
-			<FriendsPanel friends={mockFriends} bind:width={panelWidths.channels} />
+			<FriendsPanel
+				friends={friendsWithPresence}
+				requests={[]}
+				bind:width={panelWidths.channels}
+			/>
 		{/if}
 
 		<main class="flex min-w-0 flex-1 flex-col gap-3">

@@ -1,4 +1,5 @@
 import type { Category, Channel } from '$lib/channels/channels';
+import type { Friend } from '$lib/friends/friends';
 import type { ServerPresence, VoiceMember } from '$lib/presence/presence';
 import type { Member } from '$lib/servers/members';
 import type { Server } from '$lib/servers/servers';
@@ -6,6 +7,7 @@ import type { Server } from '$lib/servers/servers';
 export interface CachedAccount {
 	username: string | null;
 	servers: Server[];
+	friends: Friend[];
 }
 
 export interface Workspace {
@@ -23,21 +25,28 @@ interface StoredCache {
 	account: CachedAccount | null;
 	workspaces: Record<string, Workspace>;
 	presence: Record<string, StoredPresence>;
+	friendsOnline: string[];
 }
 
 export interface WorkspaceCache {
 	account: CachedAccount | null;
 	workspaces: Record<string, Workspace>;
 	presence: Record<string, ServerPresence>;
+	friendsOnline: Set<string>;
 }
 
 type Section = keyof StoredCache;
 
 const keyPrefix = 'astronida.cache.';
-const sections: Section[] = ['account', 'workspaces', 'presence'];
+const sections: Section[] = ['account', 'workspaces', 'presence', 'friendsOnline'];
 const writeDelayMs = 300;
 
-const empty = (): StoredCache => ({ account: null, workspaces: {}, presence: {} });
+const empty = (): StoredCache => ({
+	account: null,
+	workspaces: {},
+	presence: {},
+	friendsOnline: []
+});
 
 let stored: StoredCache = empty();
 let storedFor: string | null = null;
@@ -63,7 +72,8 @@ function load(userId: string): StoredCache {
 	stored = {
 		account: readSection(userId, 'account', null),
 		workspaces: readSection(userId, 'workspaces', {}),
-		presence: readSection(userId, 'presence', {})
+		presence: readSection(userId, 'presence', {}),
+		friendsOnline: readSection(userId, 'friendsOnline', [])
 	};
 	return stored;
 }
@@ -94,13 +104,19 @@ export const workspaceCache = {
 					serverId,
 					{ online: new Set(presence.online), voice: presence.voice }
 				])
-			)
+			),
+			friendsOnline: new Set(current.friendsOnline)
 		};
 	},
 
 	savePresence(userId: string, serverId: string, presence: ServerPresence) {
 		load(userId).presence[serverId] = { online: [...presence.online], voice: presence.voice };
 		scheduleWrite(userId, 'presence');
+	},
+
+	saveFriendsOnline(userId: string, online: Set<string>) {
+		load(userId).friendsOnline = [...online];
+		scheduleWrite(userId, 'friendsOnline');
 	},
 
 	saveAccount(userId: string, account: CachedAccount) {

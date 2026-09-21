@@ -1,23 +1,23 @@
 <script lang="ts">
-	import type { MockFriend } from '$lib/mock/friends';
+	import type { Member } from '$lib/servers/members';
 	import { panelLimits } from '$lib/ui/panel-widths.svelte';
 	import Icon from './Icon.svelte';
 	import MemberItem from './MemberItem.svelte';
 	import ResizeHandle from './ResizeHandle.svelte';
 
 	interface Props {
-		friends: MockFriend[];
+		friends: Member[];
+		requests: Member[];
 		width: number;
 	}
 
-	let { friends, width = $bindable() }: Props = $props();
+	let { friends, requests, width = $bindable() }: Props = $props();
 
 	let pendingCollapsed = $state(false);
 
-	const pending = $derived(friends.filter((f) => f.pending));
-	const online = $derived(friends.filter((f) => !f.pending && f.online));
-	const offline = $derived(friends.filter((f) => !f.pending && !f.online));
-	const total = $derived(friends.length - pending.length);
+	const online = $derived(friends.filter((f) => f.online));
+	const offline = $derived(friends.filter((f) => !f.online));
+	const total = $derived(friends.length);
 </script>
 
 <aside class="panel relative flex shrink-0 flex-col" style="width: {width}px">
@@ -43,7 +43,7 @@
 			</div>
 		{/snippet}
 
-		{#if pending.length > 0}
+		{#if requests.length > 0}
 			<div class="mb-2">
 				<button
 					type="button"
@@ -56,13 +56,13 @@
 						size={12}
 						class="transition-transform duration-300 ease-soft {pendingCollapsed ? '-rotate-90' : ''}"
 					/>
-					<span>Запросы — {pending.length}</span>
+					<span>Запросы — {requests.length}</span>
 				</button>
 
 				<div class="collapsible {pendingCollapsed ? '' : 'is-open'}" inert={pendingCollapsed}>
 					<div>
 						<div class="flex flex-col gap-0.5 pt-0.5">
-							{#each pending as friend (friend.id)}
+							{#each requests as friend (friend.id)}
 								<div class="flex items-center">
 									<div class="min-w-0 flex-1">
 										<MemberItem member={friend} />
@@ -93,7 +93,7 @@
 			</div>
 		{/if}
 
-		{#snippet group(label: string, list: MockFriend[])}
+		{#snippet group(label: string, list: Member[])}
 			{#if list.length > 0}
 				<div class="mb-2">
 					{@render heading(label, list.length)}
