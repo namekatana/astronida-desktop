@@ -4,12 +4,17 @@ import type {
 	DisconnectCause,
 	EncryptionKey,
 	VoiceCredentials,
+	VoiceQuality,
+	VoiceStats,
 	VoiceTransport,
 	VoiceTransportHandlers
 } from './transport';
 
 const stateEvent = 'voice://state';
 const participantEvent = 'voice://participant';
+const speakingEvent = 'voice://speaking';
+const qualityEvent = 'voice://quality';
+const statsEvent = 'voice://stats';
 
 interface StateEvent {
 	generation: number;
@@ -20,12 +25,29 @@ interface StateEvent {
 interface ParticipantEvent {
 	generation: number;
 	identity: string;
-	kind: 'subscribed' | 'unsubscribed';
+	kind: 'subscribed' | 'unsubscribed' | 'left';
+}
+
+interface SpeakingEvent {
+	generation: number;
+	identities: string[];
+}
+
+interface QualityEvent {
+	generation: number;
+	identity?: string;
+	quality: VoiceQuality;
+}
+
+interface StatsEvent extends VoiceStats {
+	generation: number;
+	identity?: string;
 }
 
 interface Connected {
 	generation: number;
 	encrypted: boolean;
+	participants: string[];
 }
 
 export function createNativeTransport(handlers: VoiceTransportHandlers): VoiceTransport {
@@ -41,9 +63,18 @@ export function createNativeTransport(handlers: VoiceTransportHandlers): VoiceTr
 		void invoke('voice_set_volume', { userId, volume }).catch(() => {});
 	}
 
+	function handleParticipant(event: ParticipantEvent) {
+		if (event.kind === 'subscribed') {
+			applyVolume(event.identity, handlers.volumeFor(event.identity));
+		} else if (event.kind === 'left') {
+			handlers.onParticipantQuality(event.identity, null);
+			handlers.onParticipantStats(event.identity, null);
+		}
+	}
+
 	async function subscribe() {
-		unlisteners.push(
-			await listen<StateEvent>(stateEvent, ({ payload }) => {
+		const listening = await Promise.all([
+			listen<StateEvent>(stateEvent, ({ payload }) => {
 				if (!mine(payload)) return;
 				if (payload.kind === 'disconnected') {
 					handlers.onState({ kind: 'disconnected', cause: payload.cause ?? 'network' });
@@ -51,11 +82,29 @@ export function createNativeTransport(handlers: VoiceTransportHandlers): VoiceTr
 					handlers.onState({ kind: payload.kind });
 				}
 			}),
-			await listen<ParticipantEvent>(participantEvent, ({ payload }) => {
-				if (!mine(payload) || payload.kind !== 'subscribed') return;
-				applyVolume(payload.identity, handlers.volumeFor(payload.identity));
+			listen<ParticipantEvent>(participantEvent, ({ payload }) => {
+				if (mine(payload)) handleParticipant(payload);
+			}),
+			listen<SpeakingEvent>(speakingEvent, ({ payload }) => {
+				if (mine(payload)) handlers.onSpeaking(payload.identities);
+			}),
+			listen<QualityEvent>(qualityEvent, ({ payload }) => {
+				if (!mine(payload)) return;
+				if (payload.identity === undefined) handlers.onQuality(payload.quality);
+				else handlers.onParticipantQuality(payload.identity, payload.quality);
+			}),
+			listen<StatsEvent>(statsEvent, ({ payload }) => {
+				if (!mine(payload)) return;
+				const stats = { rttMs: payload.rttMs, lossPercent: payload.lossPercent };
+				if (payload.identity === undefined) handlers.onStats(stats);
+				else handlers.onParticipantStats(payload.identity, stats);
 			})
-		);
+		]);
+		if (closed) {
+			for (const unlisten of listening) unlisten();
+			return;
+		}
+		unlisteners.push(...listening);
 	}
 
 	function unsubscribe() {
@@ -69,6 +118,9 @@ export function createNativeTransport(handlers: VoiceTransportHandlers): VoiceTr
 			const connected = await invoke<Connected>('voice_connect', { credentials, options });
 			generation = connected.generation;
 			handlers.onEncryption(connected.encrypted);
+			for (const identity of connected.participants) {
+				applyVolume(identity, handlers.volumeFor(identity));
+			}
 		},
 
 		async disconnect() {
@@ -90,7 +142,7 @@ export function createNativeTransport(handlers: VoiceTransportHandlers): VoiceTr
 		},
 
 		async rotateKey(next: EncryptionKey) {
-			await invoke('voice_rotate_key', { next });
+			await invoke('voice_rotate_key', { next }).catch(() => {});
 		}
 	};
 }
