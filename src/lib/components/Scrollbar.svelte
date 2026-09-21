@@ -47,7 +47,7 @@
 		const resize = new ResizeObserver(measure);
 		resize.observe(target);
 		const mutation = new MutationObserver(measure);
-		mutation.observe(target, { childList: true, subtree: true, characterData: true });
+		mutation.observe(target, { childList: true, subtree: true });
 		const offScroll = on(
 			target,
 			'scroll',

@@ -58,8 +58,8 @@ function collect(presence: Presence): ServerPresence {
 	const voice: Record<string, VoiceMember[]> = {};
 	presence.list((userId: string, { metas }: { metas: PresenceMeta[] }) => {
 		online.add(userId);
-		const meta = metas.find((candidate) => candidate.voice_channel_id);
-		if (!meta?.voice_channel_id) return;
+		const meta = metas.find((candidate) => typeof candidate.voice_channel_id === 'string');
+		if (!meta || typeof meta.voice_channel_id !== 'string') return;
 		(voice[meta.voice_channel_id] ??= []).push({
 			userId,
 			micMuted: meta.mic_muted === true,

@@ -230,22 +230,23 @@
 			if (userId === data.userId) return voice.quality;
 			return worstQuality(qualityFromStats(stats), voice.participantQuality[userId]);
 		};
-		const listed = inVoice.flatMap((entry) =>
-			roster
-				.filter((member) => member.id === entry.userId)
-				.map((member) => {
-					const stats = statsOf(member.id);
-					return {
-						...member,
-						self: member.id === data.userId,
-						micMuted: entry.micMuted,
-						deafened: entry.deafened,
-						speaking: speakingHere.includes(member.id),
-						quality: qualityOf(member.id, stats),
-						stats
-					};
-				})
-		);
+		const byId = new Map(roster.map((member) => [member.id, member]));
+		const speaking = new Set(speakingHere);
+		const listed: VoiceOccupant[] = [];
+		for (const entry of inVoice) {
+			const member = byId.get(entry.userId);
+			if (!member) continue;
+			const stats = statsOf(member.id);
+			listed.push({
+				...member,
+				self: member.id === data.userId,
+				micMuted: entry.micMuted,
+				deafened: entry.deafened,
+				speaking: speaking.has(member.id),
+				quality: qualityOf(member.id, stats),
+				stats
+			});
+		}
 		const selfIndex = listed.findIndex((member) => member.id === data.userId);
 		if (selfIndex <= 0) return listed;
 		return [listed[selfIndex], ...listed.slice(0, selfIndex), ...listed.slice(selfIndex + 1)];

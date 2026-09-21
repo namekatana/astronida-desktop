@@ -31,7 +31,10 @@ export interface WorkspaceCache {
 	presence: Record<string, ServerPresence>;
 }
 
+type Section = keyof StoredCache;
+
 const keyPrefix = 'astronida.cache.';
+const sections: Section[] = ['account', 'workspaces', 'presence'];
 const writeDelayMs = 300;
 
 const empty = (): StoredCache => ({ account: null, workspaces: {}, presence: {} });
@@ -39,36 +42,44 @@ const empty = (): StoredCache => ({ account: null, workspaces: {}, presence: {} 
 let stored: StoredCache = empty();
 let storedFor: string | null = null;
 let writeTimer: ReturnType<typeof setTimeout> | null = null;
+const dirty = new Set<Section>();
 
-function keyFor(userId: string) {
-	return keyPrefix + userId;
+function keyFor(userId: string, section: Section) {
+	return `${keyPrefix}${userId}.${section}`;
+}
+
+function readSection<K extends Section>(userId: string, section: K, fallback: StoredCache[K]) {
+	try {
+		const raw = localStorage.getItem(keyFor(userId, section));
+		return raw ? (JSON.parse(raw) as StoredCache[K]) : fallback;
+	} catch {
+		return fallback;
+	}
 }
 
 function load(userId: string): StoredCache {
 	if (storedFor === userId) return stored;
 	storedFor = userId;
-	try {
-		const raw = localStorage.getItem(keyFor(userId));
-		const parsed = raw ? (JSON.parse(raw) as Partial<StoredCache>) : {};
-		stored = {
-			account: parsed.account ?? null,
-			workspaces: parsed.workspaces ?? {},
-			presence: parsed.presence ?? {}
-		};
-	} catch {
-		stored = empty();
-	}
+	stored = {
+		account: readSection(userId, 'account', null),
+		workspaces: readSection(userId, 'workspaces', {}),
+		presence: readSection(userId, 'presence', {})
+	};
 	return stored;
 }
 
-function scheduleWrite(userId: string) {
+function scheduleWrite(userId: string, section: Section) {
+	dirty.add(section);
 	if (writeTimer) clearTimeout(writeTimer);
 	writeTimer = setTimeout(() => {
 		writeTimer = null;
-		try {
-			localStorage.setItem(keyFor(userId), JSON.stringify(stored));
-		} catch {
+		for (const changed of dirty) {
+			try {
+				localStorage.setItem(keyFor(userId, changed), JSON.stringify(stored[changed]));
+			} catch {
+			}
 		}
+		dirty.clear();
 	}, writeDelayMs);
 }
 
@@ -89,26 +100,28 @@ export const workspaceCache = {
 
 	savePresence(userId: string, serverId: string, presence: ServerPresence) {
 		load(userId).presence[serverId] = { online: [...presence.online], voice: presence.voice };
-		scheduleWrite(userId);
+		scheduleWrite(userId, 'presence');
 	},
 
 	saveAccount(userId: string, account: CachedAccount) {
 		load(userId).account = account;
-		scheduleWrite(userId);
+		scheduleWrite(userId, 'account');
 	},
 
 	saveWorkspace(userId: string, serverId: string, workspace: Workspace) {
 		load(userId).workspaces[serverId] = workspace;
-		scheduleWrite(userId);
+		scheduleWrite(userId, 'workspaces');
 	},
 
 	clear(userId: string) {
 		if (writeTimer) clearTimeout(writeTimer);
 		writeTimer = null;
+		dirty.clear();
 		stored = empty();
 		storedFor = null;
 		try {
-			localStorage.removeItem(keyFor(userId));
+			localStorage.removeItem(keyPrefix + userId);
+			for (const section of sections) localStorage.removeItem(keyFor(userId, section));
 		} catch {
 		}
 	}
