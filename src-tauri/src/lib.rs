@@ -18,6 +18,9 @@ pub fn run() {
             history::history_clear,
             voice::voice_connect,
             voice::voice_rotate_key,
+            voice::voice_set_microphone,
+            voice::voice_set_deafened,
+            voice::voice_set_volume,
             voice::voice_disconnect
         ])
         .run(tauri::generate_context!())

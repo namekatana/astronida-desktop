@@ -1,3 +1,4 @@
+mod audio;
 mod session;
 
 use base64::prelude::*;
@@ -29,6 +30,12 @@ pub struct Credentials {
     e2ee: EncryptionKey,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConnectOptions {
+    microphone: bool,
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Connected {
@@ -38,6 +45,14 @@ pub struct Connected {
 
 pub fn init(app: &AppHandle) {
     app.manage(VoiceEngine { session: Mutex::new(None), generation: AtomicU64::new(0) });
+}
+
+fn validate_url(url: &str) -> Result<(), String> {
+    if url.starts_with("ws://") || url.starts_with("wss://") {
+        Ok(())
+    } else {
+        Err("invalid_url".to_string())
+    }
 }
 
 fn decode_key(encoded: &str) -> Result<Vec<u8>, String> {
@@ -60,7 +75,9 @@ pub async fn voice_connect(
     app: AppHandle,
     engine: State<'_, VoiceEngine>,
     credentials: Credentials,
+    options: ConnectOptions,
 ) -> Result<Connected, String> {
+    validate_url(&credentials.url)?;
     let key = decode_key(&credentials.e2ee.key)?;
     close_current(&engine).await;
     let generation = engine.generation.fetch_add(1, Ordering::SeqCst) + 1;
@@ -71,6 +88,7 @@ pub async fn voice_connect(
         &credentials.token,
         key,
         credentials.e2ee.version,
+        options.microphone,
     )
     .await?;
     let mut slot = engine.session.lock().await;
@@ -97,6 +115,45 @@ pub async fn voice_rotate_key(
         }
         None => Err("not_connected".to_string()),
     }
+}
+
+async fn with_session(
+    engine: &VoiceEngine,
+    apply: impl FnOnce(&Session),
+) -> Result<(), String> {
+    let slot = engine.session.lock().await;
+    match slot.as_ref() {
+        Some(session) => {
+            apply(session);
+            Ok(())
+        }
+        None => Err("not_connected".to_string()),
+    }
+}
+
+#[tauri::command]
+pub async fn voice_set_microphone(
+    engine: State<'_, VoiceEngine>,
+    enabled: bool,
+) -> Result<(), String> {
+    with_session(&engine, |session| session.set_microphone_enabled(enabled)).await
+}
+
+#[tauri::command]
+pub async fn voice_set_deafened(
+    engine: State<'_, VoiceEngine>,
+    deafened: bool,
+) -> Result<(), String> {
+    with_session(&engine, |session| session.set_deafened(deafened)).await
+}
+
+#[tauri::command]
+pub async fn voice_set_volume(
+    engine: State<'_, VoiceEngine>,
+    user_id: String,
+    volume: f32,
+) -> Result<(), String> {
+    with_session(&engine, |session| session.set_volume(&user_id, volume)).await
 }
 
 #[tauri::command]

@@ -1,6 +1,10 @@
+use super::audio::{AudioEngine, SAMPLE_RATE};
 use livekit::e2ee::key_provider::{KeyDerivationAlgorithm, KeyProvider, KeyProviderOptions};
 use livekit::e2ee::{E2eeOptions, EncryptionType};
+use livekit::options::{AudioEncoding, TrackPublishOptions};
 use livekit::prelude::*;
+use livekit::webrtc::audio_source::native::NativeAudioSource;
+use livekit::webrtc::audio_source::{AudioSourceOptions, RtcAudioSource};
 use serde::Serialize;
 use std::sync::Arc;
 use std::time::Duration;
@@ -10,8 +14,10 @@ use tokio::sync::mpsc;
 
 const KEYRING_SIZE: i32 = 16;
 const KEY_SWITCH_GRACE: Duration = Duration::from_millis(800);
+const MICROPHONE_BITRATE: u64 = 64_000;
 
 pub const STATE_EVENT: &str = "voice://state";
+pub const PARTICIPANT_EVENT: &str = "voice://participant";
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -22,9 +28,19 @@ pub struct StateEvent {
     pub cause: Option<&'static str>,
 }
 
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ParticipantEvent {
+    pub generation: u64,
+    pub identity: String,
+    pub kind: &'static str,
+}
+
 pub struct Session {
     room: Arc<Room>,
     key_provider: KeyProvider,
+    microphone: LocalAudioTrack,
+    audio: Arc<AudioEngine>,
     events_task: JoinHandle<()>,
     key_switch: Option<JoinHandle<()>>,
 }
@@ -71,9 +87,14 @@ fn emit_state(app: &AppHandle, generation: u64, kind: &'static str, cause: Optio
     let _ = app.emit(STATE_EVENT, StateEvent { generation, kind, cause });
 }
 
+fn emit_participant(app: &AppHandle, generation: u64, identity: String, kind: &'static str) {
+    let _ = app.emit(PARTICIPANT_EVENT, ParticipantEvent { generation, identity, kind });
+}
+
 async fn pump_events(
     app: AppHandle,
     generation: u64,
+    audio: Arc<AudioEngine>,
     mut events: mpsc::UnboundedReceiver<RoomEvent>,
 ) {
     while let Some(event) = events.recv().await {
@@ -84,13 +105,38 @@ async fn pump_events(
             RoomEvent::ConnectionStateChanged(ConnectionState::Connected) => {
                 emit_state(&app, generation, "connected", None);
             }
+            RoomEvent::TrackSubscribed { track: RemoteTrack::Audio(track), participant, .. } => {
+                let identity = participant.identity().to_string();
+                audio.add_participant(identity.clone(), track.rtc_track(), 1.0);
+                emit_participant(&app, generation, identity, "subscribed");
+            }
+            RoomEvent::TrackUnsubscribed { track: RemoteTrack::Audio(_), participant, .. } => {
+                let identity = participant.identity().to_string();
+                audio.remove_participant(&identity);
+                emit_participant(&app, generation, identity, "unsubscribed");
+            }
             RoomEvent::Disconnected { reason } => {
+                let engine = audio.clone();
+                let _ = tauri::async_runtime::spawn_blocking(move || engine.stop()).await;
                 emit_state(&app, generation, "disconnected", Some(cause_of(reason)));
                 break;
             }
             _ => {}
         }
     }
+}
+
+fn microphone_source() -> NativeAudioSource {
+    NativeAudioSource::new(
+        AudioSourceOptions {
+            echo_cancellation: true,
+            noise_suppression: true,
+            auto_gain_control: true,
+        },
+        SAMPLE_RATE,
+        1,
+        0,
+    )
 }
 
 impl Session {
@@ -101,6 +147,7 @@ impl Session {
         token: &str,
         key: Vec<u8>,
         version: u32,
+        microphone_enabled: bool,
     ) -> Result<Session, String> {
         let key_provider = key_provider(key, version);
         let mut options = RoomOptions::default();
@@ -110,13 +157,62 @@ impl Session {
         });
         let (room, events) = Room::connect(url, token, options).await.map_err(|e| e.to_string())?;
         let room = Arc::new(room);
+
+        let source = microphone_source();
+        let audio = match AudioEngine::start(source.clone()) {
+            Ok(engine) => Arc::new(engine),
+            Err(error) => {
+                let _ = room.close().await;
+                return Err(error);
+            }
+        };
+        let microphone =
+            LocalAudioTrack::create_audio_track("microphone", RtcAudioSource::Native(source));
+        if !microphone_enabled {
+            microphone.mute();
+        }
+        let publish = room
+            .local_participant()
+            .publish_track(
+                LocalTrack::Audio(microphone.clone()),
+                TrackPublishOptions {
+                    source: TrackSource::Microphone,
+                    audio_encoding: Some(AudioEncoding { max_bitrate: MICROPHONE_BITRATE }),
+                    dtx: false,
+                    red: true,
+                    ..Default::default()
+                },
+            )
+            .await;
+        if let Err(error) = publish {
+            let _ = room.close().await;
+            return Err(error.to_string());
+        }
         apply_key_index(&room, key_index(version));
-        let events_task = tauri::async_runtime::spawn(pump_events(app, generation, events));
-        Ok(Session { room, key_provider, events_task, key_switch: None })
+
+        let events_task =
+            tauri::async_runtime::spawn(pump_events(app, generation, audio.clone(), events));
+        Ok(Session { room, key_provider, microphone, audio, events_task, key_switch: None })
     }
 
     pub fn encrypted(&self) -> bool {
         self.room.e2ee_manager().enabled()
+    }
+
+    pub fn set_microphone_enabled(&self, enabled: bool) {
+        if enabled {
+            self.microphone.unmute();
+        } else {
+            self.microphone.mute();
+        }
+    }
+
+    pub fn set_deafened(&self, deafened: bool) {
+        self.audio.set_deafened(deafened);
+    }
+
+    pub fn set_volume(&self, identity: &str, volume: f32) {
+        self.audio.set_volume(identity, volume);
     }
 
     pub fn rotate_key(&mut self, key: Vec<u8>, version: u32) {
@@ -138,5 +234,7 @@ impl Session {
         }
         self.events_task.abort();
         let _ = self.room.close().await;
+        let audio = self.audio;
+        let _ = tauri::async_runtime::spawn_blocking(move || drop(audio)).await;
     }
 }
