@@ -73,7 +73,7 @@ export async function signIn(input: { email: string; password: string }): Promis
 
 export async function signOut(): Promise<AuthResult> {
 	disconnectPhoenix();
-	const { error } = await supabase.auth.signOut();
+	const { error } = await supabase.auth.signOut({ scope: 'local' });
 
 	if (error) {
 		return { ok: false, message: describe(error) };
