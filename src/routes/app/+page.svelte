@@ -9,6 +9,7 @@
 	import CreateChannelDialog from '$lib/components/CreateChannelDialog.svelte';
 	import CreateServerDialog from '$lib/components/CreateServerDialog.svelte';
 	import FriendsPanel from '$lib/components/FriendsPanel.svelte';
+	import { history, type HistoryCoverage } from '$lib/history/history';
 	import MemberPanel from '$lib/components/MemberPanel.svelte';
 	import MessageComposer from '$lib/components/MessageComposer.svelte';
 	import MessageList from '$lib/components/MessageList.svelte';
@@ -75,25 +76,17 @@
 	let channelSubmitting = $state(false);
 	let channelError = $state('');
 
-	type Feed = { messages: Message[]; hasMore: boolean };
-	// svelte-ignore state_referenced_locally
-	let feeds = $state<Record<string, Feed>>(
-		Object.fromEntries(
-			Object.entries(data.cache.feeds).map(([channelId, messages]) => [
-				channelId,
-				{ messages, hasMore: messages.length >= pageSize }
-			])
-		)
-	);
+	type Feed = { messages: Message[]; hasMore: boolean; localExhausted: boolean; opened: boolean };
+	let feeds = $state<Record<string, Feed>>({});
 	let messagesLoading = $state(false);
 
 	function feedFor(channelId: string): Feed {
-		return (feeds[channelId] ??= { messages: [], hasMore: false });
-	}
-
-	function persistFeed(channelId: string) {
-		const feed = feeds[channelId];
-		if (feed) workspaceCache.saveFeed(data.userId, channelId, feed.messages);
+		return (feeds[channelId] ??= {
+			messages: [],
+			hasMore: false,
+			localExhausted: false,
+			opened: false
+		});
 	}
 
 	const selectedServer = $derived(servers.find((server) => server.id === selectedServerId) ?? null);
@@ -288,12 +281,7 @@
 		if (change.left.length > 0) playToggleSound('user-left');
 	});
 
-	interface PageCoverage {
-		before?: string;
-		hasMore: boolean;
-	}
-
-	function dropMissing(feed: Feed, incoming: Message[], coverage: PageCoverage): boolean {
+	function dropMissing(feed: Feed, incoming: Message[], coverage: HistoryCoverage): boolean {
 		const oldest = coverage.hasMore ? incoming[0]?.id : undefined;
 		if (coverage.hasMore && oldest === undefined) return false;
 		const present = new Set(incoming.map((m) => m.id));
@@ -309,21 +297,95 @@
 		return true;
 	}
 
-	function mergeMessages(channelId: string, incoming: Message[], coverage?: PageCoverage) {
+	function mergeMessages(channelId: string, incoming: Message[], coverage?: HistoryCoverage) {
 		const feed = feedFor(channelId);
-		const removed = coverage ? dropMissing(feed, incoming, coverage) : false;
+		if (coverage) dropMissing(feed, incoming, coverage);
 		const known = new Set(feed.messages.map((m) => m.id));
 		const fresh = incoming.filter((message) => !known.has(message.id));
-		if (fresh.length === 0) {
-			if (removed) persistFeed(channelId);
-			return;
-		}
+		if (fresh.length === 0) return;
 		const last = feed.messages.at(-1);
 		const appendsInOrder =
 			fresh.every((m, i) => i === 0 || fresh[i - 1].id < m.id) && (!last || last.id < fresh[0].id);
 		feed.messages.push(...fresh);
 		if (!appendsInOrder) sortMessages(feed);
-		persistFeed(channelId);
+	}
+
+	function absorb(
+		channelId: string,
+		incoming: Message[],
+		options?: { coverage?: HistoryCoverage; reachedStart?: boolean }
+	) {
+		mergeMessages(channelId, incoming, options?.coverage);
+		history.store(channelId, incoming, options).catch(() => {});
+	}
+
+	function unloaded(feed: Feed) {
+		return feed.messages.every((m) => m.status !== undefined);
+	}
+
+	async function openFeed(channelId: string) {
+		const feed = feedFor(channelId);
+		if (!unloaded(feed)) return;
+		try {
+			const page = await history.page(channelId);
+			mergeMessages(channelId, page.messages);
+			feed.localExhausted = page.messages.length < pageSize;
+			feed.hasMore = !feed.localExhausted || !page.reachedStart;
+		} catch {
+			feed.localExhausted = true;
+			feed.hasMore = true;
+		}
+	}
+
+	const maxCatchUpPages = 10;
+	const syncs = new Map<string, Promise<void>>();
+
+	function scheduleSync(channelId: string): Promise<void> {
+		const next = (syncs.get(channelId) ?? Promise.resolve())
+			.then(() => syncChannel(channelId))
+			.catch(() => {});
+		syncs.set(channelId, next);
+		return next;
+	}
+
+	async function syncChannel(channelId: string) {
+		const feed = feedFor(channelId);
+		const newestLocal = newestConfirmedId(feed);
+		const latest = await loadMessages({ channelId });
+		if (!latest) return;
+		absorb(channelId, latest.messages, {
+			coverage: { hasMore: latest.hasMore },
+			reachedStart: latest.hasMore ? undefined : true
+		});
+		const oldest = latest.messages[0]?.id;
+		if (newestLocal === undefined || !latest.hasMore || oldest === undefined) {
+			feed.localExhausted = true;
+			feed.hasMore = latest.hasMore;
+			return;
+		}
+		if (oldest <= newestLocal) return;
+
+		let cursor = newestLocal;
+		for (let page = 1; page < maxCatchUpPages; page++) {
+			const loaded = await loadMessages({ channelId, after: cursor });
+			if (!loaded) return;
+			absorb(channelId, loaded.messages);
+			const last = loaded.messages.at(-1)?.id;
+			if (!loaded.hasMore || last === undefined || last >= oldest) return;
+			cursor = last;
+		}
+		await resetFeed(channelId);
+	}
+
+	async function resetFeed(channelId: string) {
+		const latest = await loadMessages({ channelId });
+		if (!latest) return;
+		await history.dropChannel(channelId);
+		const feed = feedFor(channelId);
+		feed.messages = feed.messages.filter((m) => m.status !== undefined);
+		absorb(channelId, latest.messages, { reachedStart: !latest.hasMore });
+		feed.localExhausted = true;
+		feed.hasMore = latest.hasMore;
 	}
 
 	function newestConfirmedId(feed: Feed): string | undefined {
@@ -344,35 +406,29 @@
 
 		let stale = false;
 		const feed = untrack(() => feedFor(channel.id));
-		const unloaded = () => untrack(() => feed.messages.every((m) => m.status !== undefined));
-		messagesLoading = unloaded();
-		const initialLoad = loadMessages({ channelId: channel.id }).then((loaded) => {
-			if (stale) return;
-			messagesLoading = false;
-			if (!loaded) return;
-			const firstLoad = unloaded();
-			mergeMessages(channel.id, loaded.messages, { hasMore: loaded.hasMore });
-			if (firstLoad) feed.hasMore = loaded.hasMore;
-		});
+		messagesLoading = untrack(() => unloaded(feed));
+		const opened = untrack(() => openFeed(channel.id))
+			.then(() => {
+				if (!stale && !unloaded(feed)) messagesLoading = false;
+				return scheduleSync(channel.id);
+			})
+			.then(() => {
+				if (!stale) messagesLoading = false;
+			});
 		const unsubscribe = subscribeToChannel({
 			channelId: channel.id,
 			onMessage: (message) => {
 				if (stale) return;
 				clearTyping(channel.id, message.author.id);
-				mergeMessages(channel.id, [message]);
+				absorb(channel.id, [message]);
 			},
 			onTyping: (userId) => {
 				if (!stale && userId !== data.userId) markTyping(channel.id, userId);
 			},
 			onReady: () => {
-				initialLoad
-					.then(() => {
-						if (stale) return;
-						return loadMessages({ channelId: channel.id, after: newestConfirmedId(feed) });
-					})
-					.then((loaded) => {
-						if (loaded && !stale) mergeMessages(channel.id, loaded.messages);
-					});
+				opened.then(() => {
+					if (!stale) void scheduleSync(channel.id);
+				});
 			}
 		});
 		return () => {
@@ -467,13 +523,35 @@
 		if (!channel || !oldest || messagesLoading || !hasMoreMessages) return;
 
 		messagesLoading = true;
-		const loaded = await loadMessages({ channelId: channel.id, before: oldest.id });
-		const feed = feeds[channel.id];
-		if (feed && loaded) {
-			mergeMessages(channel.id, loaded.messages, { before: oldest.id, hasMore: loaded.hasMore });
-			feed.hasMore = loaded.hasMore;
+		const feed = feedFor(channel.id);
+		if (feed.localExhausted) {
+			await loadOlderFromServer(channel.id, oldest.id);
+		} else {
+			await loadOlderFromDisk(channel.id, oldest.id);
 		}
 		if (selectedChannel?.id === channel.id) messagesLoading = false;
+	}
+
+	async function loadOlderFromDisk(channelId: string, before: string) {
+		const feed = feedFor(channelId);
+		try {
+			const page = await history.page(channelId, before);
+			mergeMessages(channelId, page.messages);
+			feed.localExhausted = page.messages.length < pageSize;
+			feed.hasMore = !feed.localExhausted || !page.reachedStart;
+		} catch {
+			feed.localExhausted = true;
+		}
+	}
+
+	async function loadOlderFromServer(channelId: string, before: string) {
+		const loaded = await loadMessages({ channelId, before });
+		if (!loaded) return;
+		absorb(channelId, loaded.messages, {
+			coverage: { before, hasMore: loaded.hasMore },
+			reachedStart: !loaded.hasMore
+		});
+		feedFor(channelId).hasMore = loaded.hasMore;
 	}
 
 	let pendingCounter = 0;
@@ -528,7 +606,7 @@
 		}
 		feed.messages[index] = result.message;
 		sortMessages(feed);
-		persistFeed(channelId);
+		history.store(channelId, [result.message]).catch(() => {});
 	}
 
 	function retrySend(messageId: string) {
@@ -544,6 +622,7 @@
 		voice.disconnect();
 		await signOut();
 		workspaceCache.clear(data.userId);
+		await history.clear().catch(() => {});
 		signingOut = false;
 		await goto('/');
 	}

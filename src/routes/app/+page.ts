@@ -1,6 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import { auth } from '$lib/auth/session.svelte';
 import { workspaceCache, type CachedAccount } from '$lib/cache/workspace-cache';
+import { history } from '$lib/history/history';
 import { loadServers } from '$lib/servers/servers';
 import { supabase } from '$lib/supabase/client';
 import { retryOnFreshToken } from '$lib/supabase/retry';
@@ -25,6 +26,7 @@ export async function load() {
 
 	const cache = workspaceCache.read(user.id);
 	const refresh = fetchAccount(user.id);
+	await history.open(user.id).catch(() => {});
 	const account = cache.account ?? (await refresh);
 
 	return { userId: user.id, account, refresh, cache };
