@@ -1,5 +1,6 @@
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
 use tauri::{AppHandle, Manager, State};
 
@@ -27,7 +28,12 @@ const SCHEMA: &str = "
     );
 ";
 
-pub struct History(Mutex<Option<Connection>>);
+pub struct History(Mutex<Option<Account>>);
+
+pub struct Account {
+    connection: Connection,
+    dir: PathBuf,
+}
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -70,12 +76,14 @@ fn describe(error: impl ToString) -> String {
     error.to_string()
 }
 
-fn lock<'a>(history: &'a State<'a, History>) -> Result<MutexGuard<'a, Option<Connection>>, String> {
+fn lock<'a>(history: &'a State<'a, History>) -> Result<MutexGuard<'a, Option<Account>>, String> {
     history.0.lock().map_err(|_| "history storage is locked".to_string())
 }
 
-fn opened(slot: &mut Option<Connection>) -> Result<&mut Connection, String> {
-    slot.as_mut().ok_or_else(|| "history is not open".to_string())
+fn opened(slot: &mut Option<Account>) -> Result<&mut Connection, String> {
+    slot.as_mut()
+        .map(|account| &mut account.connection)
+        .ok_or_else(|| "history is not open".to_string())
 }
 
 fn valid_user_id(user_id: &str) -> bool {
@@ -89,11 +97,16 @@ pub fn history_open(app: AppHandle, history: State<History>, user_id: String) ->
     if !valid_user_id(&user_id) {
         return Err("invalid user id".to_string());
     }
-    let dir = app.path().app_data_dir().map_err(describe)?;
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(describe)?
+        .join("accounts")
+        .join(&user_id);
     std::fs::create_dir_all(&dir).map_err(describe)?;
-    let connection = Connection::open(dir.join(format!("history-{user_id}.sqlite"))).map_err(describe)?;
+    let connection = Connection::open(dir.join("history.sqlite")).map_err(describe)?;
     connection.execute_batch(SCHEMA).map_err(describe)?;
-    *lock(&history)? = Some(connection);
+    *lock(&history)? = Some(Account { connection, dir });
     Ok(())
 }
 
@@ -237,8 +250,9 @@ pub fn history_drop_channel(history: State<History>, channel_id: String) -> Resu
 
 #[tauri::command]
 pub fn history_clear(history: State<History>) -> Result<(), String> {
-    let mut slot = lock(&history)?;
-    opened(&mut slot)?
-        .execute_batch("DELETE FROM messages; DELETE FROM profiles; DELETE FROM channel_sync;")
-        .map_err(describe)
+    let account = lock(&history)?
+        .take()
+        .ok_or_else(|| "history is not open".to_string())?;
+    account.connection.close().map_err(|(_, error)| describe(error))?;
+    std::fs::remove_dir_all(&account.dir).map_err(describe)
 }
