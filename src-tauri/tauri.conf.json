@@ -20,7 +20,8 @@
         "minHeight": 660,
         "center": true,
         "decorations": false,
-        "backgroundColor": "#0A0A0B"
+        "backgroundColor": "#0A0A0B",
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,CalculateNativeWinOcclusion --disable-background-timer-throttling"
       }
     ],
     "security": {

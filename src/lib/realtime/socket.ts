@@ -1,5 +1,6 @@
 import { PUBLIC_PHOENIX_URL } from '$env/static/public';
 import { Socket } from 'phoenix';
+import { untrack } from 'svelte';
 import { auth } from '$lib/auth/session.svelte';
 
 const ticketUrl = PUBLIC_PHOENIX_URL.replace(/^ws/, 'http').replace(
@@ -14,7 +15,7 @@ let ticket = '';
 let pendingTicket: Promise<void> | null = null;
 
 async function fetchTicket(): Promise<string> {
-	const token = auth.session?.access_token;
+	const token = untrack(() => auth.session?.access_token);
 	if (!token) return '';
 	try {
 		const response = await fetch(ticketUrl, {
@@ -42,10 +43,15 @@ function refreshTicket(): Promise<void> {
 	return pendingTicket;
 }
 
+function keepReconnectingWhileHidden(target: Socket) {
+	Object.defineProperty(target, 'pageHidden', { get: () => false });
+}
+
 export function phoenixSocket(): Socket {
 	if (socket) return socket;
 
 	const created = new Socket(PUBLIC_PHOENIX_URL, { params: () => ({ ticket }) });
+	keepReconnectingWhileHidden(created);
 	created.onOpen(() => {
 		ticket = '';
 		void refreshTicket();

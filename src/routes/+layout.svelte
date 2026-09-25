@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { dev } from '$app/environment';
 	import '../app.css';
 	import TitleBar from '$lib/components/TitleBar.svelte';
 	import { updates } from '$lib/updates/updates.svelte';
@@ -16,9 +17,18 @@
 		updateActivity();
 		updates.schedule();
 	});
+
+	function isReloadShortcut(event: KeyboardEvent): boolean {
+		if (event.key === 'F5') return true;
+		return (event.ctrlKey || event.metaKey) && event.code === 'KeyR';
+	}
+
+	function blockReload(event: KeyboardEvent) {
+		if (!dev && isReloadShortcut(event)) event.preventDefault();
+	}
 </script>
 
-<svelte:window onfocus={updateActivity} onblur={updateActivity} />
+<svelte:window onfocus={updateActivity} onblur={updateActivity} onkeydown={blockReload} />
 <svelte:document onvisibilitychange={updateActivity} />
 
 <div class="smooth-text flex h-screen flex-col bg-bg" data-inactive={windowActive ? undefined : ''}>
