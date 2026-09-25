@@ -37,7 +37,7 @@
 		</div>
 
 		<p
-			class="flex h-9 items-center justify-center text-center text-[13px] leading-5 text-danger transition-opacity duration-300 {error
+			class="flex h-9 items-center justify-center text-center text-[13px] leading-5 text-danger transition-opacity duration-200 {error
 				? 'opacity-100'
 				: 'opacity-0'}"
 		>

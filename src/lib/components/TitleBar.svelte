@@ -21,7 +21,7 @@
 	<button
 		type="button"
 		aria-label="Свернуть"
-		class="flex h-7 w-7 items-center justify-center rounded-lg text-muted transition-all duration-200 hover:bg-white/[0.07] hover:text-ink"
+		class="flex h-7 w-7 items-center justify-center rounded-lg text-muted transition-colors duration-200 hover:bg-white/[0.07] hover:text-ink"
 		onclick={() => appWindow.minimize()}
 	>
 		<svg
@@ -41,7 +41,7 @@
 	<button
 		type="button"
 		aria-label="Развернуть"
-		class="flex h-7 w-7 items-center justify-center rounded-lg text-muted transition-all duration-200 hover:bg-white/[0.07] hover:text-ink"
+		class="flex h-7 w-7 items-center justify-center rounded-lg text-muted transition-colors duration-200 hover:bg-white/[0.07] hover:text-ink"
 		onclick={() => appWindow.toggleMaximize()}
 	>
 		<svg
@@ -60,7 +60,7 @@
 	<button
 		type="button"
 		aria-label="Закрыть"
-		class="flex h-7 w-7 items-center justify-center rounded-lg text-muted transition-all duration-200 hover:bg-danger/90 hover:text-white"
+		class="flex h-7 w-7 items-center justify-center rounded-lg text-muted transition-colors duration-200 hover:bg-danger/90 hover:text-white"
 		onclick={() => appWindow.close()}
 	>
 		<svg

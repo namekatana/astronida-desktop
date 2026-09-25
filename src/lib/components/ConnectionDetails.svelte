@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { fade, fly } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
 	import { dismissOn } from '$lib/ui/dismiss';
+	import { pop } from '$lib/ui/pop';
 	import { qualityColorClass } from '$lib/voice/quality';
 	import type { VoiceQuality } from '$lib/voice/transport';
 	import { voice } from '$lib/voice/voice.svelte';
@@ -77,10 +78,10 @@
 	bind:this={root}
 	role="dialog"
 	aria-label="Соединение"
-	in:fly={{ y: 6, duration: 220, easing: (t) => 1 - Math.pow(1 - t, 3) }}
+	in:pop={{ y: 6, duration: 220 }}
 	out:fade={{ duration: 120 }}
 	style="left: {left}px; bottom: {bottom}px; width: {width}px"
-	class="panel fixed z-50 px-4 pt-3.5 pb-4"
+	class="panel fixed z-50 origin-bottom-right px-4 pt-3.5 pb-4"
 >
 	<div class="text-[11px] font-medium tracking-[0.1em] text-muted uppercase">Соединение</div>
 	<div class="mt-2 grid grid-cols-3 gap-2">
@@ -135,7 +136,7 @@
 		<button
 			type="button"
 			onclick={copyCode}
-			class="mt-2 flex h-8 w-full items-center justify-center gap-1.5 rounded-lg text-[12px] transition-colors duration-150 {copied
+			class="pressable mt-2 flex h-8 w-full items-center justify-center gap-1.5 rounded-lg text-[12px] duration-150 {copied
 				? 'bg-online/10 text-online'
 				: 'bg-white/[0.04] text-ink-secondary hover:bg-white/[0.08] hover:text-ink'}"
 		>

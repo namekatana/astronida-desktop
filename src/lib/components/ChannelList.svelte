@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { prefersReducedMotion } from 'svelte/motion';
 	import type { Channel } from '$lib/channels/channels';
 	import type { VoiceOccupant } from '$lib/voice/occupant';
 	import ChannelItem from './ChannelItem.svelte';
@@ -20,7 +21,7 @@
 	let highlightVisible = $state(false);
 	let move = $state<'none' | 'slide' | 'follow'>('none');
 
-	const layoutSettleMs = 500;
+	const layoutSettleMs = 320;
 	let followUntil = 0;
 	let followFrame: number | null = null;
 
@@ -64,8 +65,8 @@
 	});
 
 	const transition = $derived(
-		(move === 'slide'
-			? 'translate 320ms cubic-bezier(0.4, 0, 0.2, 1), '
+		(move === 'slide' && !prefersReducedMotion.current
+			? 'translate 200ms var(--ease-move), '
 			: move === 'follow'
 				? 'translate 120ms ease-out, '
 				: '') + 'scale 220ms var(--ease-soft), opacity 220ms ease-out'

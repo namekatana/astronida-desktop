@@ -38,7 +38,7 @@
 				type="button"
 				aria-label="Добавить аватар"
 				title="Скоро"
-				class="flex h-[72px] w-[72px] items-center justify-center rounded-full border border-dashed border-line text-muted transition-colors duration-200 hover:border-line-strong hover:text-ink"
+				class="pressable flex h-[72px] w-[72px] items-center justify-center rounded-full border border-dashed border-line text-muted duration-200 hover:border-line-strong hover:text-ink"
 			>
 				<Icon name="camera" size={22} />
 			</button>
@@ -50,7 +50,7 @@
 		</div>
 
 		<p
-			class="flex h-9 items-center justify-center text-center text-[13px] leading-5 text-danger transition-opacity duration-300 {error
+			class="flex h-9 items-center justify-center text-center text-[13px] leading-5 text-danger transition-opacity duration-200 {error
 				? 'opacity-100'
 				: 'opacity-0'}"
 		>

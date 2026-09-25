@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { fade, fly } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
 	import type { ChannelKind } from '$lib/channels/channels';
 	import { dismissOn } from '$lib/ui/dismiss';
+	import { pop } from '$lib/ui/pop';
 	import Icon from './Icon.svelte';
 
 	interface Props {
@@ -32,7 +33,7 @@
 		aria-haspopup="menu"
 		aria-expanded={open}
 		onclick={() => (open = !open)}
-		class="flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-200 {open
+		class="pressable flex h-8 w-8 items-center justify-center rounded-full duration-200 {open
 			? 'bg-white/[0.06] text-ink'
 			: 'text-muted hover:bg-white/[0.06] hover:text-ink'}"
 	>
@@ -42,7 +43,7 @@
 	{#if open}
 		<div
 			role="menu"
-			in:fly={{ y: -6, duration: 220, easing: (t) => 1 - Math.pow(1 - t, 3) }}
+			in:pop={{ y: -6, duration: 220 }}
 			out:fade={{ duration: 120 }}
 			class="panel absolute top-full right-0 z-50 mt-2 w-52 origin-top-right p-1.5"
 		>

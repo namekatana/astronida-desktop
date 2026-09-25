@@ -107,13 +107,13 @@
 		<div class="flex flex-col items-center">
 			<img src="/logo.png" alt="" class="anim-logo h-16 w-auto" />
 			<span class="anim-wordmark mt-4 pl-[0.42em] text-[13px] text-muted">ASTRONIDA</span>
-			<p class="anim-fade mt-2 text-[13px] text-ink-secondary [animation-delay:0.5s]">
+			<p class="anim-fade mt-2 text-[13px] text-ink-secondary [animation-delay:0.2s]">
 				Голос и текст для своих
 			</p>
 		</div>
 
 		<form class="mt-8 flex flex-col" onsubmit={handleSubmit}>
-			<div class="anim-rise [animation-delay:0.38s]">
+			<div class="anim-rise [animation-delay:0.25s]">
 				<PillInput
 					label="Email"
 					type="email"
@@ -146,7 +146,7 @@
 				</div>
 			{/snippet}
 
-			<div class="anim-rise mt-4 [animation-delay:0.46s]">
+			<div class="anim-rise mt-4 [animation-delay:0.31s]">
 				<PillInput
 					label="Пароль"
 					type="password"
@@ -171,9 +171,9 @@
 				</div>
 			</div>
 
-			<div class="anim-rise [animation-delay:0.54s]">
+			<div class="anim-rise [animation-delay:0.37s]">
 				<p
-					class="flex h-9 items-center justify-center text-center text-[13px] leading-5 text-danger transition-opacity duration-300 {error
+					class="flex h-9 items-center justify-center text-center text-[13px] leading-5 text-danger transition-opacity duration-200 {error
 						? 'opacity-100'
 						: 'opacity-0'}"
 				>
@@ -209,7 +209,7 @@
 			</div>
 		</form>
 
-		<div class="anim-fade mt-6 grid justify-items-center [animation-delay:0.7s]">
+		<div class="anim-fade mt-6 grid justify-items-center [animation-delay:0.45s]">
 			{#key mode}
 				<p
 					class="col-start-1 row-start-1 text-[13px] text-muted"

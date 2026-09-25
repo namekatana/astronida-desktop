@@ -53,7 +53,7 @@
 		<div class="relative mt-7 grid h-10 grid-cols-2 rounded-full border border-line p-1">
 			<span
 				aria-hidden="true"
-				class="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-full bg-ink transition-transform duration-300 ease-soft {kind ===
+				class="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-full bg-ink transition-transform duration-200 ease-move {kind ===
 				'voice'
 					? 'translate-x-full'
 					: ''}"
@@ -64,7 +64,7 @@
 					type="button"
 					aria-pressed={active}
 					onclick={() => (kind = option.kind)}
-					class="relative flex items-center justify-center gap-2 rounded-full text-[13px] font-medium transition-colors duration-300 {active
+					class="relative flex items-center justify-center gap-2 rounded-full text-[13px] font-medium transition-colors duration-200 ease-move {active
 						? 'text-bg'
 						: 'text-ink-secondary hover:text-ink'}"
 				>
@@ -103,7 +103,7 @@
 		</div>
 
 		<p
-			class="flex h-9 items-center justify-center text-center text-[13px] leading-5 text-danger transition-opacity duration-300 {error
+			class="flex h-9 items-center justify-center text-center text-[13px] leading-5 text-danger transition-opacity duration-200 {error
 				? 'opacity-100'
 				: 'opacity-0'}"
 		>

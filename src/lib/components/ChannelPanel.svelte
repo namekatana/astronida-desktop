@@ -84,7 +84,7 @@
 					<Icon
 						name="chevron"
 						size={12}
-						class="transition-transform duration-300 ease-soft {isCollapsed ? '-rotate-90' : ''}"
+						class="transition-transform duration-200 ease-soft {isCollapsed ? '-rotate-90' : ''}"
 					/>
 					<span class="min-w-0 truncate">{category.name}</span>
 				</button>

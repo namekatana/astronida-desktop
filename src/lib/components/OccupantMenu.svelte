@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { fade, fly } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
 	import { dismissOn } from '$lib/ui/dismiss';
 	import type { IconName } from '$lib/ui/icons';
 	import { initials } from '$lib/ui/initials';
+	import { pop } from '$lib/ui/pop';
 	import type { VoiceOccupant } from '$lib/voice/occupant';
 	import { voice } from '$lib/voice/voice.svelte';
 	import { defaultVolume, maxVolume, participantAudio } from '$lib/voice/volumes.svelte';
@@ -76,10 +77,10 @@
 	bind:this={root}
 	role="menu"
 	aria-label="Участник @{occupant.username}"
-	in:fly={{ y: -4, duration: 180, easing: (t) => 1 - Math.pow(1 - t, 3) }}
+	in:pop={{ y: -4, duration: 180 }}
 	out:fade={{ duration: 100 }}
 	style="left: {left}px; top: {top}px; width: {width}px"
-	class="panel fixed z-50 p-1.5"
+	class="panel fixed z-50 origin-top-left p-1.5"
 >
 	<div class="flex items-center gap-2.5 px-2.5 pt-2 pb-2.5">
 		<span

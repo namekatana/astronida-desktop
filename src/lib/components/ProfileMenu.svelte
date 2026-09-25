@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { fade, fly } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
 	import { dismissOn } from '$lib/ui/dismiss';
+	import { pop } from '$lib/ui/pop';
 
 	interface Props {
 		username: string | null;
@@ -29,7 +30,7 @@
 		aria-expanded={open}
 		title={username ? `@${username}` : undefined}
 		onclick={() => (open = !open)}
-		class="flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-200 {open
+		class="pressable flex h-10 w-10 items-center justify-center rounded-full duration-200 {open
 			? 'bg-white/[0.06]'
 			: 'hover:bg-white/[0.06]'}"
 	>
@@ -43,7 +44,7 @@
 	{#if open}
 		<div
 			role="menu"
-			in:fly={{ y: -6, duration: 220, easing: (t) => 1 - Math.pow(1 - t, 3) }}
+			in:pop={{ y: -6, duration: 220 }}
 			out:fade={{ duration: 120 }}
 			class="panel absolute top-full right-0 z-50 mt-2 w-52 origin-top-right p-1.5"
 		>

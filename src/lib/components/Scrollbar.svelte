@@ -115,9 +115,9 @@
 			onpointermove={handleThumbPointerMove}
 			onpointerup={handleThumbPointerUp}
 			onpointercancel={handleThumbPointerUp}
-			class="absolute right-1 w-1.5 rounded-full transition-[background-color,width] duration-150 {dragging
-				? 'w-2 bg-white/[0.3]'
-				: 'bg-white/[0.14] hover:w-2 hover:bg-white/[0.24]'}"
+			class="absolute right-1 w-1.5 origin-right rounded-full transition-[background-color,scale] duration-150 {dragging
+				? 'scale-x-[1.3333] bg-white/[0.3]'
+				: 'bg-white/[0.14] hover:scale-x-[1.3333] hover:bg-white/[0.24]'}"
 			style="top: {inset}px; height: {thumbHeight}px; translate: 0 {thumbOffset}px;"
 		></div>
 	</div>

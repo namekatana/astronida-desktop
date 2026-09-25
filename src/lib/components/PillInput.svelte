@@ -77,7 +77,7 @@
 	/>
 
 	<span
-		class="pointer-events-none absolute -translate-y-1/2 px-2 transition-all duration-200 {floated
+		class="pointer-events-none absolute -translate-y-1/2 px-2 transition-[top,left,font-size,letter-spacing,color,background-color] duration-200 {floated
 			? 'top-0 left-5 bg-[var(--pill-surface,var(--color-bg))] text-[11px] tracking-[0.08em]'
 			: prefix
 				? 'top-1/2 left-[1.9rem] text-[15px]'

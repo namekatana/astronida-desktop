@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { fade, fly } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
 	import { dismissOn } from '$lib/ui/dismiss';
+	import { pop } from '$lib/ui/pop';
 	import { updates } from '$lib/updates/updates.svelte';
 	import Icon from './Icon.svelte';
 
@@ -32,7 +33,7 @@
 			aria-haspopup="dialog"
 			aria-expanded={open}
 			onclick={() => (open = !open)}
-			class="relative flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-200 {open
+			class="pressable relative flex h-10 w-10 items-center justify-center rounded-full duration-200 {open
 				? 'bg-white/[0.06] text-ink'
 				: 'text-muted hover:bg-white/[0.06] hover:text-ink'}"
 		>
@@ -47,7 +48,7 @@
 			<div
 				role="dialog"
 				aria-label="Обновление"
-				in:fly={{ y: -6, duration: 220, easing: (t) => 1 - Math.pow(1 - t, 3) }}
+				in:pop={{ y: -6, duration: 220 }}
 				out:fade={{ duration: 120 }}
 				class="panel absolute top-full right-0 z-50 mt-2 w-64 origin-top-right px-4 pt-3.5 pb-4"
 			>
@@ -72,8 +73,8 @@
 						</div>
 						<div class="mt-1.5 h-0.5 overflow-hidden rounded-full bg-white/[0.08]">
 							<div
-								class="h-full rounded-full bg-ink transition-[width] duration-200 ease-out"
-								style="width: {updates.progress}%"
+								class="h-full w-full origin-left rounded-full bg-ink transition-[scale] duration-200 ease-out"
+								style="scale: {updates.progress / 100} 1"
 							></div>
 						</div>
 					</div>
@@ -81,7 +82,7 @@
 					<button
 						type="button"
 						onclick={() => void updates.install()}
-						class="mt-3.5 flex h-9 w-full items-center justify-center rounded-full bg-ink text-[13px] font-medium text-bg transition-colors duration-200 hover:bg-ink-hover active:bg-ink-pressed"
+						class="pressable mt-3.5 flex h-9 w-full items-center justify-center rounded-full bg-ink text-[13px] font-medium text-bg duration-200 hover:bg-ink-hover active:bg-ink-pressed"
 					>
 						Обновить и перезапустить
 					</button>
