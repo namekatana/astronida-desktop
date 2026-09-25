@@ -6,7 +6,9 @@ export type ToggleSound =
 	| 'voice-connected'
 	| 'voice-disconnected'
 	| 'user-joined'
-	| 'user-left';
+	| 'user-left'
+	| 'direct-message'
+	| 'friend-request';
 
 const toneDurationSeconds = 0.07;
 const toneGapSeconds = 0.05;
@@ -21,7 +23,9 @@ const tones: Record<ToggleSound, { notes: number[]; gain: number }> = {
 	'voice-connected': { notes: [440, 660, 880], gain: peakGain },
 	'voice-disconnected': { notes: [880, 660, 440], gain: peakGain },
 	'user-joined': { notes: [660, 880], gain: softGain },
-	'user-left': { notes: [880, 660], gain: softGain }
+	'user-left': { notes: [880, 660], gain: softGain },
+	'direct-message': { notes: [784, 1047], gain: peakGain },
+	'friend-request': { notes: [659, 784, 1047], gain: peakGain }
 };
 
 let context: AudioContext | null = null;

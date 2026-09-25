@@ -5,9 +5,10 @@ const storageKey = 'astronida.last-selection';
 interface LastSelection {
 	serverId: string | null;
 	channelByServer: Record<string, string>;
+	friendId: string | null;
 }
 
-const defaults: LastSelection = { serverId: null, channelByServer: {} };
+const defaults: LastSelection = { serverId: null, channelByServer: {}, friendId: null };
 
 function restore(): LastSelection {
 	try {
@@ -16,7 +17,8 @@ function restore(): LastSelection {
 		const parsed = JSON.parse(raw) as Partial<LastSelection>;
 		return {
 			serverId: typeof parsed.serverId === 'string' ? parsed.serverId : null,
-			channelByServer: parsed.channelByServer ?? {}
+			channelByServer: parsed.channelByServer ?? {},
+			friendId: typeof parsed.friendId === 'string' ? parsed.friendId : null
 		};
 	} catch {
 		return defaults;
@@ -27,8 +29,7 @@ function persist(selection: LastSelection) {
 	untrack(() => {
 		try {
 			localStorage.setItem(storageKey, JSON.stringify(selection));
-		} catch {
-		}
+		} catch {}
 	});
 }
 
@@ -47,6 +48,13 @@ export const lastSelection = {
 	},
 	setChannel(serverId: string, channelId: string) {
 		selection.channelByServer[serverId] = channelId;
+		persist(selection);
+	},
+	get friendId() {
+		return selection.friendId;
+	},
+	set friendId(value: string | null) {
+		selection.friendId = value;
 		persist(selection);
 	}
 };

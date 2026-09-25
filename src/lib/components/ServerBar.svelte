@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { on } from 'svelte/events';
-	import { fade } from 'svelte/transition';
+	import { prefersReducedMotion } from 'svelte/motion';
+	import { cubicOut } from 'svelte/easing';
+	import { fade, scale } from 'svelte/transition';
 	import type { Server } from '$lib/servers/servers';
 	import Icon from './Icon.svelte';
 	import ProfileMenu from './ProfileMenu.svelte';
@@ -13,6 +15,8 @@
 		selectedId: string | null;
 		username: string | null;
 		signingOut?: boolean;
+		unreadServerIds: ReadonlySet<string>;
+		homeUnread: boolean;
 		onselect: (id: string) => void;
 		onhome: () => void;
 		oncreate: () => void;
@@ -24,6 +28,8 @@
 		selectedId,
 		username,
 		signingOut = false,
+		unreadServerIds,
+		homeUnread,
 		onselect,
 		onhome,
 		oncreate,
@@ -62,8 +68,8 @@
 	}
 
 	const moveTransition = $derived(
-		slide
-			? `left 380ms var(--ease-soft) ${leadingEdge === 'left' ? '0ms' : '120ms'}, right 380ms var(--ease-soft) ${leadingEdge === 'right' ? '0ms' : '120ms'}, `
+		slide && !prefersReducedMotion.current
+			? `left 240ms var(--ease-move) ${leadingEdge === 'left' ? '0ms' : '60ms'}, right 240ms var(--ease-move) ${leadingEdge === 'right' ? '0ms' : '60ms'}, `
 			: ''
 	);
 
@@ -169,11 +175,24 @@
 				aria-label="Друзья"
 				aria-pressed={isHome}
 				onclick={onhome}
-				class="flex h-10 items-center rounded-full px-3 transition-all duration-200 ease-soft {isHome
-					? 'bg-white/[0.08] opacity-100'
-					: 'opacity-60 hover:opacity-100'}"
+				class="group pressable relative flex h-10 items-center rounded-full px-3 duration-200 ease-soft {isHome
+					? 'bg-white/[0.08]'
+					: ''}"
 			>
-				<img src="/logo.png" alt="" class="h-6 w-auto" />
+				<img
+					src="/logo.png"
+					alt=""
+					class="h-6 w-auto transition-opacity duration-200 ease-soft {isHome
+						? 'opacity-100'
+						: 'opacity-60 group-hover:opacity-100'}"
+				/>
+				{#if homeUnread}
+					<span
+						aria-hidden="true"
+						class="absolute top-1.5 right-1.5 h-2.5 w-2.5 rounded-full border-2 border-surface bg-ink"
+						transition:scale={{ start: 0.8, duration: 160, easing: cubicOut }}
+					></span>
+				{/if}
 			</button>
 		</div>
 
@@ -198,6 +217,7 @@
 					<ServerTab
 						name={server.name}
 						active={server.id === selectedId}
+						unread={unreadServerIds.has(server.id)}
 						onclick={() => onselect(server.id)}
 						bind:element={tabElements[server.id]}
 					/>
@@ -207,7 +227,7 @@
 					type="button"
 					aria-label="Создать сервер"
 					onclick={oncreate}
-					class="ml-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-line text-muted transition-colors duration-200 hover:border-line-strong hover:text-ink"
+					class="pressable ml-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-line text-muted duration-200 hover:border-line-strong hover:text-ink"
 				>
 					<Icon name="plus" size={14} />
 				</button>
@@ -233,7 +253,7 @@
 			<button
 				type="button"
 				aria-label="Настройки"
-				class="flex h-10 w-10 items-center justify-center rounded-full text-muted transition-colors duration-200 hover:bg-white/[0.06] hover:text-ink"
+				class="pressable flex h-10 w-10 items-center justify-center rounded-full text-muted duration-200 hover:bg-white/[0.06] hover:text-ink"
 			>
 				<Icon name="gear" size={18} />
 			</button>

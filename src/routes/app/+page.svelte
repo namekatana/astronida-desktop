@@ -1,16 +1,33 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { goto } from '$app/navigation';
 	import { signOut } from '$lib/auth/auth';
 	import { workspaceCache, type Workspace } from '$lib/cache/workspace-cache';
 	import ChannelPanel from '$lib/components/ChannelPanel.svelte';
 	import ChatHeader from '$lib/components/ChatHeader.svelte';
+	import DirectChatHeader from '$lib/components/DirectChatHeader.svelte';
 	import CreateCategoryDialog from '$lib/components/CreateCategoryDialog.svelte';
 	import CreateChannelDialog from '$lib/components/CreateChannelDialog.svelte';
 	import CreateServerDialog from '$lib/components/CreateServerDialog.svelte';
 	import FriendsPanel from '$lib/components/FriendsPanel.svelte';
+	import AddFriendDialog from '$lib/components/AddFriendDialog.svelte';
 	import type { Friend } from '$lib/friends/friends';
-	import { subscribeToFriendsPresence } from '$lib/friends/presence';
+	import {
+		acceptFriendRequest,
+		declineFriendRequest,
+		subscribeToFriends
+	} from '$lib/friends/channel';
+	import { markRead, subscribeToInbox } from '$lib/notifications/inbox';
+	import {
+		onNotificationActivated,
+		requestAttention,
+		showNotification
+	} from '$lib/notifications/notify';
+	import { playDirectMessageSound, playFriendRequestSound } from '$lib/notifications/sounds';
+	import { setTaskbarBadge } from '$lib/notifications/taskbar';
+	import { unread } from '$lib/notifications/unread.svelte';
+	import { windowFocus } from '$lib/ui/window-focus.svelte';
 	import { history, type HistoryCoverage } from '$lib/history/history';
 	import MemberPanel from '$lib/components/MemberPanel.svelte';
 	import MessageComposer from '$lib/components/MessageComposer.svelte';
@@ -30,6 +47,7 @@
 	import { clearTyping, createTypingSender, markTyping, typingIn } from '$lib/messages/typing.svelte';
 	import {
 		subscribeToServerPresence,
+		type ChannelActivity,
 		type ServerPresence,
 		type VoiceAnnouncement
 	} from '$lib/presence/presence';
@@ -94,10 +112,14 @@
 
 	const selectedServer = $derived(servers.find((server) => server.id === selectedServerId) ?? null);
 	const selectedChannel = $derived(channels.find((c) => c.id === selectedChannelId) ?? null);
-	const messages = $derived(selectedChannel ? (feeds[selectedChannel.id]?.messages ?? []) : []);
-	const hasMoreMessages = $derived(
-		selectedChannel ? (feeds[selectedChannel.id]?.hasMore ?? false) : false
-	);
+	let selectedFriendId = $state<string | null>(lastSelection.friendId);
+	const selectedFriend = $derived.by(() => {
+		if (selectedServer || !selectedFriendId) return null;
+		return friendsWithPresence.find((friend) => friend.id === selectedFriendId) ?? null;
+	});
+	const openChatId = $derived(selectedChannel?.id ?? selectedFriend?.channelId ?? null);
+	const messages = $derived(openChatId ? (feeds[openChatId]?.messages ?? []) : []);
+	const hasMoreMessages = $derived(openChatId ? (feeds[openChatId]?.hasMore ?? false) : false);
 
 	const orderedChannels = $derived.by(() => {
 		const withoutCategory = channels.filter((c) => c.categoryId === null);
@@ -191,7 +213,8 @@
 						},
 						onVoiceKeyRotated: (channelId, version) =>
 							voice.handleKeyRotation(id, channelId, version),
-						onVoiceRejoined: (channelId, key) => voice.handleRejoin(id, channelId, key)
+						onVoiceRejoined: (channelId, key) => voice.handleRejoin(id, channelId, key),
+						onChannelActivity: (activity) => handleChannelActivity(id, activity)
 					})
 				);
 			}
@@ -213,16 +236,48 @@
 
 	// svelte-ignore state_referenced_locally
 	let friendsOnline = $state<Set<string>>(data.cache.friendsOnline);
+	let friendRequests = $state<Friend[]>([]);
+	const freshRequestIds = new SvelteSet<string>();
+	const freshFriendIds = new SvelteSet<string>();
+	const freshFriendMs = 1000;
+	let addingFriend = $state(false);
+
+	function addFriend(friend: Friend) {
+		const known = friends.find((existing) => existing.id === friend.id);
+		if (known) {
+			known.channelId ??= friend.channelId;
+			return;
+		}
+		freshFriendIds.add(friend.id);
+		setTimeout(() => freshFriendIds.delete(friend.id), freshFriendMs);
+		friends = [...friends, friend];
+		workspaceCache.saveAccount(data.userId, { username, servers, friends });
+	}
 
 	$effect(() => {
-		return subscribeToFriendsPresence({
+		return subscribeToFriends({
 			userId: data.userId,
-			onSync: (online) => {
+			onOnline: (online) => {
 				friendsOnline = online;
 				workspaceCache.saveFriendsOnline(data.userId, online);
-			}
+			},
+			onRequests: (requests) => (friendRequests = requests),
+			onRequestReceived: (request) => {
+				freshRequestIds.add(request.id);
+				playFriendRequestSound();
+				if (windowFocus.active) return;
+				void showNotification({
+					title: 'Запрос в друзья',
+					body: `@${request.username} хочет добавить вас в друзья`,
+					target: { kind: 'requests' }
+				});
+				void requestAttention();
+			},
+			onFriendAdded: addFriend
 		});
 	});
+
+	const friendIds = $derived(new Set(friends.map((friend) => friend.id)));
 
 	const friendsWithPresence = $derived(
 		friends.map((friend) => ({ ...friend, online: friendsOnline.has(friend.id), owner: false }))
@@ -422,34 +477,34 @@
 	}
 
 	$effect(() => {
-		const channel = selectedChannel;
+		const channelId = openChatId;
 		messagesLoading = false;
-		if (!channel) return;
+		if (!channelId) return;
 
 		let stale = false;
-		const feed = untrack(() => feedFor(channel.id));
+		const feed = untrack(() => feedFor(channelId));
 		messagesLoading = untrack(() => unloaded(feed));
-		const opened = untrack(() => openFeed(channel.id))
+		const opened = untrack(() => openFeed(channelId))
 			.then(() => {
 				if (!stale && !unloaded(feed)) messagesLoading = false;
-				return scheduleSync(channel.id);
+				return scheduleSync(channelId);
 			})
 			.then(() => {
 				if (!stale) messagesLoading = false;
 			});
 		const unsubscribe = subscribeToChannel({
-			channelId: channel.id,
+			channelId,
 			onMessage: (message) => {
 				if (stale) return;
-				clearTyping(channel.id, message.author.id);
-				absorb(channel.id, [message]);
+				clearTyping(channelId, message.author.id);
+				absorb(channelId, [message]);
 			},
 			onTyping: (userId) => {
-				if (!stale && userId !== data.userId) markTyping(channel.id, userId);
+				if (!stale && userId !== data.userId) markTyping(channelId, userId);
 			},
 			onReady: () => {
 				opened.then(() => {
-					if (!stale) void scheduleSync(channel.id);
+					if (!stale) void scheduleSync(channelId);
 				});
 			}
 		});
@@ -460,8 +515,110 @@
 	});
 
 	$effect(() => {
-		windowTitle.set(selectedServer ? selectedServer.name : 'Друзья');
+		windowTitle.set(
+			selectedServer
+				? selectedServer.name
+				: selectedFriend
+					? `@${selectedFriend.username}`
+					: 'Друзья'
+		);
 		return () => windowTitle.set('');
+	});
+
+	function selectFriend(friendId: string) {
+		selectedFriendId = friendId;
+		lastSelection.friendId = friendId;
+	}
+
+	function isViewing(channelId: string): boolean {
+		return openChatId === channelId && windowFocus.active;
+	}
+
+	function handleDirectMessage(channelId: string, message: Message) {
+		if (isViewing(channelId)) {
+			markRead(channelId, message.id);
+			return;
+		}
+		unread.addDirect(channelId, message.id);
+		playDirectMessageSound();
+		if (windowFocus.active) return;
+		void showNotification({
+			title: `@${message.author.username}`,
+			body: message.text,
+			target: { kind: 'direct', channelId }
+		});
+		void requestAttention();
+	}
+
+	function handleChannelActivity(serverId: string, activity: ChannelActivity) {
+		if (activity.authorId === data.userId) return;
+		const channel = workspaces[serverId]?.channels.find((c) => c.id === activity.channelId);
+		if (channel?.kind !== 'text') return;
+		if (isViewing(activity.channelId)) {
+			markRead(activity.channelId, activity.messageId);
+			return;
+		}
+		unread.addChannel(activity.channelId, activity.messageId);
+	}
+
+	$effect(() => {
+		return subscribeToInbox({
+			userId: data.userId,
+			onSnapshot: (snapshot) => unread.replace(snapshot),
+			onDirectMessage: handleDirectMessage,
+			onRead: (channelId, messageId) => unread.clear(channelId, messageId)
+		});
+	});
+
+	$effect(() => {
+		const channelId = openChatId;
+		if (!channelId || !windowFocus.active) return;
+		const newest = unread.newestFor(channelId);
+		if (!newest) return;
+		markRead(channelId, newest);
+		unread.clear(channelId, newest);
+	});
+
+	$effect(() => {
+		return onNotificationActivated((target) => {
+			selectedServerId = null;
+			if (target.kind !== 'direct') return;
+			const friend = friends.find((known) => known.channelId === target.channelId);
+			if (friend) selectFriend(friend.id);
+		});
+	});
+
+	const homeBadge = $derived(unread.directTotal + friendRequests.length);
+
+	$effect(() => {
+		void setTaskbarBadge(homeBadge);
+	});
+
+	$effect(() => {
+		return () => {
+			unread.reset();
+			void setTaskbarBadge(0);
+		};
+	});
+
+	const unreadByFriend = $derived(
+		Object.fromEntries(
+			friends.flatMap((friend) => {
+				const count = friend.channelId ? unread.directCount(friend.channelId) : 0;
+				return count > 0 ? [[friend.id, count]] : [];
+			})
+		)
+	);
+
+	const unreadServerIds = $derived.by(() => {
+		const unreadChannels = new Set(unread.channelIds);
+		return new Set(
+			servers
+				.filter((server) =>
+					workspaces[server.id]?.channels.some((channel) => unreadChannels.has(channel.id))
+				)
+				.map((server) => server.id)
+		);
 	});
 
 	let painted = $state(false);
@@ -540,18 +697,18 @@
 	}
 
 	async function loadOlderMessages() {
-		const channel = selectedChannel;
+		const channelId = openChatId;
 		const oldest = messages[0];
-		if (!channel || !oldest || messagesLoading || !hasMoreMessages) return;
+		if (!channelId || !oldest || messagesLoading || !hasMoreMessages) return;
 
 		messagesLoading = true;
-		const feed = feedFor(channel.id);
+		const feed = feedFor(channelId);
 		if (feed.localExhausted) {
-			await loadOlderFromServer(channel.id, oldest.id);
+			await loadOlderFromServer(channelId, oldest.id);
 		} else {
-			await loadOlderFromDisk(channel.id, oldest.id);
+			await loadOlderFromDisk(channelId, oldest.id);
 		}
-		if (selectedChannel?.id === channel.id) messagesLoading = false;
+		if (openChatId === channelId) messagesLoading = false;
 	}
 
 	async function loadOlderFromDisk(channelId: string, before: string) {
@@ -579,24 +736,37 @@
 	let pendingCounter = 0;
 
 	const typingSender = createTypingSender(() => {
-		if (selectedChannel) sendTyping(selectedChannel.id);
+		if (openChatId) sendTyping(openChatId);
 	});
 
 	$effect(() => {
-		void selectedChannelId;
+		void openChatId;
 		typingSender.reset();
 	});
 
+	function usernameOf(userId: string): string | undefined {
+		if (selectedFriend?.id === userId) return selectedFriend.username;
+		return members.find((member) => member.id === userId)?.username;
+	}
+
 	const typingNames = $derived.by(() => {
-		if (!selectedChannel) return [];
-		return typingIn(selectedChannel.id)
-			.map((userId) => members.find((member) => member.id === userId)?.username)
+		if (!openChatId) return [];
+		return typingIn(openChatId)
+			.map(usernameOf)
 			.filter((name): name is string => name !== undefined);
 	});
 
+	const composerPlaceholder = $derived(
+		selectedChannel
+			? `Написать в ${selectedChannel.name}`
+			: selectedFriend
+				? `Написать @${selectedFriend.username}`
+				: ''
+	);
+
 	function handleSend(text: string) {
-		const channel = selectedChannel;
-		if (!channel || !username) return;
+		const channelId = openChatId;
+		if (!channelId || !username) return;
 		typingSender.reset();
 
 		const self = members.find((member) => member.id === data.userId);
@@ -607,8 +777,8 @@
 			sentAt: new Date(),
 			status: 'sending'
 		};
-		feedFor(channel.id).messages.push(pending);
-		void deliver(channel.id, pending);
+		feedFor(channelId).messages.push(pending);
+		void deliver(channelId, pending);
 	}
 
 	async function deliver(channelId: string, pending: Message) {
@@ -632,11 +802,11 @@
 	}
 
 	function retrySend(messageId: string) {
-		const channel = selectedChannel;
-		const message = channel && feeds[channel.id]?.messages.find((m) => m.id === messageId);
-		if (!channel || !message || message.status !== 'failed') return;
+		const channelId = openChatId;
+		const message = channelId && feeds[channelId]?.messages.find((m) => m.id === messageId);
+		if (!channelId || !message || message.status !== 'failed') return;
 		message.status = 'sending';
-		void deliver(channel.id, message);
+		void deliver(channelId, message);
 	}
 
 	async function handleSignOut() {
@@ -694,6 +864,10 @@
 		/>
 	{/if}
 
+	{#if addingFriend}
+		<AddFriendDialog {friendIds} onclose={() => (addingFriend = false)} />
+	{/if}
+
 	{#if channelDialog === 'category'}
 		<CreateCategoryDialog
 			serverError={channelError}
@@ -717,6 +891,8 @@
 		selectedId={selectedServerId}
 		{username}
 		{signingOut}
+		{unreadServerIds}
+		homeUnread={homeBadge > 0}
 		onselect={(id) => (selectedServerId = id)}
 		onhome={() => (selectedServerId = null)}
 		oncreate={openCreateDialog}
@@ -740,14 +916,27 @@
 		{:else}
 			<FriendsPanel
 				friends={friendsWithPresence}
-				requests={[]}
+				requests={friendRequests}
+				{freshRequestIds}
+				{freshFriendIds}
+				selectedFriendId={selectedFriend?.id ?? null}
+				{unreadByFriend}
 				bind:width={panelWidths.channels}
+				onselect={selectFriend}
+				onaddfriend={() => (addingFriend = true)}
+				onaccept={acceptFriendRequest}
+				ondecline={declineFriendRequest}
+				onrequestseen={(id) => freshRequestIds.delete(id)}
 			/>
 		{/if}
 
 		<main class="flex min-w-0 flex-1 flex-col gap-3">
-			{#if selectedChannel}
-				<ChatHeader channel={selectedChannel} />
+			{#if openChatId}
+				{#if selectedChannel}
+					<ChatHeader channel={selectedChannel} />
+				{:else if selectedFriend}
+					<DirectChatHeader friend={selectedFriend} />
+				{/if}
 				<MessageList
 					{messages}
 					hasMore={hasMoreMessages}
@@ -756,9 +945,9 @@
 					onloadolder={loadOlderMessages}
 					onretry={retrySend}
 				/>
-				{#key selectedChannel.id}
+				{#key openChatId}
 					<MessageComposer
-						channelName={selectedChannel.name}
+						placeholder={composerPlaceholder}
 						onsend={handleSend}
 						ontyping={typingSender.touch}
 					/>
@@ -771,7 +960,7 @@
 				</div>
 			{:else}
 				<div class="flex flex-1 items-center justify-center">
-					<span class="text-[13px] tracking-[0.2em] text-muted uppercase">Друзья</span>
+					<span class="text-[13px] text-muted">Выберите друга, чтобы начать переписку</span>
 				</div>
 			{/if}
 		</main>

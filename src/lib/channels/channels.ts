@@ -65,7 +65,7 @@ export async function loadChannels(
 		})),
 		channels: (channelsResult.data ?? []).map((row) => ({
 			id: row.id,
-			serverId: row.server_id,
+			serverId,
 			categoryId: row.category_id,
 			name: row.name,
 			kind: toKind(row.kind),
@@ -120,7 +120,7 @@ export async function createChannel(input: {
 		ok: true,
 		value: {
 			id: data.id,
-			serverId: data.server_id,
+			serverId: input.serverId,
 			categoryId: data.category_id,
 			name: data.name,
 			kind: toKind(data.kind),

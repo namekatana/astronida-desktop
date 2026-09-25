@@ -51,7 +51,7 @@ export type Database = {
 					kind: string;
 					name: string;
 					position: number;
-					server_id: string;
+					server_id: string | null;
 					updated_at: string;
 				};
 				Insert: {
@@ -61,7 +61,7 @@ export type Database = {
 					kind: string;
 					name: string;
 					position?: number;
-					server_id: string;
+					server_id?: string | null;
 					updated_at?: string;
 				};
 				Update: {
@@ -71,7 +71,7 @@ export type Database = {
 					kind?: string;
 					name?: string;
 					position?: number;
-					server_id?: string;
+					server_id?: string | null;
 					updated_at?: string;
 				};
 				Relationships: [
@@ -87,6 +87,82 @@ export type Database = {
 						columns: ['server_id'];
 						isOneToOne: false;
 						referencedRelation: 'servers';
+						referencedColumns: ['id'];
+					}
+				];
+			};
+			direct_channels: {
+				Row: {
+					channel_id: string;
+					created_at: string;
+					user_a: string;
+					user_b: string;
+				};
+				Insert: {
+					channel_id: string;
+					created_at?: string;
+					user_a: string;
+					user_b: string;
+				};
+				Update: {
+					channel_id?: string;
+					created_at?: string;
+					user_a?: string;
+					user_b?: string;
+				};
+				Relationships: [
+					{
+						foreignKeyName: 'direct_channels_channel_id_fkey';
+						columns: ['channel_id'];
+						isOneToOne: true;
+						referencedRelation: 'channels';
+						referencedColumns: ['id'];
+					},
+					{
+						foreignKeyName: 'direct_channels_user_a_fkey';
+						columns: ['user_a'];
+						isOneToOne: false;
+						referencedRelation: 'profiles';
+						referencedColumns: ['id'];
+					},
+					{
+						foreignKeyName: 'direct_channels_user_b_fkey';
+						columns: ['user_b'];
+						isOneToOne: false;
+						referencedRelation: 'profiles';
+						referencedColumns: ['id'];
+					}
+				];
+			};
+			friend_requests: {
+				Row: {
+					created_at: string;
+					recipient_id: string;
+					sender_id: string;
+				};
+				Insert: {
+					created_at?: string;
+					recipient_id: string;
+					sender_id: string;
+				};
+				Update: {
+					created_at?: string;
+					recipient_id?: string;
+					sender_id?: string;
+				};
+				Relationships: [
+					{
+						foreignKeyName: 'friend_requests_recipient_id_fkey';
+						columns: ['recipient_id'];
+						isOneToOne: false;
+						referencedRelation: 'profiles';
+						referencedColumns: ['id'];
+					},
+					{
+						foreignKeyName: 'friend_requests_sender_id_fkey';
+						columns: ['sender_id'];
+						isOneToOne: false;
+						referencedRelation: 'profiles';
 						referencedColumns: ['id'];
 					}
 				];

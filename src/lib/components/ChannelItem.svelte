@@ -8,6 +8,9 @@
 	import StrikedIcon from './StrikedIcon.svelte';
 	import OccupantMenu from './OccupantMenu.svelte';
 	import { participantAudio } from '$lib/voice/volumes.svelte';
+	import { unread } from '$lib/notifications/unread.svelte';
+	import { scale } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 
 	interface Props {
 		channel: Channel;
@@ -28,6 +31,7 @@
 	}: Props = $props();
 
 	const occupied = $derived(occupants.length > 0);
+	const hasUnread = $derived(!active && unread.hasChannel(channel.id));
 
 	let shown = $state<VoiceOccupant[]>([]);
 	$effect(() => {
@@ -55,10 +59,18 @@
 		{onclick}
 		onmouseenter={onprefetch}
 		onfocus={onprefetch}
-		class="relative z-10 flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] transition-colors duration-300 ease-soft {active
+		class="relative z-10 flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] transition-colors duration-150 {active ||
+		hasUnread
 			? 'text-ink'
-			: 'text-ink-secondary hover:bg-white/[0.04] hover:text-ink'}"
+			: 'text-ink-secondary hover:bg-white/[0.04] hover:text-ink'} {hasUnread ? 'font-medium' : ''}"
 	>
+		{#if hasUnread}
+			<span
+				aria-hidden="true"
+				class="absolute top-1/2 -left-2.5 h-2 w-1 -translate-y-1/2 rounded-r-full bg-ink"
+				transition:scale={{ start: 0.8, duration: 160, easing: cubicOut }}
+			></span>
+		{/if}
 		<Icon
 			name={channel.kind}
 			class="transition-colors duration-200 {occupied ? 'voice-live' : ''} {occupied

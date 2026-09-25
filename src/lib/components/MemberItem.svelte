@@ -5,15 +5,16 @@
 
 	interface Props {
 		member: Member;
+		active?: boolean;
 	}
 
-	let { member }: Props = $props();
+	let { member, active = false }: Props = $props();
 
 	const avatar = $derived(initials(member.name));
 </script>
 
 <div
-	class="flex h-10 items-center gap-2.5 rounded-lg px-2.5 transition-colors duration-150 hover:bg-white/[0.04] {member.online
+	class="flex h-10 items-center gap-2.5 rounded-lg px-2.5 transition-[background-color,opacity] duration-200 hover:bg-white/[0.04] {member.online
 		? ''
 		: 'opacity-50'}"
 >
@@ -23,14 +24,18 @@
 		>
 			{avatar}
 		</span>
-		{#if member.online}
-			<span
-				class="absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full border-2 border-surface bg-online"
-			></span>
-		{/if}
+		<span
+			class="absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full border-2 border-surface bg-online transition-[opacity,scale] duration-200 ease-soft {member.online
+				? 'scale-100 opacity-100'
+				: 'scale-50 opacity-0'}"
+		></span>
 	</span>
 
-	<span class="min-w-0 truncate text-[13px] text-ink-secondary">@{member.username}</span>
+	<span
+		class="min-w-0 truncate text-[13px] transition-colors duration-150 {active
+			? 'text-ink'
+			: 'text-ink-secondary'}">@{member.username}</span
+	>
 
 	{#if member.owner}
 		<span title="Создатель сервера" class="flex text-muted">

@@ -3,12 +3,12 @@
 	import Icon from './Icon.svelte';
 
 	interface Props {
-		channelName: string;
+		placeholder: string;
 		onsend?: (text: string) => void;
 		ontyping?: () => void;
 	}
 
-	let { channelName, onsend, ontyping }: Props = $props();
+	let { placeholder, onsend, ontyping }: Props = $props();
 
 	const lineHeight = 20;
 	const paddingY = 10;
@@ -71,7 +71,7 @@
 			bind:value
 			rows="1"
 			maxlength={messageMaxLength}
-			placeholder="Написать в {channelName}"
+			{placeholder}
 			aria-label="Сообщение"
 			onkeydown={handleKeydown}
 			oninput={handleInput}
@@ -93,7 +93,7 @@
 		<button
 			type="button"
 			aria-label="Прикрепить файл"
-			class="flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors duration-150 hover:bg-white/[0.06] hover:text-ink"
+			class="pressable flex h-8 w-8 items-center justify-center rounded-full text-muted duration-150 hover:bg-white/[0.06] hover:text-ink"
 		>
 			<Icon name="paperclip" size={18} />
 		</button>
@@ -103,7 +103,7 @@
 			aria-label="Отправить"
 			disabled={!canSend}
 			onclick={send}
-			class="flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-200 ease-soft {canSend
+			class="pressable flex h-8 w-8 items-center justify-center rounded-full duration-200 ease-soft {canSend
 				? 'bg-ink text-bg hover:bg-ink-hover active:bg-ink-pressed'
 				: 'bg-white/[0.06] text-muted'}"
 		>

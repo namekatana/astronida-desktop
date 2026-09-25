@@ -22,7 +22,7 @@ export type SendResult = { ok: true; message: Message } | { ok: false; message: 
 export const messageMaxLength = 2000;
 export const pageSize = 50;
 
-interface MessagePayload {
+export interface MessagePayload {
 	id: string;
 	channel_id: string;
 	content: string;
@@ -30,7 +30,7 @@ interface MessagePayload {
 	author: { id: string; username: string; display_name: string };
 }
 
-function fromPayload(payload: MessagePayload): Message {
+export function fromPayload(payload: MessagePayload): Message {
 	return {
 		id: payload.id,
 		author: {
