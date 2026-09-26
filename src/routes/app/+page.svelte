@@ -40,11 +40,18 @@
 	import {
 		loadMessages,
 		pageSize,
-		sendMessage,
 		sendTyping,
 		subscribeToChannel,
 		type Message
 	} from '$lib/messages/messages';
+	import {
+		clientIdOf,
+		createEntry,
+		createOutbox,
+		loadOutbox,
+		pendingIdOf,
+		type OutboxEntry
+	} from '$lib/messages/outbox';
 	import { clearTyping, createTypingSender, markTyping, typingIn } from '$lib/messages/typing.svelte';
 	import {
 		subscribeToServerPresence,
@@ -849,8 +856,6 @@
 		feedFor(channelId).hasMore = loaded.hasMore;
 	}
 
-	let pendingCounter = 0;
-
 	const typingSender = createTypingSender(() => {
 		if (openChatId) sendTyping(openChatId);
 	});
@@ -880,53 +885,74 @@
 				: ''
 	);
 
+	function pendingMessageOf(entry: OutboxEntry): Message {
+		const ownName = username ?? '';
+		const self = members.find((member) => member.id === data.userId);
+		return {
+			id: pendingIdOf(entry),
+			author: { id: data.userId, username: ownName, name: self?.name ?? ownName },
+			text: entry.text,
+			sentAt: entry.createdAt,
+			status: 'sending'
+		};
+	}
+
+	function handleSent(entry: OutboxEntry, message: Message) {
+		const feed = feeds[entry.channelId];
+		const loaded = feed !== undefined && !unloaded(feed);
+		if (feed) feed.messages = feed.messages.filter((m) => m.id !== pendingIdOf(entry));
+		if (loaded) {
+			absorb(entry.channelId, [message]);
+			return;
+		}
+		history.store(entry.channelId, [message]).catch(() => {});
+		rememberLatest(entry.channelId, message);
+	}
+
+	function handleRejected(entry: OutboxEntry) {
+		const pending = feeds[entry.channelId]?.messages.find((m) => m.id === pendingIdOf(entry));
+		if (pending) pending.status = 'failed';
+	}
+
+	const outbox = createOutbox({ onSent: handleSent, onRejected: handleRejected });
+
+	$effect(() => {
+		let active = true;
+		void loadOutbox().then((entries) => {
+			if (!active) return;
+			for (const entry of entries) {
+				feedFor(entry.channelId).messages.push(pendingMessageOf(entry));
+			}
+			outbox.restore(entries);
+		});
+		return () => {
+			active = false;
+			outbox.close();
+		};
+	});
+
 	function handleSend(text: string) {
 		const channelId = openChatId;
 		if (!channelId || !username) return;
 		typingSender.reset();
 
-		const self = members.find((member) => member.id === data.userId);
-		const pending: Message = {
-			id: `pending:${String(++pendingCounter).padStart(6, '0')}`,
-			author: { id: data.userId, username, name: self?.name ?? username },
-			text: text.trim(),
-			sentAt: new Date(),
-			status: 'sending'
-		};
-		feedFor(channelId).messages.push(pending);
-		void deliver(channelId, pending);
+		const entry = createEntry(channelId, text.trim());
+		feedFor(channelId).messages.push(pendingMessageOf(entry));
+		outbox.enqueue(entry);
 	}
 
-	async function deliver(channelId: string, pending: Message) {
-		const result = await sendMessage({ channelId, text: pending.text });
-		const feed = feeds[channelId];
-		if (!feed) return;
-		const index = feed.messages.findIndex((m) => m.id === pending.id);
-		if (index === -1) return;
-
-		if (!result.ok) {
-			feed.messages[index].status = 'failed';
-			return;
-		}
-		if (feed.messages.some((m) => m.id === result.message.id)) {
-			feed.messages.splice(index, 1);
-			return;
-		}
-		feed.messages[index] = result.message;
-		sortMessages(feed);
-		history.store(channelId, [result.message]).catch(() => {});
-	}
-
-	function retrySend(messageId: string) {
+	function cancelSend(messageId: string) {
 		const channelId = openChatId;
-		const message = channelId && feeds[channelId]?.messages.find((m) => m.id === messageId);
-		if (!channelId || !message || message.status !== 'failed') return;
-		message.status = 'sending';
-		void deliver(channelId, message);
+		const clientId = clientIdOf(messageId);
+		if (!channelId || !clientId) return;
+		outbox.cancel(clientId);
+		const feed = feeds[channelId];
+		if (feed) feed.messages = feed.messages.filter((m) => m.id !== messageId);
 	}
 
 	async function handleSignOut() {
 		signingOut = true;
+		outbox.close();
 		voice.disconnect();
 		await signOut();
 		workspaceCache.clear(data.userId);
@@ -1057,7 +1083,7 @@
 					loading={messagesLoading}
 					typing={typingNames}
 					onloadolder={loadOlderMessages}
-					onretry={retrySend}
+					oncancel={cancelSend}
 				/>
 				{#key openChatId}
 					<MessageComposer

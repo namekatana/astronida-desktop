@@ -16,6 +16,13 @@ export interface StoreOptions {
 	reachedStart?: boolean;
 }
 
+export interface OutboxRecord {
+	clientId: string;
+	channelId: string;
+	content: string;
+	createdAt: string;
+}
+
 interface HistoryBackend {
 	open(userId: string): Promise<void>;
 	page(channelId: string, before?: string): Promise<HistoryPage>;
@@ -24,6 +31,9 @@ interface HistoryBackend {
 	latestMessages(channelIds: string[]): Promise<Record<string, Message>>;
 	dropChannel(channelId: string): Promise<void>;
 	clear(): Promise<void>;
+	outboxList(): Promise<OutboxRecord[]>;
+	outboxPut(record: OutboxRecord): Promise<void>;
+	outboxRemove(clientId: string): Promise<void>;
 }
 
 interface StoredMessage {
@@ -108,12 +118,25 @@ const tauriBackend: HistoryBackend = {
 
 	clear() {
 		return invoke('history_clear');
+	},
+
+	outboxList() {
+		return invoke<OutboxRecord[]>('outbox_list');
+	},
+
+	outboxPut(record) {
+		return invoke('outbox_put', { entry: record });
+	},
+
+	outboxRemove(clientId) {
+		return invoke('outbox_remove', { clientId });
 	}
 };
 
 function createMemoryBackend(): HistoryBackend {
 	const rows = new Map<string, StoredMessage>();
 	const reachedStart = new Map<string, boolean>();
+	const outbox = new Map<string, OutboxRecord>();
 	let openedFor: string | null = null;
 
 	return {
@@ -121,6 +144,7 @@ function createMemoryBackend(): HistoryBackend {
 			if (openedFor !== userId) {
 				rows.clear();
 				reachedStart.clear();
+				outbox.clear();
 			}
 			openedFor = userId;
 		},
@@ -186,6 +210,23 @@ function createMemoryBackend(): HistoryBackend {
 		async clear() {
 			rows.clear();
 			reachedStart.clear();
+			outbox.clear();
+		},
+
+		async outboxList() {
+			return [...outbox.values()].sort((a, b) =>
+				a.createdAt === b.createdAt
+					? a.clientId.localeCompare(b.clientId)
+					: a.createdAt.localeCompare(b.createdAt)
+			);
+		},
+
+		async outboxPut(record) {
+			if (!outbox.has(record.clientId)) outbox.set(record.clientId, record);
+		},
+
+		async outboxRemove(clientId) {
+			outbox.delete(clientId);
 		}
 	};
 }

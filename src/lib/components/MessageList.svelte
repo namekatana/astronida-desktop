@@ -10,7 +10,7 @@
 		loading?: boolean;
 		typing?: string[];
 		onloadolder?: () => void;
-		onretry?: (messageId: string) => void;
+		oncancel?: (messageId: string) => void;
 	}
 
 	let {
@@ -19,7 +19,7 @@
 		loading = false,
 		typing = [],
 		onloadolder,
-		onretry
+		oncancel
 	}: Props = $props();
 
 	const groupGapMs = 5 * 60 * 1000;
@@ -141,7 +141,7 @@
 
 			<div class="flex flex-col gap-1">
 				{#each block.groups as group (group.key)}
-					<MessageGroup messages={group.messages} {onretry} />
+					<MessageGroup messages={group.messages} {oncancel} />
 				{/each}
 			</div>
 		{/each}

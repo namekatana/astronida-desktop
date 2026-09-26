@@ -27,6 +27,12 @@ const SCHEMA: &str = "
         channel_id TEXT PRIMARY KEY,
         reached_start INTEGER NOT NULL DEFAULT 0
     );
+    CREATE TABLE IF NOT EXISTS outbox (
+        client_id TEXT PRIMARY KEY,
+        channel_id TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
 ";
 
 pub struct History(Mutex<Option<Account>>);
@@ -59,6 +65,15 @@ pub struct HistoryMessage {
 pub struct Coverage {
     before: Option<String>,
     has_more: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OutboxEntry {
+    client_id: String,
+    channel_id: String,
+    content: String,
+    created_at: String,
 }
 
 #[derive(Serialize)]
@@ -285,6 +300,48 @@ pub fn history_latest_messages(
         latest.extend(message);
     }
     Ok(latest)
+}
+
+#[tauri::command]
+pub fn outbox_list(history: State<History>) -> Result<Vec<OutboxEntry>, String> {
+    let mut slot = lock(&history)?;
+    let connection = opened(&mut slot)?;
+    let mut statement = connection
+        .prepare("SELECT client_id, channel_id, content, created_at FROM outbox ORDER BY created_at, client_id")
+        .map_err(describe)?;
+    let entries = statement
+        .query_map([], |row| {
+            Ok(OutboxEntry {
+                client_id: row.get(0)?,
+                channel_id: row.get(1)?,
+                content: row.get(2)?,
+                created_at: row.get(3)?,
+            })
+        })
+        .map_err(describe)?;
+    entries.collect::<Result<Vec<_>, _>>().map_err(describe)
+}
+
+#[tauri::command]
+pub fn outbox_put(history: State<History>, entry: OutboxEntry) -> Result<(), String> {
+    let mut slot = lock(&history)?;
+    opened(&mut slot)?
+        .execute(
+            "INSERT INTO outbox (client_id, channel_id, content, created_at) VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT (client_id) DO NOTHING",
+            params![entry.client_id, entry.channel_id, entry.content, entry.created_at],
+        )
+        .map_err(describe)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn outbox_remove(history: State<History>, client_id: String) -> Result<(), String> {
+    let mut slot = lock(&history)?;
+    opened(&mut slot)?
+        .execute("DELETE FROM outbox WHERE client_id = ?1", params![client_id])
+        .map_err(describe)?;
+    Ok(())
 }
 
 #[tauri::command]

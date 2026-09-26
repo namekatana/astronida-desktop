@@ -17,7 +17,7 @@ export interface Message {
 	status?: 'sending' | 'failed';
 }
 
-export type SendResult = { ok: true; message: Message } | { ok: false; message: string };
+export type SendResult = { ok: true; message: Message } | { ok: false; retry: boolean };
 
 export const messageMaxLength = 2000;
 export const pageSize = 50;
@@ -74,38 +74,82 @@ export async function loadMessages(input: {
 	return { messages: messages.reverse(), hasMore: data.length === pageSize };
 }
 
-const rooms = new Map<string, PhoenixChannel>();
+interface Room {
+	channel: PhoenixChannel;
+	users: number;
+	readyListeners: Set<() => void>;
+}
 
-const sendErrors: Record<string, string> = {
-	rate_limited: 'Слишком часто, подождите пару секунд',
-	invalid: `Сообщение до ${messageMaxLength} символов`,
-	timeout: 'Нет соединения с сервером'
-};
+const rooms = new Map<string, Room>();
+const retryableSendErrors = new Set(['rate_limited', 'in_progress']);
 
-export function sendMessage(input: { channelId: string; text: string }): Promise<SendResult> {
+function acquireRoom(channelId: string): Room {
+	const existing = rooms.get(channelId);
+	if (existing) {
+		existing.users += 1;
+		return existing;
+	}
+	const room: Room = {
+		channel: phoenixSocket().channel(`room:${channelId}`),
+		users: 1,
+		readyListeners: new Set()
+	};
+	room.channel.join().receive('ok', () => {
+		for (const listener of room.readyListeners) listener();
+	});
+	rooms.set(channelId, room);
+	return room;
+}
+
+function releaseRoom(channelId: string, room: Room) {
+	room.users -= 1;
+	if (room.users > 0) return;
+	if (rooms.get(channelId) === room) rooms.delete(channelId);
+	room.channel.leave();
+}
+
+function hold(channelId: string, onReady: () => void): { room: Room; release: () => void } {
+	const room = acquireRoom(channelId);
+	room.readyListeners.add(onReady);
+	if (room.channel.state === 'joined') onReady();
+	return {
+		room,
+		release: () => {
+			room.readyListeners.delete(onReady);
+			releaseRoom(channelId, room);
+		}
+	};
+}
+
+export function holdRoom(channelId: string, onReady: () => void): () => void {
+	return hold(channelId, onReady).release;
+}
+
+export function sendMessage(input: {
+	channelId: string;
+	clientId: string;
+	text: string;
+}): Promise<SendResult> {
 	const room = rooms.get(input.channelId);
-	if (!room) {
-		return Promise.resolve({ ok: false, message: 'Нет соединения с сервером' });
+	if (!room || room.channel.state !== 'joined') {
+		return Promise.resolve({ ok: false, retry: true });
 	}
 
 	return new Promise((resolve) => {
-		room
-			.push('send', { content: input.text.trim() })
+		room.channel
+			.push('send', { content: input.text.trim(), client_id: input.clientId })
 			.receive('ok', (payload: MessagePayload) =>
 				resolve({ ok: true, message: fromPayload(payload) })
 			)
 			.receive('error', (reply: { reason?: string }) =>
-				resolve({
-					ok: false,
-					message: sendErrors[reply?.reason ?? ''] ?? 'Не удалось отправить, попробуйте ещё раз'
-				})
+				resolve({ ok: false, retry: retryableSendErrors.has(reply?.reason ?? '') })
 			)
-			.receive('timeout', () => resolve({ ok: false, message: sendErrors.timeout }));
+			.receive('timeout', () => resolve({ ok: false, retry: true }));
 	});
 }
 
 export function sendTyping(channelId: string) {
-	rooms.get(channelId)?.push('typing', {});
+	rooms.get(channelId)?.channel.push('typing', {});
 }
 
 export function subscribeToChannel(input: {
@@ -114,17 +158,19 @@ export function subscribeToChannel(input: {
 	onTyping: (userId: string) => void;
 	onReady: () => void;
 }): () => void {
-	const room = phoenixSocket().channel(`room:${input.channelId}`);
-	rooms.set(input.channelId, room);
+	const { room, release } = hold(input.channelId, input.onReady);
+	const { channel } = room;
 
-	room.on('message', (payload: MessagePayload) => input.onMessage(fromPayload(payload)));
-	room.on('typing', (payload: { user_id?: unknown }) => {
+	const messageRef = channel.on('message', (payload: MessagePayload) =>
+		input.onMessage(fromPayload(payload))
+	);
+	const typingRef = channel.on('typing', (payload: { user_id?: unknown }) => {
 		if (typeof payload?.user_id === 'string') input.onTyping(payload.user_id);
 	});
-	room.join().receive('ok', () => input.onReady());
 
 	return () => {
-		if (rooms.get(input.channelId) === room) rooms.delete(input.channelId);
-		room.leave();
+		channel.off('message', messageRef);
+		channel.off('typing', typingRef);
+		release();
 	};
 }
