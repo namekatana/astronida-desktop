@@ -80,7 +80,7 @@
 			active={channel.id === selectedChannelId}
 			occupants={voiceOccupants[channel.id]}
 			onclick={() => onselect(channel.id)}
-			onprefetch={channel.kind === 'voice' ? () => onprefetch?.(channel.id) : undefined}
+			onprefetch={() => onprefetch?.(channel.id)}
 			bind:element={itemElements[channel.id]}
 		/>
 	{/each}

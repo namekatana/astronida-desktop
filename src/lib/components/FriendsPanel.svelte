@@ -11,6 +11,7 @@
 	import { panelLimits } from '$lib/ui/panel-widths.svelte';
 	import { pop } from '$lib/ui/pop';
 	import { reveal } from '$lib/ui/reveal';
+	import ConnectionTitle from './ConnectionTitle.svelte';
 	import Icon from './Icon.svelte';
 	import MemberItem from './MemberItem.svelte';
 	import ResizeHandle from './ResizeHandle.svelte';
@@ -24,6 +25,7 @@
 		unreadByFriend: Record<string, number>;
 		width: number;
 		onselect: (friendId: string) => void;
+		onprefetch: (friendId: string) => void;
 		onaddfriend: () => void;
 		onaccept: (userId: string) => Promise<boolean>;
 		ondecline: (userId: string) => Promise<boolean>;
@@ -39,6 +41,7 @@
 		unreadByFriend,
 		width = $bindable(),
 		onselect,
+		onprefetch,
 		onaddfriend,
 		onaccept,
 		ondecline,
@@ -132,7 +135,7 @@
 
 <aside class="panel relative flex shrink-0 flex-col" style="width: {width}px">
 	<div class="flex items-baseline justify-between gap-3 px-5 pt-4 pb-3">
-		<h2 class="min-w-0 truncate text-[15px] font-semibold text-ink">Друзья</h2>
+		<ConnectionTitle title="Друзья" />
 		<span class="text-[12px] text-muted">{total}</span>
 	</div>
 	<div class="mx-4 h-px bg-surface-line"></div>
@@ -268,6 +271,8 @@
 							type="button"
 							aria-current={item.member.id === selectedFriendId ? 'true' : undefined}
 							onclick={() => onselect(item.member.id)}
+							onpointerenter={() => onprefetch(item.member.id)}
+							onfocus={() => onprefetch(item.member.id)}
 							class="relative block w-full rounded-lg text-left"
 						>
 							<MemberItem member={item.member} active={item.member.id === selectedFriendId} />

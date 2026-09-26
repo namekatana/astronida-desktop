@@ -2,6 +2,7 @@ import { PUBLIC_PHOENIX_URL } from '$env/static/public';
 import { Socket } from 'phoenix';
 import { untrack } from 'svelte';
 import { auth } from '$lib/auth/session.svelte';
+import { connection } from './connection.svelte';
 
 const ticketUrl = PUBLIC_PHOENIX_URL.replace(/^ws/, 'http').replace(
 	/\/socket$/,
@@ -47,17 +48,22 @@ function keepReconnectingWhileHidden(target: Socket) {
 	Object.defineProperty(target, 'pageHidden', { get: () => false });
 }
 
+
 export function phoenixSocket(): Socket {
 	if (socket) return socket;
 
 	const created = new Socket(PUBLIC_PHOENIX_URL, { params: () => ({ ticket }) });
 	keepReconnectingWhileHidden(created);
+	connection.setTracking(true);
 	created.onOpen(() => {
 		ticket = '';
+		connection.setSocketOpen(true);
 		void refreshTicket();
 	});
 	created.onClose(() => {
-		if (socket === created) void refreshTicket();
+		if (socket !== created) return;
+		connection.setSocketOpen(false);
+		void refreshTicket();
 	});
 	socket = created;
 	void refreshTicket().then(() => {
@@ -67,6 +73,7 @@ export function phoenixSocket(): Socket {
 }
 
 export function disconnectPhoenix(): void {
+	connection.setTracking(false);
 	socket?.disconnect();
 	socket = null;
 	ticket = '';

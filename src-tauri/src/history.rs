@@ -1,5 +1,6 @@
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
 use tauri::{AppHandle, Manager, State};
@@ -233,6 +234,19 @@ fn drop_missing(
         )
         .map_err(describe)?;
     Ok(())
+}
+
+#[tauri::command]
+pub fn history_newest_ids(history: State<History>) -> Result<HashMap<String, String>, String> {
+    let mut slot = lock(&history)?;
+    let connection = opened(&mut slot)?;
+    let mut statement = connection
+        .prepare("SELECT channel_id, MAX(id) FROM messages GROUP BY channel_id")
+        .map_err(describe)?;
+    let rows = statement
+        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+        .map_err(describe)?;
+    rows.collect::<Result<HashMap<_, _>, _>>().map_err(describe)
 }
 
 #[tauri::command]

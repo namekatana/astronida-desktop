@@ -3,6 +3,7 @@
 	import { panelLimits } from '$lib/ui/panel-widths.svelte';
 	import type { VoiceOccupant } from '$lib/voice/occupant';
 	import ChannelList from './ChannelList.svelte';
+	import ConnectionTitle from './ConnectionTitle.svelte';
 	import Icon from './Icon.svelte';
 	import ResizeHandle from './ResizeHandle.svelte';
 	import ServerMenu from './ServerMenu.svelte';
@@ -46,7 +47,7 @@
 
 <aside class="panel relative flex shrink-0 flex-col" style="width: {width}px">
 	<div class="flex items-center gap-1 pr-3 pb-[7px] pl-5 pt-[11px]">
-		<h2 class="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink">{serverName}</h2>
+		<ConnectionTitle title={serverName} class="flex-1" />
 		<button
 			type="button"
 			aria-label="Пригласить"

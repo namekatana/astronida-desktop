@@ -16,6 +16,7 @@ pub fn run() {
             history::history_open,
             history::history_page,
             history::history_store,
+            history::history_newest_ids,
             history::history_drop_channel,
             history::history_clear,
             notifications::notify_show,

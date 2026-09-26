@@ -18,7 +18,7 @@
 		declineFriendRequest,
 		subscribeToFriends
 	} from '$lib/friends/channel';
-	import { markRead, subscribeToInbox } from '$lib/notifications/inbox';
+	import { markRead, subscribeToInbox, type UnreadSnapshot } from '$lib/notifications/inbox';
 	import {
 		onNotificationActivated,
 		requestAttention,
@@ -28,6 +28,7 @@
 	import { setTaskbarBadge } from '$lib/notifications/taskbar';
 	import { unread } from '$lib/notifications/unread.svelte';
 	import { windowFocus } from '$lib/ui/window-focus.svelte';
+	import { connection } from '$lib/realtime/connection.svelte';
 	import { history, type HistoryCoverage } from '$lib/history/history';
 	import MemberPanel from '$lib/components/MemberPanel.svelte';
 	import MessageComposer from '$lib/components/MessageComposer.svelte';
@@ -47,7 +48,6 @@
 	import { clearTyping, createTypingSender, markTyping, typingIn } from '$lib/messages/typing.svelte';
 	import {
 		subscribeToServerPresence,
-		type ChannelActivity,
 		type ServerPresence,
 		type VoiceAnnouncement
 	} from '$lib/presence/presence';
@@ -214,7 +214,7 @@
 						onVoiceKeyRotated: (channelId, version) =>
 							voice.handleKeyRotation(id, channelId, version),
 						onVoiceRejoined: (channelId, key) => voice.handleRejoin(id, channelId, key),
-						onChannelActivity: (activity) => handleChannelActivity(id, activity)
+						onChannelMessage: (channelId, message) => handleChannelMessage(id, channelId, message)
 					})
 				);
 			}
@@ -482,6 +482,7 @@
 		if (!channelId) return;
 
 		let stale = false;
+		warmFeeds.add(channelId);
 		const feed = untrack(() => feedFor(channelId));
 		messagesLoading = untrack(() => unloaded(feed));
 		const opened = untrack(() => openFeed(channelId))
@@ -534,7 +535,73 @@
 		return openChatId === channelId && windowFocus.active;
 	}
 
+	const warmFeeds = new Set<string>();
+	const syncConcurrency = 4;
+	let syncEpoch = 0;
+
+	function warmFeed(channelId: string): Promise<void> {
+		if (warmFeeds.has(channelId)) return Promise.resolve();
+		warmFeeds.add(channelId);
+		return openFeed(channelId).then(() => scheduleSync(channelId));
+	}
+
+	function receiveMessage(channelId: string, message: Message) {
+		if (!warmFeeds.has(channelId)) {
+			void warmFeed(channelId);
+			return;
+		}
+		if (channelId in feeds) absorb(channelId, [message]);
+		else history.store(channelId, [message]).catch(() => {});
+	}
+
+	async function runLimited(items: string[], task: (item: string) => Promise<void>) {
+		const queue = [...items];
+		const worker = async () => {
+			for (let item = queue.shift(); item !== undefined; item = queue.shift()) {
+				await task(item).catch(() => {});
+			}
+		};
+		await Promise.all(Array.from({ length: Math.min(syncConcurrency, queue.length) }, worker));
+	}
+
+	async function synchronize(snapshot: UnreadSnapshot) {
+		const epoch = ++syncEpoch;
+		warmFeeds.clear();
+		connection.setUpdating(true);
+
+		const local = await history.newestIds().catch((): Record<string, string> => ({}));
+		if (epoch !== syncEpoch) return;
+
+		const stale = snapshot.latest.flatMap((entry) => {
+			if (local[entry.channelId] !== entry.newestId) return [entry.channelId];
+			warmFeeds.add(entry.channelId);
+			return [];
+		});
+
+		await runLimited(stale, (channelId) =>
+			epoch === syncEpoch ? warmFeed(channelId) : Promise.resolve()
+		);
+		if (epoch === syncEpoch) connection.setUpdating(false);
+	}
+
+	function handleUnreadSnapshot(snapshot: UnreadSnapshot) {
+		unread.replace(snapshot);
+		void synchronize(snapshot);
+	}
+
+	function prefetchFriend(friendId: string) {
+		const channelId = friends.find((friend) => friend.id === friendId)?.channelId;
+		if (channelId) void warmFeed(channelId);
+	}
+
+	function prefetchChannel(channelId: string) {
+		const channel = channels.find((c) => c.id === channelId);
+		if (channel?.kind === 'text') void warmFeed(channelId);
+		else if (channel?.kind === 'voice' && selectedServerId) voice.prefetch(selectedServerId);
+	}
+
 	function handleDirectMessage(channelId: string, message: Message) {
+		receiveMessage(channelId, message);
 		if (isViewing(channelId)) {
 			markRead(channelId, message.id);
 			return;
@@ -550,21 +617,22 @@
 		void requestAttention();
 	}
 
-	function handleChannelActivity(serverId: string, activity: ChannelActivity) {
-		if (activity.authorId === data.userId) return;
-		const channel = workspaces[serverId]?.channels.find((c) => c.id === activity.channelId);
+	function handleChannelMessage(serverId: string, channelId: string, message: Message) {
+		receiveMessage(channelId, message);
+		if (message.author.id === data.userId) return;
+		const channel = workspaces[serverId]?.channels.find((c) => c.id === channelId);
 		if (channel?.kind !== 'text') return;
-		if (isViewing(activity.channelId)) {
-			markRead(activity.channelId, activity.messageId);
+		if (isViewing(channelId)) {
+			markRead(channelId, message.id);
 			return;
 		}
-		unread.addChannel(activity.channelId, activity.messageId);
+		unread.addChannel(channelId, message.id);
 	}
 
 	$effect(() => {
 		return subscribeToInbox({
 			userId: data.userId,
-			onSnapshot: (snapshot) => unread.replace(snapshot),
+			onSnapshot: handleUnreadSnapshot,
 			onDirectMessage: handleDirectMessage,
 			onRead: (channelId, messageId) => unread.clear(channelId, messageId)
 		});
@@ -596,6 +664,8 @@
 
 	$effect(() => {
 		return () => {
+			syncEpoch += 1;
+			connection.setUpdating(false);
 			unread.reset();
 			void setTaskbarBadge(0);
 		};
@@ -832,10 +902,6 @@
 		}
 	}
 
-	function prefetchVoice() {
-		if (selectedServerId) voice.prefetch(selectedServerId);
-	}
-
 	function firstTextChannel() {
 		return orderedChannels.find((c) => c.kind === 'text') ?? null;
 	}
@@ -909,7 +975,7 @@
 				{voiceOccupants}
 				bind:width={panelWidths.channels}
 				onselect={selectChannel}
-				onprefetch={prefetchVoice}
+				onprefetch={prefetchChannel}
 				oncreatecategory={() => openChannelDialog('category')}
 				oncreatechannel={openChannelDialog}
 			/>
@@ -923,6 +989,7 @@
 				{unreadByFriend}
 				bind:width={panelWidths.channels}
 				onselect={selectFriend}
+				onprefetch={prefetchFriend}
 				onaddfriend={() => (addingFriend = true)}
 				onaccept={acceptFriendRequest}
 				ondecline={declineFriendRequest}

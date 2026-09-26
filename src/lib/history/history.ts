@@ -20,6 +20,7 @@ interface HistoryBackend {
 	open(userId: string): Promise<void>;
 	page(channelId: string, before?: string): Promise<HistoryPage>;
 	store(channelId: string, messages: Message[], options?: StoreOptions): Promise<void>;
+	newestIds(): Promise<Record<string, string>>;
 	dropChannel(channelId: string): Promise<void>;
 	clear(): Promise<void>;
 }
@@ -91,6 +92,10 @@ const tauriBackend: HistoryBackend = {
 		});
 	},
 
+	newestIds() {
+		return invoke<Record<string, string>>('history_newest_ids');
+	},
+
 	dropChannel(channelId) {
 		return invoke('history_drop_channel', { channelId });
 	},
@@ -141,6 +146,15 @@ function createMemoryBackend(): HistoryBackend {
 				}
 			}
 			if (options.reachedStart !== undefined) reachedStart.set(channelId, options.reachedStart);
+		},
+
+		async newestIds() {
+			const newest: Record<string, string> = {};
+			for (const row of rows.values()) {
+				const known = newest[row.channelId];
+				if (known === undefined || row.id > known) newest[row.channelId] = row.id;
+			}
+			return newest;
 		},
 
 		async dropChannel(channelId) {
