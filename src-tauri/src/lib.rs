@@ -1,5 +1,6 @@
 mod history;
 mod notifications;
+mod secure_store;
 mod voice;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -18,6 +19,9 @@ pub fn run() {
             history::history_drop_channel,
             history::history_clear,
             notifications::notify_show,
+            secure_store::secure_store_get,
+            secure_store::secure_store_set,
+            secure_store::secure_store_remove,
             voice::voice_connect,
             voice::voice_rotate_key,
             voice::voice_set_microphone,

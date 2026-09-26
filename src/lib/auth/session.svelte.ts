@@ -1,5 +1,6 @@
 import { isAuthRetryableFetchError, type Session } from '@supabase/supabase-js';
 import { authStorageKey, supabase } from '$lib/supabase/client';
+import { secureStorage } from './secure-storage';
 
 const offlineStartTimeoutMs = 3000;
 const stillLoading = Symbol('stillLoading');
@@ -16,9 +17,9 @@ export const auth = {
 	}
 };
 
-function storedSession(): Session | null {
+async function storedSession(): Promise<Session | null> {
 	try {
-		const raw = localStorage.getItem(authStorageKey);
+		const raw = await secureStorage.getItem(authStorageKey);
 		if (!raw) return null;
 		const candidate = JSON.parse(raw) as Partial<Session>;
 		const usable =
@@ -54,7 +55,7 @@ export async function initSession(): Promise<void> {
 		session = first;
 		return;
 	}
-	session = storedSession();
+	session = await storedSession();
 	void loading.then((loaded) => {
 		if (loaded) session = loaded;
 	});
