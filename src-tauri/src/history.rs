@@ -250,6 +250,44 @@ pub fn history_newest_ids(history: State<History>) -> Result<HashMap<String, Str
 }
 
 #[tauri::command]
+pub fn history_latest_messages(
+    history: State<History>,
+    channel_ids: Vec<String>,
+) -> Result<Vec<HistoryMessage>, String> {
+    let mut slot = lock(&history)?;
+    let connection = opened(&mut slot)?;
+    let mut statement = connection
+        .prepare(
+            "SELECT m.id, m.channel_id, m.author_id, m.content, m.sent_at, p.username, p.display_name
+             FROM messages m LEFT JOIN profiles p ON p.id = m.author_id
+             WHERE m.channel_id = ?1
+             ORDER BY m.id DESC LIMIT 1",
+        )
+        .map_err(describe)?;
+    let mut latest = Vec::new();
+    for channel_id in channel_ids {
+        let message = statement
+            .query_row(params![channel_id], |row| {
+                Ok(HistoryMessage {
+                    id: row.get(0)?,
+                    channel_id: row.get(1)?,
+                    author: Author {
+                        id: row.get(2)?,
+                        username: row.get::<_, Option<String>>(5)?.unwrap_or_else(|| "unknown".into()),
+                        display_name: row.get::<_, Option<String>>(6)?.unwrap_or_else(|| "?".into()),
+                    },
+                    content: row.get(3)?,
+                    sent_at: row.get(4)?,
+                })
+            })
+            .optional()
+            .map_err(describe)?;
+        latest.extend(message);
+    }
+    Ok(latest)
+}
+
+#[tauri::command]
 pub fn history_drop_channel(history: State<History>, channel_id: String) -> Result<(), String> {
     let mut slot = lock(&history)?;
     let transaction = opened(&mut slot)?.transaction().map_err(describe)?;

@@ -59,6 +59,7 @@ export function subscribeToInbox(input: {
 	onSnapshot: (snapshot: UnreadSnapshot) => void;
 	onDirectMessage: (channelId: string, message: Message) => void;
 	onRead: (channelId: string, messageId: string) => void;
+	onTyping: (channelId: string, userId: string) => void;
 }): () => void {
 	const channel = phoenixSocket().channel(`inbox:${input.userId}`);
 
@@ -67,6 +68,9 @@ export function subscribeToInbox(input: {
 	});
 	channel.on('read', (payload: { channel_id: string; message_id: string }) => {
 		input.onRead(payload.channel_id, payload.message_id);
+	});
+	channel.on('typing', (payload: { channel_id: string; user_id: string }) => {
+		input.onTyping(payload.channel_id, payload.user_id);
 	});
 	channel.join().receive('ok', (reply: SnapshotPayload) => input.onSnapshot(toSnapshot(reply)));
 

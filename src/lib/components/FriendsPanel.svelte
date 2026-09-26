@@ -5,7 +5,7 @@
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { fade, scale, type TransitionConfig } from 'svelte/transition';
-	import type { Friend } from '$lib/friends/friends';
+	import type { Friend, FriendActivity } from '$lib/friends/friends';
 	import type { Member } from '$lib/servers/members';
 	import { initials } from '$lib/ui/initials';
 	import { panelLimits } from '$lib/ui/panel-widths.svelte';
@@ -13,7 +13,7 @@
 	import { reveal } from '$lib/ui/reveal';
 	import ConnectionTitle from './ConnectionTitle.svelte';
 	import Icon from './Icon.svelte';
-	import MemberItem from './MemberItem.svelte';
+	import FriendItem from './FriendItem.svelte';
 	import ResizeHandle from './ResizeHandle.svelte';
 
 	interface Props {
@@ -23,6 +23,7 @@
 		freshFriendIds: ReadonlySet<string>;
 		selectedFriendId: string | null;
 		unreadByFriend: Record<string, number>;
+		activityByFriend: Record<string, FriendActivity>;
 		width: number;
 		onselect: (friendId: string) => void;
 		onprefetch: (friendId: string) => void;
@@ -39,6 +40,7 @@
 		freshFriendIds,
 		selectedFriendId,
 		unreadByFriend,
+		activityByFriend,
 		width = $bindable(),
 		onselect,
 		onprefetch,
@@ -245,7 +247,7 @@
 		<div class="relative flex flex-col gap-0.5">
 			<span
 				aria-hidden="true"
-				class="absolute inset-x-0 top-0 h-10 rounded-lg bg-white/[0.06] {highlightVisible
+				class="absolute inset-x-0 top-0 h-12 rounded-lg bg-white/[0.06] {highlightVisible
 					? 'opacity-100'
 					: 'opacity-0'}"
 				style="translate: 0 {highlightY}px; scale: {highlightVisible
@@ -275,7 +277,12 @@
 							onfocus={() => onprefetch(item.member.id)}
 							class="relative block w-full rounded-lg text-left"
 						>
-							<MemberItem member={item.member} active={item.member.id === selectedFriendId} />
+							<FriendItem
+								member={item.member}
+								activity={activityByFriend[item.member.id]}
+								active={item.member.id === selectedFriendId}
+								badged={(unreadByFriend[item.member.id] ?? 0) > 0}
+							/>
 							{#if (unreadByFriend[item.member.id] ?? 0) > 0}
 								<span
 									class="absolute top-1/2 right-2.5 flex h-[18px] min-w-[18px] -translate-y-1/2 items-center justify-center rounded-full bg-ink px-1.5 text-[11px] font-semibold text-bg tabular-nums"

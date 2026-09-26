@@ -12,7 +12,7 @@
 	import CreateServerDialog from '$lib/components/CreateServerDialog.svelte';
 	import FriendsPanel from '$lib/components/FriendsPanel.svelte';
 	import AddFriendDialog from '$lib/components/AddFriendDialog.svelte';
-	import type { Friend } from '$lib/friends/friends';
+	import type { Friend, FriendActivity } from '$lib/friends/friends';
 	import {
 		acceptFriendRequest,
 		declineFriendRequest,
@@ -550,9 +550,53 @@
 			void warmFeed(channelId);
 			return;
 		}
-		if (channelId in feeds) absorb(channelId, [message]);
-		else history.store(channelId, [message]).catch(() => {});
+		if (channelId in feeds) {
+			absorb(channelId, [message]);
+			return;
+		}
+		history.store(channelId, [message]).catch(() => {});
+		rememberLatest(channelId, message);
 	}
+
+	let storedLatest = $state<Record<string, Message>>({});
+
+	function rememberLatest(channelId: string, message: Message) {
+		const known = storedLatest[channelId];
+		if (!known || known.id < message.id) storedLatest[channelId] = message;
+	}
+
+	const directChannelIds = $derived(
+		friends.flatMap((friend) => (friend.channelId ? [friend.channelId] : []))
+	);
+
+	$effect(() => {
+		const channelIds = directChannelIds;
+		const missing = untrack(() => channelIds.filter((id) => !(id in storedLatest)));
+		if (missing.length === 0) return;
+		history
+			.latestMessages(missing)
+			.then((latest) => {
+				for (const [channelId, message] of Object.entries(latest)) {
+					rememberLatest(channelId, message);
+				}
+			})
+			.catch(() => {});
+	});
+
+	const activityByFriend = $derived(
+		Object.fromEntries(
+			friends.flatMap((friend): [string, FriendActivity][] => {
+				const channelId = friend.channelId;
+				if (!channelId) return [];
+				if (typingIn(channelId).includes(friend.id)) return [[friend.id, { kind: 'typing' }]];
+				const latest = feeds[channelId]?.messages.at(-1) ?? storedLatest[channelId];
+				if (!latest) return [];
+				return [
+					[friend.id, { kind: 'message', text: latest.text, own: latest.author.id === data.userId }]
+				];
+			})
+		)
+	);
 
 	async function runLimited(items: string[], task: (item: string) => Promise<void>) {
 		const queue = [...items];
@@ -601,6 +645,7 @@
 	}
 
 	function handleDirectMessage(channelId: string, message: Message) {
+		clearTyping(channelId, message.author.id);
 		receiveMessage(channelId, message);
 		if (isViewing(channelId)) {
 			markRead(channelId, message.id);
@@ -634,7 +679,8 @@
 			userId: data.userId,
 			onSnapshot: handleUnreadSnapshot,
 			onDirectMessage: handleDirectMessage,
-			onRead: (channelId, messageId) => unread.clear(channelId, messageId)
+			onRead: (channelId, messageId) => unread.clear(channelId, messageId),
+			onTyping: markTyping
 		});
 	});
 
@@ -987,6 +1033,7 @@
 				{freshFriendIds}
 				selectedFriendId={selectedFriend?.id ?? null}
 				{unreadByFriend}
+				{activityByFriend}
 				bind:width={panelWidths.channels}
 				onselect={selectFriend}
 				onprefetch={prefetchFriend}

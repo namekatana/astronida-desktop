@@ -10,6 +10,8 @@ export interface Friend {
 
 export type FriendRelation = 'none' | 'friend' | 'outgoing' | 'incoming';
 
+export type FriendActivity = { kind: 'typing' } | { kind: 'message'; text: string; own: boolean };
+
 export interface UserSearchResult extends Friend {
 	relation: FriendRelation;
 }
