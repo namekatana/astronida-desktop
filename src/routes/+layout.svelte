@@ -26,9 +26,31 @@
 	function blockReload(event: KeyboardEvent) {
 		if (!dev && isReloadShortcut(event)) event.preventDefault();
 	}
+
+	function isEditable(target: EventTarget | null): boolean {
+		return (
+			target instanceof Element &&
+			target.closest('input, textarea, [contenteditable="true"]') !== null
+		);
+	}
+
+	function hasSelectedText(): boolean {
+		return (window.getSelection()?.toString() ?? '') !== '';
+	}
+
+	function blockContextMenu(event: MouseEvent) {
+		if (dev && event.shiftKey) return;
+		if (isEditable(event.target) || hasSelectedText()) return;
+		event.preventDefault();
+	}
 </script>
 
-<svelte:window onfocus={updateActivity} onblur={updateActivity} onkeydown={blockReload} />
+<svelte:window
+	onfocus={updateActivity}
+	onblur={updateActivity}
+	onkeydown={blockReload}
+	oncontextmenu={blockContextMenu}
+/>
 <svelte:document onvisibilitychange={updateActivity} />
 
 <div class="smooth-text flex h-screen flex-col bg-bg" data-inactive={windowActive ? undefined : ''}>
