@@ -1,4 +1,5 @@
 import type { Category, Channel } from '$lib/channels/channels';
+import { history } from '$lib/history/history';
 import type { Friend } from '$lib/friends/friends';
 import type { ServerPresence, VoiceMember } from '$lib/presence/presence';
 import type { Member } from '$lib/servers/members';
@@ -57,45 +58,71 @@ function keyFor(userId: string, section: Section) {
 	return `${keyPrefix}${userId}.${section}`;
 }
 
-function readSection<K extends Section>(userId: string, section: K, fallback: StoredCache[K]) {
+function takeLegacySection(userId: string, section: Section): string | null {
 	try {
-		const raw = localStorage.getItem(keyFor(userId, section));
-		return raw ? (JSON.parse(raw) as StoredCache[K]) : fallback;
+		const legacy = localStorage.getItem(keyFor(userId, section));
+		if (legacy === null) return null;
+		void history
+			.cachePut(section, legacy)
+			.then(() => localStorage.removeItem(keyFor(userId, section)))
+			.catch(() => {});
+		return legacy;
+	} catch {
+		return null;
+	}
+}
+
+async function readSection<K extends Section>(
+	userId: string,
+	section: K,
+	fallback: StoredCache[K]
+): Promise<StoredCache[K]> {
+	const raw =
+		(await history.cacheGet(section).catch(() => null)) ?? takeLegacySection(userId, section);
+	if (!raw) return fallback;
+	try {
+		return JSON.parse(raw) as StoredCache[K];
 	} catch {
 		return fallback;
 	}
 }
 
-function load(userId: string): StoredCache {
+async function load(userId: string): Promise<StoredCache> {
 	if (storedFor === userId) return stored;
+	const [account, workspaces, presence, friendsOnline] = await Promise.all([
+		readSection(userId, 'account', null),
+		readSection(userId, 'workspaces', {}),
+		readSection(userId, 'presence', {}),
+		readSection(userId, 'friendsOnline', [])
+	]);
 	storedFor = userId;
-	stored = {
-		account: readSection(userId, 'account', null),
-		workspaces: readSection(userId, 'workspaces', {}),
-		presence: readSection(userId, 'presence', {}),
-		friendsOnline: readSection(userId, 'friendsOnline', [])
-	};
+	stored = { account, workspaces, presence, friendsOnline };
 	return stored;
 }
 
-function scheduleWrite(userId: string, section: Section) {
+function current(userId: string): StoredCache {
+	if (storedFor !== userId) {
+		storedFor = userId;
+		stored = empty();
+	}
+	return stored;
+}
+
+function scheduleWrite(section: Section) {
 	dirty.add(section);
 	if (writeTimer) clearTimeout(writeTimer);
 	writeTimer = setTimeout(() => {
 		writeTimer = null;
 		for (const changed of dirty) {
-			try {
-				localStorage.setItem(keyFor(userId, changed), JSON.stringify(stored[changed]));
-			} catch {
-			}
+			void history.cachePut(changed, JSON.stringify(stored[changed])).catch(() => {});
 		}
 		dirty.clear();
 	}, writeDelayMs);
 }
 
 export const workspaceCache = {
-	read(userId: string): WorkspaceCache {
-		const current = load(userId);
+	async read(userId: string): Promise<WorkspaceCache> {
+		const current = await load(userId);
 		return {
 			account: current.account,
 			workspaces: current.workspaces,
@@ -110,23 +137,23 @@ export const workspaceCache = {
 	},
 
 	savePresence(userId: string, serverId: string, presence: ServerPresence) {
-		load(userId).presence[serverId] = { online: [...presence.online], voice: presence.voice };
-		scheduleWrite(userId, 'presence');
+		current(userId).presence[serverId] = { online: [...presence.online], voice: presence.voice };
+		scheduleWrite('presence');
 	},
 
 	saveFriendsOnline(userId: string, online: Set<string>) {
-		load(userId).friendsOnline = [...online];
-		scheduleWrite(userId, 'friendsOnline');
+		current(userId).friendsOnline = [...online];
+		scheduleWrite('friendsOnline');
 	},
 
 	saveAccount(userId: string, account: CachedAccount) {
-		load(userId).account = account;
-		scheduleWrite(userId, 'account');
+		current(userId).account = account;
+		scheduleWrite('account');
 	},
 
 	saveWorkspace(userId: string, serverId: string, workspace: Workspace) {
-		load(userId).workspaces[serverId] = workspace;
-		scheduleWrite(userId, 'workspaces');
+		current(userId).workspaces[serverId] = workspace;
+		scheduleWrite('workspaces');
 	},
 
 	clear(userId: string) {

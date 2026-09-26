@@ -34,6 +34,8 @@ interface HistoryBackend {
 	outboxList(): Promise<OutboxRecord[]>;
 	outboxPut(record: OutboxRecord): Promise<void>;
 	outboxRemove(clientId: string): Promise<void>;
+	cacheGet(section: string): Promise<string | null>;
+	cachePut(section: string, value: string): Promise<void>;
 }
 
 interface StoredMessage {
@@ -130,6 +132,14 @@ const tauriBackend: HistoryBackend = {
 
 	outboxRemove(clientId) {
 		return invoke('outbox_remove', { clientId });
+	},
+
+	cacheGet(section) {
+		return invoke<string | null>('cache_get', { section });
+	},
+
+	cachePut(section, value) {
+		return invoke('cache_put', { section, value });
 	}
 };
 
@@ -137,6 +147,7 @@ function createMemoryBackend(): HistoryBackend {
 	const rows = new Map<string, StoredMessage>();
 	const reachedStart = new Map<string, boolean>();
 	const outbox = new Map<string, OutboxRecord>();
+	const cache = new Map<string, string>();
 	let openedFor: string | null = null;
 
 	return {
@@ -145,6 +156,7 @@ function createMemoryBackend(): HistoryBackend {
 				rows.clear();
 				reachedStart.clear();
 				outbox.clear();
+				cache.clear();
 			}
 			openedFor = userId;
 		},
@@ -211,6 +223,7 @@ function createMemoryBackend(): HistoryBackend {
 			rows.clear();
 			reachedStart.clear();
 			outbox.clear();
+			cache.clear();
 		},
 
 		async outboxList() {
@@ -227,6 +240,14 @@ function createMemoryBackend(): HistoryBackend {
 
 		async outboxRemove(clientId) {
 			outbox.delete(clientId);
+		},
+
+		async cacheGet(section) {
+			return cache.get(section) ?? null;
+		},
+
+		async cachePut(section, value) {
+			cache.set(section, value);
 		}
 	};
 }

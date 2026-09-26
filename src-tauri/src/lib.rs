@@ -1,4 +1,5 @@
 mod history;
+mod local_key;
 mod notifications;
 mod secure_store;
 mod voice;
@@ -23,6 +24,8 @@ pub fn run() {
             history::outbox_list,
             history::outbox_put,
             history::outbox_remove,
+            history::cache_get,
+            history::cache_put,
             notifications::notify_show,
             secure_store::secure_store_get,
             secure_store::secure_store_set,

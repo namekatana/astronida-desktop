@@ -26,9 +26,9 @@ export async function load() {
 		redirect(307, '/');
 	}
 
-	const cache = workspaceCache.read(user.id);
-	const refresh = fetchAccount(user.id);
 	await history.open(user.id).catch(() => {});
+	const cache = await workspaceCache.read(user.id);
+	const refresh = fetchAccount(user.id);
 	const account = cache.account ?? (await refresh);
 
 	return { userId: user.id, account, refresh, cache };

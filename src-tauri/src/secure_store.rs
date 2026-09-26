@@ -62,7 +62,7 @@ pub fn secure_store_remove(app: AppHandle, key: String) -> Result<(), String> {
 }
 
 #[cfg(windows)]
-mod dpapi {
+pub(crate) mod dpapi {
     use std::ptr;
     use windows_sys::Win32::Foundation::LocalFree;
     use windows_sys::Win32::Security::Cryptography::{
@@ -139,7 +139,7 @@ mod dpapi {
 }
 
 #[cfg(not(windows))]
-mod dpapi {
+pub(crate) mod dpapi {
     pub fn protect(_plain: &[u8]) -> Result<Vec<u8>, String> {
         Err("secure store is only supported on Windows".to_string())
     }
