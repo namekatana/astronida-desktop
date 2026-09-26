@@ -38,6 +38,9 @@ export async function createServer(name: string, ownerId: string): Promise<Creat
 		.select('id, name, owner_id')
 		.single();
 
+	if (error?.message === 'limit_reached') {
+		return { ok: false, message: 'Достигнут лимит: не больше 100 своих серверов' };
+	}
 	if (error || !data) {
 		return {
 			ok: false,

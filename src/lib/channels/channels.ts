@@ -85,6 +85,9 @@ export async function createCategory(
 		.select('id, server_id, name, position')
 		.single();
 
+	if (error?.message === 'limit_reached') {
+		return { ok: false, message: 'Достигнут лимит: не больше 50 категорий на сервере' };
+	}
 	if (error || !data) {
 		return { ok: false, message: 'Не удалось создать категорию, попробуйте ещё раз' };
 	}
@@ -113,6 +116,9 @@ export async function createChannel(input: {
 		.select('id, server_id, category_id, name, kind, position')
 		.single();
 
+	if (error?.message === 'limit_reached') {
+		return { ok: false, message: 'Достигнут лимит: не больше 500 каналов на сервере' };
+	}
 	if (error || !data) {
 		return { ok: false, message: 'Не удалось создать канал, попробуйте ещё раз' };
 	}
