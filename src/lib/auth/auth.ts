@@ -1,4 +1,5 @@
 import { AuthError } from '@supabase/supabase-js';
+import { apiUrl } from '$lib/realtime/api-url';
 import { disconnectPhoenix } from '$lib/realtime/socket';
 import { supabase } from '$lib/supabase/client';
 
@@ -26,13 +27,28 @@ function describe(error: AuthError): string {
 	return 'Что-то пошло не так, попробуйте ещё раз';
 }
 
-export async function checkUsernameAvailable(username: string): Promise<AuthResult> {
-	const { data, error } = await supabase.rpc('is_username_available', { candidate: username });
+const usernameCheckTimeoutMs = 10_000;
+const usernameCheckFailed: AuthResult = {
+	ok: false,
+	message: 'Не удалось проверить ник, попробуйте ещё раз'
+};
 
-	if (error) {
-		return { ok: false, message: 'Не удалось проверить ник, попробуйте ещё раз' };
+export async function checkUsernameAvailable(username: string): Promise<AuthResult> {
+	try {
+		const response = await fetch(
+			apiUrl(`/username/available?username=${encodeURIComponent(username)}`),
+			{ signal: AbortSignal.timeout(usernameCheckTimeoutMs) }
+		);
+		if (response.status === 429) {
+			return { ok: false, message: 'Слишком много попыток, подождите минуту' };
+		}
+		if (!response.ok) return usernameCheckFailed;
+		const body = (await response.json()) as { available?: unknown };
+		if (typeof body.available !== 'boolean') return usernameCheckFailed;
+		return body.available ? { ok: true } : { ok: false, message: 'Этот ник уже занят' };
+	} catch {
+		return usernameCheckFailed;
 	}
-	return data ? { ok: true } : { ok: false, message: 'Этот ник уже занят' };
 }
 
 export async function signUp(input: {

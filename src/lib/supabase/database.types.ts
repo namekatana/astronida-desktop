@@ -342,7 +342,6 @@ export type Database = {
 			[_ in never]: never;
 		};
 		Functions: {
-			is_username_available: { Args: { candidate: string }; Returns: boolean };
 			uuid_v7: { Args: never; Returns: string };
 		};
 		Enums: {

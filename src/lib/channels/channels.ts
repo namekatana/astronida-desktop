@@ -1,5 +1,6 @@
 import { supabase } from '$lib/supabase/client';
 import { retryOnFreshToken } from '$lib/supabase/retry';
+import { hasInvisibleCharacters, invisibleNameMessage } from '$lib/ui/visible-text';
 
 export type ChannelKind = 'text' | 'voice';
 
@@ -27,6 +28,7 @@ export function validateName(name: string): string {
 	const trimmed = name.trim();
 	if (trimmed.length === 0) return 'Введите название';
 	if (trimmed.length > nameMaxLength) return `Не длиннее ${nameMaxLength} символов`;
+	if (hasInvisibleCharacters(trimmed)) return invisibleNameMessage;
 	return '';
 }
 

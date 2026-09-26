@@ -3,12 +3,10 @@ import { Socket } from 'phoenix';
 import { untrack } from 'svelte';
 import { auth } from '$lib/auth/session.svelte';
 import { supabase } from '$lib/supabase/client';
+import { apiUrl } from './api-url';
 import { connection } from './connection.svelte';
 
-const ticketUrl = PUBLIC_PHOENIX_URL.replace(/^ws/, 'http').replace(
-	/\/socket$/,
-	'/api/socket/ticket'
-);
+const ticketUrl = apiUrl('/socket/ticket');
 
 const ticketTimeoutMs = 10_000;
 const spareTicketRefreshMs = 4 * 60_000;

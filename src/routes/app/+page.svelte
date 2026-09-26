@@ -53,6 +53,7 @@
 		type OutboxEntry
 	} from '$lib/messages/outbox';
 	import { clearTyping, createTypingSender, markTyping, typingIn } from '$lib/messages/typing.svelte';
+	import { withoutBidiControls } from '$lib/ui/visible-text';
 	import {
 		subscribeToServerPresence,
 		type ServerPresence,
@@ -936,7 +937,9 @@
 		if (!channelId || !username) return;
 		typingSender.reset();
 
-		const entry = createEntry(channelId, text.trim());
+		const visibleText = withoutBidiControls(text).trim();
+		if (!visibleText) return;
+		const entry = createEntry(channelId, visibleText);
 		feedFor(channelId).messages.push(pendingMessageOf(entry));
 		outbox.enqueue(entry);
 	}

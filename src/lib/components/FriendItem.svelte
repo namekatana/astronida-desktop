@@ -48,7 +48,7 @@
 			</span>
 		{:else if activity}
 			<span class="block truncate text-[11px] leading-4 text-muted"
-				>{activity.own ? 'Вы: ' : ''}{activity.text}</span
+				>{activity.own ? 'Вы: ' : ''}<bdi>{activity.text}</bdi></span
 			>
 		{/if}
 	</span>

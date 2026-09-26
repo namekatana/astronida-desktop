@@ -61,7 +61,8 @@
 			{#each messages as message (message.id)}
 				<div data-message-id={message.id}>
 					<p
-						class="py-0.5 text-[14px] leading-5 break-words whitespace-pre-wrap text-ink-secondary transition-opacity duration-200 select-text {message.status ===
+						dir="auto"
+						class="py-0.5 text-[14px] leading-5 break-words whitespace-pre-wrap text-ink-secondary transition-opacity duration-200 select-text [unicode-bidi:plaintext] {message.status ===
 						'sending'
 							? 'opacity-50'
 							: ''}"

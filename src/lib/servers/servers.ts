@@ -1,5 +1,6 @@
 import { supabase } from '$lib/supabase/client';
 import { retryOnFreshToken } from '$lib/supabase/retry';
+import { hasInvisibleCharacters, invisibleNameMessage } from '$lib/ui/visible-text';
 
 export interface Server {
 	id: string;
@@ -15,6 +16,7 @@ export function validateServerName(name: string): string {
 	const trimmed = name.trim();
 	if (trimmed.length === 0) return 'Введите название сервера';
 	if (trimmed.length > serverNameMaxLength) return `Не длиннее ${serverNameMaxLength} символов`;
+	if (hasInvisibleCharacters(trimmed)) return invisibleNameMessage;
 	return '';
 }
 
