@@ -1,8 +1,19 @@
 import { untrack } from 'svelte';
+import { unread, type UnreadMark } from '$lib/notifications/unread.svelte';
 import type { Sync } from '$lib/sync/sync';
 import type { Feeds } from './feeds.svelte';
 import { sendTyping, subscribeToChannel, type Message } from './messages';
 import { clearTyping, createTypingSender, markTyping } from './typing.svelte';
+
+function firstUnreadId(messages: Message[], mark: UnreadMark, hasMore: boolean): string | null {
+	const confirmed = messages.filter((message) => message.status === undefined);
+	if ('from' in mark) return confirmed.find((message) => message.id >= mark.from)?.id ?? null;
+	const after = mark.after;
+	const boundaryLoaded =
+		!hasMore || (after !== null && confirmed.some((message) => message.id <= after));
+	if (!boundaryLoaded) return null;
+	return confirmed.find((message) => after === null || message.id > after)?.id ?? null;
+}
 
 export function createOpenChat(input: {
 	userId: string;
@@ -22,6 +33,22 @@ export function createOpenChat(input: {
 		const channelId = input.chatId();
 		return channelId ? feeds.hasMoreOf(channelId) : false;
 	});
+
+	let unreadMark = $state<UnreadMark | null>(null);
+	let markedChatId: string | null = null;
+
+	$effect(() => {
+		const channelId = input.chatId();
+		const pending = channelId ? unread.markFor(channelId) : null;
+		if (channelId !== markedChatId) {
+			markedChatId = channelId;
+			unreadMark = pending;
+			return;
+		}
+		if (pending && 'after' in pending && !untrack(() => unreadMark)) unreadMark = pending;
+	});
+
+	const dividerId = $derived(unreadMark ? firstUnreadId(messages, unreadMark, hasMore) : null);
 
 	$effect(() => {
 		const channelId = input.chatId();
@@ -91,6 +118,9 @@ export function createOpenChat(input: {
 		},
 		get loading() {
 			return loading;
+		},
+		get dividerId() {
+			return dividerId;
 		},
 		loadOlder,
 		touchTyping: typingSender.touch,

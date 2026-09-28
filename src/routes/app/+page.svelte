@@ -446,6 +446,7 @@
 					hasMore={openChat.hasMore}
 					loading={openChat.loading}
 					typing={typingNames}
+					dividerId={openChat.dividerId}
 					onloadolder={openChat.loadOlder}
 					oncancel={cancelSend}
 				/>

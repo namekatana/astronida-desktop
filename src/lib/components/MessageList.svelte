@@ -9,6 +9,7 @@
 		hasMore?: boolean;
 		loading?: boolean;
 		typing?: string[];
+		dividerId?: string | null;
 		onloadolder?: () => void;
 		oncancel?: (messageId: string) => void;
 	}
@@ -18,13 +19,14 @@
 		hasMore = false,
 		loading = false,
 		typing = [],
+		dividerId = null,
 		onloadolder,
 		oncancel
 	}: Props = $props();
 
 	const groupGapMs = 5 * 60 * 1000;
 
-	type Group = { key: string; messages: Message[] };
+	type Group = { key: string; messages: Message[]; unreadStart: boolean };
 	type Block = { dateLabel: string; groups: Group[] };
 
 	const dateFormat = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' });
@@ -60,13 +62,15 @@
 
 			const group = block.groups.at(-1);
 			const last = group?.messages.at(-1);
+			const unreadStart = message.id === dividerId;
 			const continues =
+				!unreadStart &&
 				last &&
 				last.author.id === message.author.id &&
 				message.sentAt.getTime() - last.sentAt.getTime() <= groupGapMs;
 
 			if (group && continues) group.messages.push(message);
-			else block.groups.push({ key: message.id, messages: [message] });
+			else block.groups.push({ key: message.id, messages: [message], unreadStart });
 		}
 		return result;
 	});
@@ -110,6 +114,23 @@
 		return () => observer.disconnect();
 	});
 
+	const dividerOffset = 12;
+	let revealedDividerId: string | null = null;
+
+	$effect(() => {
+		const id = dividerId;
+		const element = scroller;
+		if (!element || !id || id === revealedDividerId) return;
+		const line = element.querySelector<HTMLElement>('[data-unread-divider]');
+		if (!line) return;
+		revealedDividerId = id;
+		const top =
+			line.getBoundingClientRect().top - element.getBoundingClientRect().top + element.scrollTop;
+		if (element.scrollHeight - top <= element.clientHeight) return;
+		element.scrollTop = top - dividerOffset;
+		pinnedToBottom = false;
+	});
+
 	function handleScroll() {
 		if (!scroller) return;
 		const distanceToBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
@@ -141,6 +162,13 @@
 
 			<div class="flex flex-col gap-1">
 				{#each block.groups as group (group.key)}
+					{#if group.unreadStart}
+						<div data-unread-divider class="flex items-center gap-3 px-3 py-2">
+							<span class="h-px flex-1 bg-white/25"></span>
+							<span class="text-[13px] font-semibold text-ink">Новые сообщения</span>
+							<span class="h-px flex-1 bg-white/25"></span>
+						</div>
+					{/if}
 					<MessageGroup messages={group.messages} {oncancel} />
 				{/each}
 			</div>

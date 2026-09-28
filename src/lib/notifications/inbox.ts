@@ -6,11 +6,13 @@ export interface DirectUnread {
 	channelId: string;
 	count: number;
 	newestId: string;
+	readId: string | null;
 }
 
 export interface ChannelUnread {
 	channelId: string;
 	newestId: string;
+	readId: string | null;
 }
 
 export interface ChannelNewest {
@@ -25,8 +27,8 @@ export interface UnreadSnapshot {
 }
 
 interface SnapshotPayload {
-	direct: { channel_id: string; count: number; newest_id: string }[];
-	channels: { channel_id: string; newest_id: string }[];
+	direct: { channel_id: string; count: number; newest_id: string; read_id: string | null }[];
+	channels: { channel_id: string; newest_id: string; read_id: string | null }[];
 	latest: { channel_id: string; newest_id: string }[];
 }
 
@@ -41,11 +43,13 @@ function toSnapshot(payload: SnapshotPayload): UnreadSnapshot {
 		direct: payload.direct.map((entry) => ({
 			channelId: entry.channel_id,
 			count: entry.count,
-			newestId: entry.newest_id
+			newestId: entry.newest_id,
+			readId: entry.read_id ?? null
 		})),
 		channels: payload.channels.map((entry) => ({
 			channelId: entry.channel_id,
-			newestId: entry.newest_id
+			newestId: entry.newest_id,
+			readId: entry.read_id ?? null
 		})),
 		latest: payload.latest.map((entry) => ({
 			channelId: entry.channel_id,
