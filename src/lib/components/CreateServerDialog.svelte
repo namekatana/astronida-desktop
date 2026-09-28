@@ -6,12 +6,11 @@
 	import PillInput from './PillInput.svelte';
 
 	interface Props {
-		ownerId: string;
 		oncreated: (server: Server) => void;
 		onclose: () => void;
 	}
 
-	let { ownerId, oncreated, onclose }: Props = $props();
+	let { oncreated, onclose }: Props = $props();
 
 	let name = $state('');
 	let submitted = $state(false);
@@ -27,7 +26,7 @@
 		if (validateServerName(name) || submitting) return;
 		submitting = true;
 		serverError = '';
-		const result = await createServer(name, ownerId);
+		const result = await createServer(name);
 		submitting = false;
 		if (!result.ok) {
 			serverError = result.message;

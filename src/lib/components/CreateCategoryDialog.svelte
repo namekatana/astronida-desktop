@@ -6,12 +6,11 @@
 
 	interface Props {
 		serverId: string;
-		position: number;
 		oncreated: (category: Category) => void;
 		onclose: () => void;
 	}
 
-	let { serverId, position, oncreated, onclose }: Props = $props();
+	let { serverId, oncreated, onclose }: Props = $props();
 
 	let name = $state('');
 	let submitted = $state(false);
@@ -27,7 +26,7 @@
 		if (validateName(name) || submitting) return;
 		submitting = true;
 		serverError = '';
-		const result = await createCategory(serverId, name, position);
+		const result = await createCategory(serverId, name);
 		submitting = false;
 		if (!result.ok) {
 			serverError = result.message;

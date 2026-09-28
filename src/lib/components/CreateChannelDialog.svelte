@@ -13,14 +13,13 @@
 
 	interface Props {
 		serverId: string;
-		position: number;
 		initialKind: ChannelKind;
 		categories: Category[];
 		oncreated: (channel: Channel) => void;
 		onclose: () => void;
 	}
 
-	let { serverId, position, initialKind, categories, oncreated, onclose }: Props = $props();
+	let { serverId, initialKind, categories, oncreated, onclose }: Props = $props();
 
 	// svelte-ignore state_referenced_locally
 	let kind = $state<ChannelKind>(initialKind);
@@ -44,7 +43,7 @@
 		if (validateName(name) || submitting) return;
 		submitting = true;
 		serverError = '';
-		const result = await createChannel({ serverId, categoryId, name, kind, position });
+		const result = await createChannel({ serverId, categoryId, name, kind });
 		submitting = false;
 		if (!result.ok) {
 			serverError = result.message;

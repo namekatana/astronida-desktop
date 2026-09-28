@@ -1,0 +1,43 @@
+import { auth } from '$lib/auth/session.svelte';
+import { apiUrl } from './api-url';
+
+const requestTimeoutMs = 10_000;
+
+export interface ApiResponse {
+	status: number;
+	body: unknown;
+}
+
+export async function postApi(
+	path: string,
+	body: Record<string, unknown>
+): Promise<ApiResponse | null> {
+	const token = auth.session?.access_token;
+	if (!token) return null;
+	try {
+		const response = await fetch(apiUrl(path), {
+			method: 'POST',
+			headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+			body: JSON.stringify(body),
+			signal: AbortSignal.timeout(requestTimeoutMs)
+		});
+		return { status: response.status, body: await response.json().catch(() => null) };
+	} catch {
+		return null;
+	}
+}
+
+function errorOf(response: ApiResponse): string | null {
+	const body = response.body;
+	if (typeof body !== 'object' || body === null || !('error' in body)) return null;
+	return typeof body.error === 'string' ? body.error : null;
+}
+
+export function failureMessage(
+	response: ApiResponse | null,
+	messages: { limit: string; failed: string }
+): string {
+	if (response?.status === 429) return 'Слишком часто, попробуйте через минуту';
+	if (response && errorOf(response) === 'limit_reached') return messages.limit;
+	return messages.failed;
+}

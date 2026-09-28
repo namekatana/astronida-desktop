@@ -1,3 +1,4 @@
+import { failureMessage, postApi } from '$lib/realtime/api-request';
 import { supabase } from '$lib/supabase/client';
 import { retryOnFreshToken } from '$lib/supabase/retry';
 import { hasInvisibleCharacters, invisibleNameMessage } from '$lib/ui/visible-text';
@@ -33,24 +34,31 @@ export async function loadServers(): Promise<Server[]> {
 	}));
 }
 
-export async function createServer(name: string, ownerId: string): Promise<CreateServerResult> {
-	const { data, error } = await supabase
-		.from('servers')
-		.insert({ name: name.trim(), owner_id: ownerId })
-		.select('id, name, owner_id')
-		.single();
+interface ServerRow {
+	id: string;
+	name: string;
+	owner_id: string;
+}
 
-	if (error?.message === 'limit_reached') {
-		return { ok: false, message: 'Достигнут лимит: не больше 100 своих серверов' };
-	}
-	if (error || !data) {
-		return {
-			ok: false,
-			message: 'Не удалось создать сервер, попробуйте ещё раз'
-		};
+function isServerRow(body: unknown): body is ServerRow {
+	if (typeof body !== 'object' || body === null) return false;
+	const row = body as Record<string, unknown>;
+	return (
+		typeof row.id === 'string' && typeof row.name === 'string' && typeof row.owner_id === 'string'
+	);
+}
+
+export async function createServer(name: string): Promise<CreateServerResult> {
+	const response = await postApi('/servers', { name: name.trim() });
+	if (response?.status === 201 && isServerRow(response.body)) {
+		const row = response.body;
+		return { ok: true, server: { id: row.id, name: row.name, ownerId: row.owner_id } };
 	}
 	return {
-		ok: true,
-		server: { id: data.id, name: data.name, ownerId: data.owner_id }
+		ok: false,
+		message: failureMessage(response, {
+			limit: 'Достигнут лимит: не больше 100 своих серверов',
+			failed: 'Не удалось создать сервер, попробуйте ещё раз'
+		})
 	};
 }

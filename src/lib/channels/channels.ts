@@ -1,3 +1,4 @@
+import { failureMessage, postApi } from '$lib/realtime/api-request';
 import { supabase } from '$lib/supabase/client';
 import { retryOnFreshToken } from '$lib/supabase/retry';
 import { hasInvisibleCharacters, invisibleNameMessage } from '$lib/ui/visible-text';
@@ -76,26 +77,59 @@ export async function loadChannels(
 	};
 }
 
-export async function createCategory(
-	serverId: string,
-	name: string,
-	position: number
-): Promise<Result<Category>> {
-	const { data, error } = await supabase
-		.from('categories')
-		.insert({ server_id: serverId, name: name.trim(), position })
-		.select('id, server_id, name, position')
-		.single();
+function fieldsOf(body: unknown): Record<string, unknown> | null {
+	return typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : null;
+}
 
-	if (error?.message === 'limit_reached') {
-		return { ok: false, message: 'Достигнут лимит: не больше 50 категорий на сервере' };
+export function categoryFrom(body: unknown): Category | null {
+	const row = fieldsOf(body);
+	if (
+		!row ||
+		typeof row.id !== 'string' ||
+		typeof row.server_id !== 'string' ||
+		typeof row.name !== 'string' ||
+		typeof row.position !== 'number'
+	) {
+		return null;
 	}
-	if (error || !data) {
-		return { ok: false, message: 'Не удалось создать категорию, попробуйте ещё раз' };
+	return { id: row.id, serverId: row.server_id, name: row.name, position: row.position };
+}
+
+export function channelFrom(body: unknown): Channel | null {
+	const row = fieldsOf(body);
+	if (
+		!row ||
+		typeof row.id !== 'string' ||
+		typeof row.server_id !== 'string' ||
+		(row.category_id !== null && typeof row.category_id !== 'string') ||
+		typeof row.name !== 'string' ||
+		(row.kind !== 'text' && row.kind !== 'voice') ||
+		typeof row.position !== 'number'
+	) {
+		return null;
 	}
 	return {
-		ok: true,
-		value: { id: data.id, serverId: data.server_id, name: data.name, position: data.position }
+		id: row.id,
+		serverId: row.server_id,
+		categoryId: row.category_id,
+		name: row.name,
+		kind: row.kind,
+		position: row.position
+	};
+}
+
+export async function createCategory(serverId: string, name: string): Promise<Result<Category>> {
+	const response = await postApi(`/servers/${encodeURIComponent(serverId)}/categories`, {
+		name: name.trim()
+	});
+	const category = response?.status === 201 ? categoryFrom(response.body) : null;
+	if (category) return { ok: true, value: category };
+	return {
+		ok: false,
+		message: failureMessage(response, {
+			limit: 'Достигнут лимит: не больше 50 категорий на сервере',
+			failed: 'Не удалось создать категорию, попробуйте ещё раз'
+		})
 	};
 }
 
@@ -104,35 +138,19 @@ export async function createChannel(input: {
 	categoryId: string | null;
 	name: string;
 	kind: ChannelKind;
-	position: number;
 }): Promise<Result<Channel>> {
-	const { data, error } = await supabase
-		.from('channels')
-		.insert({
-			server_id: input.serverId,
-			category_id: input.categoryId,
-			name: input.name.trim(),
-			kind: input.kind,
-			position: input.position
-		})
-		.select('id, server_id, category_id, name, kind, position')
-		.single();
-
-	if (error?.message === 'limit_reached') {
-		return { ok: false, message: 'Достигнут лимит: не больше 500 каналов на сервере' };
-	}
-	if (error || !data) {
-		return { ok: false, message: 'Не удалось создать канал, попробуйте ещё раз' };
-	}
+	const response = await postApi(`/servers/${encodeURIComponent(input.serverId)}/channels`, {
+		name: input.name.trim(),
+		kind: input.kind,
+		category_id: input.categoryId
+	});
+	const channel = response?.status === 201 ? channelFrom(response.body) : null;
+	if (channel) return { ok: true, value: channel };
 	return {
-		ok: true,
-		value: {
-			id: data.id,
-			serverId: input.serverId,
-			categoryId: data.category_id,
-			name: data.name,
-			kind: toKind(data.kind),
-			position: data.position
-		}
+		ok: false,
+		message: failureMessage(response, {
+			limit: 'Достигнут лимит: не больше 500 каналов на сервере',
+			failed: 'Не удалось создать канал, попробуйте ещё раз'
+		})
 	};
 }

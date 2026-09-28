@@ -1,4 +1,5 @@
 import { Presence, type Channel as PhoenixChannel } from 'phoenix';
+import { categoryFrom, channelFrom, type Category, type Channel } from '$lib/channels/channels';
 import { fromPayload, type Message, type MessagePayload } from '$lib/messages/messages';
 import { phoenixSocket } from '$lib/realtime/socket';
 
@@ -103,6 +104,8 @@ export function subscribeToServerPresence(input: {
 	onVoiceKeyRotated: (channelId: string, version: number) => void;
 	onVoiceRejoined: (channelId: string, key: VoiceKey) => void;
 	onChannelMessage: (channelId: string, message: Message) => void;
+	onCategoryCreated: (category: Category) => void;
+	onChannelCreated: (channel: Channel) => void;
 }): () => void {
 	const channel = phoenixSocket().channel(`server:${input.serverId}`);
 	channels.set(input.serverId, channel);
@@ -114,6 +117,14 @@ export function subscribeToServerPresence(input: {
 	});
 	channel.on('channel_message', (payload: MessagePayload) => {
 		input.onChannelMessage(payload.channel_id, fromPayload(payload));
+	});
+	channel.on('category_created', (payload: unknown) => {
+		const category = categoryFrom(payload);
+		if (category?.serverId === input.serverId) input.onCategoryCreated(category);
+	});
+	channel.on('channel_created', (payload: unknown) => {
+		const created = channelFrom(payload);
+		if (created?.serverId === input.serverId) input.onChannelCreated(created);
 	});
 	channel.join().receive('ok', (reply: { voice_url: string }) => {
 		voiceUrls.set(input.serverId, reply.voice_url);

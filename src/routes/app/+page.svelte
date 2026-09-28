@@ -158,7 +158,9 @@
 		initial: data.cache.presence,
 		serverIds: () => servers.map((server) => server.id),
 		onChannelMessage: (serverId, channelId, message) =>
-			incoming.handleChannelMessage(serverId, channelId, message)
+			incoming.handleChannelMessage(serverId, channelId, message),
+		onCategoryCreated: addCategory,
+		onChannelCreated: addChannel
 	});
 
 	// svelte-ignore state_referenced_locally
@@ -260,13 +262,25 @@
 		creating = false;
 	}
 
+	function addCategory(category: Category) {
+		const target = workspaces[category.serverId];
+		if (!target || target.categories.some((known) => known.id === category.id)) return;
+		target.categories.push(category);
+	}
+
+	function addChannel(channel: Channel) {
+		const target = workspaces[channel.serverId];
+		if (!target || target.channels.some((known) => known.id === channel.id)) return;
+		target.channels.push(channel);
+	}
+
 	function handleCategoryCreated(category: Category) {
-		workspace?.categories.push(category);
+		addCategory(category);
 		channelDialog = null;
 	}
 
 	function handleChannelCreated(channel: Channel) {
-		workspace?.channels.push(channel);
+		addChannel(channel);
 		selectedChannelId = channel.id;
 		channelDialog = null;
 	}
@@ -347,7 +361,6 @@
 
 	{#if creating}
 		<CreateServerDialog
-			ownerId={data.userId}
 			oncreated={handleServerCreated}
 			onclose={() => (creating = false)}
 		/>
@@ -361,14 +374,12 @@
 		{#if channelDialog === 'category'}
 			<CreateCategoryDialog
 				serverId={selectedServerId}
-				position={categories.length}
 				oncreated={handleCategoryCreated}
 				onclose={() => (channelDialog = null)}
 			/>
 		{:else if channelDialog !== null}
 			<CreateChannelDialog
 				serverId={selectedServerId}
-				position={channels.length}
 				initialKind={channelDialog}
 				{categories}
 				oncreated={handleChannelCreated}
