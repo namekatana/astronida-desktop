@@ -1,30 +1,39 @@
 <script lang="ts">
-	import { validateServerName } from '$lib/servers/servers';
+	import { createServer, validateServerName, type Server } from '$lib/servers/servers';
 	import Dialog from './Dialog.svelte';
 	import Icon from './Icon.svelte';
 	import PillButton from './PillButton.svelte';
 	import PillInput from './PillInput.svelte';
 
 	interface Props {
-		serverError?: string;
-		submitting?: boolean;
-		onsubmit: (name: string) => void;
+		ownerId: string;
+		oncreated: (server: Server) => void;
 		onclose: () => void;
 	}
 
-	let { serverError = '', submitting = false, onsubmit, onclose }: Props = $props();
+	let { ownerId, oncreated, onclose }: Props = $props();
 
 	let name = $state('');
 	let submitted = $state(false);
+	let submitting = $state(false);
+	let serverError = $state('');
 
 	const validationError = $derived(submitted ? validateServerName(name) : '');
 	const error = $derived(validationError || serverError);
 
-	function handleSubmit(event: SubmitEvent) {
+	async function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
 		submitted = true;
 		if (validateServerName(name) || submitting) return;
-		onsubmit(name);
+		submitting = true;
+		serverError = '';
+		const result = await createServer(name, ownerId);
+		submitting = false;
+		if (!result.ok) {
+			serverError = result.message;
+			return;
+		}
+		oncreated(result.server);
 	}
 </script>
 

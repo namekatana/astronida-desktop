@@ -1,33 +1,34 @@
 <script lang="ts">
-	import { validateName, type Category, type ChannelKind } from '$lib/channels/channels';
+	import {
+		createChannel,
+		validateName,
+		type Category,
+		type Channel,
+		type ChannelKind
+	} from '$lib/channels/channels';
 	import Dialog from './Dialog.svelte';
 	import Icon from './Icon.svelte';
 	import PillButton from './PillButton.svelte';
 	import PillInput from './PillInput.svelte';
 
 	interface Props {
+		serverId: string;
+		position: number;
 		initialKind: ChannelKind;
 		categories: Category[];
-		serverError?: string;
-		submitting?: boolean;
-		onsubmit: (input: { name: string; kind: ChannelKind; categoryId: string | null }) => void;
+		oncreated: (channel: Channel) => void;
 		onclose: () => void;
 	}
 
-	let {
-		initialKind,
-		categories,
-		serverError = '',
-		submitting = false,
-		onsubmit,
-		onclose
-	}: Props = $props();
+	let { serverId, position, initialKind, categories, oncreated, onclose }: Props = $props();
 
 	// svelte-ignore state_referenced_locally
 	let kind = $state<ChannelKind>(initialKind);
 	let name = $state('');
 	let categoryId = $state<string | null>(null);
 	let submitted = $state(false);
+	let submitting = $state(false);
+	let serverError = $state('');
 
 	const validationError = $derived(submitted ? validateName(name) : '');
 	const error = $derived(validationError || serverError);
@@ -37,11 +38,19 @@
 		{ kind: 'voice', label: 'Голосовой' }
 	];
 
-	function handleSubmit(event: SubmitEvent) {
+	async function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
 		submitted = true;
 		if (validateName(name) || submitting) return;
-		onsubmit({ name, kind, categoryId });
+		submitting = true;
+		serverError = '';
+		const result = await createChannel({ serverId, categoryId, name, kind, position });
+		submitting = false;
+		if (!result.ok) {
+			serverError = result.message;
+			return;
+		}
+		oncreated(result.value);
 	}
 </script>
 

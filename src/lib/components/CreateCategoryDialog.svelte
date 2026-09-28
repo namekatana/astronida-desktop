@@ -1,29 +1,39 @@
 <script lang="ts">
-	import { validateName } from '$lib/channels/channels';
+	import { createCategory, validateName, type Category } from '$lib/channels/channels';
 	import Dialog from './Dialog.svelte';
 	import PillButton from './PillButton.svelte';
 	import PillInput from './PillInput.svelte';
 
 	interface Props {
-		serverError?: string;
-		submitting?: boolean;
-		onsubmit: (name: string) => void;
+		serverId: string;
+		position: number;
+		oncreated: (category: Category) => void;
 		onclose: () => void;
 	}
 
-	let { serverError = '', submitting = false, onsubmit, onclose }: Props = $props();
+	let { serverId, position, oncreated, onclose }: Props = $props();
 
 	let name = $state('');
 	let submitted = $state(false);
+	let submitting = $state(false);
+	let serverError = $state('');
 
 	const validationError = $derived(submitted ? validateName(name) : '');
 	const error = $derived(validationError || serverError);
 
-	function handleSubmit(event: SubmitEvent) {
+	async function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
 		submitted = true;
 		if (validateName(name) || submitting) return;
-		onsubmit(name);
+		submitting = true;
+		serverError = '';
+		const result = await createCategory(serverId, name, position);
+		submitting = false;
+		if (!result.ok) {
+			serverError = result.message;
+			return;
+		}
+		oncreated(result.value);
 	}
 </script>
 
