@@ -155,7 +155,7 @@
 		{#snippet heading(label: string, count: number, first: boolean)}
 			<div class={first ? '' : 'pt-2'}>
 				<div
-					class="flex h-7 items-center px-2 text-[11px] font-medium tracking-[0.1em] text-muted uppercase"
+					class="flex h-7 items-center px-2 text-[13px] font-semibold text-muted"
 				>
 					{label} — {count}
 				</div>
@@ -172,7 +172,7 @@
 						type="button"
 						aria-expanded={!pendingCollapsed}
 						onclick={() => (pendingCollapsed = !pendingCollapsed)}
-						class="flex h-8 w-full items-center gap-1.5 px-2 text-[11px] font-medium tracking-[0.1em] text-ink-secondary uppercase transition-colors duration-150 hover:text-ink"
+						class="flex h-8 w-full items-center gap-1.5 px-2 text-[13px] font-semibold text-ink-secondary transition-colors duration-150 hover:text-ink"
 					>
 						<Icon
 							name="chevron"

@@ -46,10 +46,10 @@
 			role="menu"
 			in:pop={{ y: -6, duration: 220 }}
 			out:fade={{ duration: 120 }}
-			class="panel absolute top-full right-0 z-50 mt-2 w-52 origin-top-right p-1.5"
+			class="panel panel-floating absolute top-full right-0 z-50 mt-2 w-52 origin-top-right p-1.5"
 		>
 			<div class="px-3 pt-2 pb-2.5">
-				<div class="text-[11px] font-medium tracking-[0.1em] text-muted uppercase">Аккаунт</div>
+				<div class="text-[13px] font-semibold text-muted">Аккаунт</div>
 				<div class="mt-0.5 truncate text-[13px] text-ink">
 					{username ? `@${username}` : '—'}
 				</div>

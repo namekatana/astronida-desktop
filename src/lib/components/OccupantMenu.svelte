@@ -80,7 +80,7 @@
 	in:pop={{ y: -4, duration: 180 }}
 	out:fade={{ duration: 100 }}
 	style="left: {left}px; top: {top}px; width: {width}px"
-	class="panel fixed z-50 origin-top-left p-1.5"
+	class="panel panel-floating fixed z-50 origin-top-left p-1.5"
 >
 	<div class="flex items-center gap-2.5 px-2.5 pt-2 pb-2.5">
 		<span
@@ -104,7 +104,7 @@
 
 	<div class="px-2.5 pt-2 pb-1.5 {muted ? 'opacity-40' : ''}">
 		<div class="flex items-baseline justify-between text-[11px] text-muted">
-			<span class="font-medium tracking-[0.1em] uppercase">Громкость</span>
+			<span class="text-[13px] font-semibold">Громкость</span>
 			<button
 				type="button"
 				onclick={resetVolume}

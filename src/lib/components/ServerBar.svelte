@@ -168,7 +168,7 @@
 </script>
 
 <div class="shrink-0 px-3 pt-3">
-	<div class="panel flex items-stretch">
+	<div class="panel flex items-stretch rounded-[28px] [corner-shape:round]">
 		<div class="flex items-center px-2">
 			<button
 				type="button"
@@ -246,7 +246,7 @@
 
 		<div class="my-auto h-5 w-px bg-surface-line"></div>
 
-		<div class="flex shrink-0 items-center gap-1 pr-3 pl-2">
+		<div class="flex shrink-0 items-center gap-1 pr-2 pl-2">
 			<ProfileMenu {username} {signingOut} {onsignout} />
 			<UpdateButton />
 

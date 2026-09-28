@@ -83,7 +83,7 @@
 		</div>
 
 		<div class="mt-6">
-			<div class="px-1 text-[11px] font-medium tracking-[0.1em] text-muted uppercase">Категория</div>
+			<div class="px-1 text-[13px] font-semibold text-muted">Категория</div>
 			<div class="mt-2.5 flex flex-wrap gap-2">
 				{#snippet option(id: string | null, label: string)}
 					{@const active = categoryId === id}

@@ -57,7 +57,9 @@
 	}
 </script>
 
-<div class="panel relative flex shrink-0 items-end gap-1 overflow-hidden p-2">
+<div
+	class="panel relative flex shrink-0 items-end gap-1 overflow-hidden rounded-[28px] p-2 [corner-shape:round]"
+>
 	<div class="relative min-w-0 flex-1">
 		<div
 			bind:this={mirror}

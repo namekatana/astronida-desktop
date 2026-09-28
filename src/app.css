@@ -253,15 +253,19 @@ input {
 }
 
 @layer components {
+	.panel,
+	.panel-deep {
+		border-radius: 18px;
+		corner-shape: squircle;
+	}
 	.panel {
 		background-color: var(--color-surface);
-		border: 1px solid var(--color-panel-edge);
-		border-radius: 14px;
 	}
 	.panel-deep {
 		background-color: var(--color-surface-deep);
+	}
+	.panel-floating {
 		border: 1px solid var(--color-panel-edge);
-		border-radius: 14px;
 	}
 }
 

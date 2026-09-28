@@ -16,7 +16,9 @@
 
 <aside class="panel flex min-h-0 flex-1 flex-col">
 	<div class="flex items-baseline justify-between gap-3 px-5 pt-4 pb-3">
-		<h2 class="min-w-0 truncate text-[15px] font-semibold text-ink">Участники</h2>
+		<h2 class="min-w-0 truncate text-[20px] leading-6 font-bold tracking-[-0.01em] text-ink">
+			Участники
+		</h2>
 		<span class="text-[12px] text-muted">{members.length}</span>
 	</div>
 	<div class="mx-4 h-px bg-surface-line"></div>
@@ -25,7 +27,7 @@
 		{#snippet group(label: string, list: Member[])}
 			{#if list.length > 0}
 				<div class="mb-2">
-					<div class="flex h-7 items-center px-2 text-[11px] font-medium tracking-[0.1em] text-muted uppercase">
+					<div class="flex h-7 items-center px-2 text-[13px] font-semibold text-muted">
 						{label} — {list.length}
 					</div>
 					<div class="flex flex-col gap-0.5 pt-0.5">

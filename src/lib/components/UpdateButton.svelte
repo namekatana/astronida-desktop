@@ -50,10 +50,10 @@
 				aria-label="Обновление"
 				in:pop={{ y: -6, duration: 220 }}
 				out:fade={{ duration: 120 }}
-				class="panel absolute top-full right-0 z-50 mt-2 w-64 origin-top-right px-4 pt-3.5 pb-4"
+				class="panel panel-floating absolute top-full right-0 z-50 mt-2 w-64 origin-top-right px-4 pt-3.5 pb-4"
 			>
 				<div class="flex items-baseline justify-between gap-2">
-					<div class="text-[11px] font-medium tracking-[0.1em] text-muted uppercase">Обновление</div>
+					<div class="text-[13px] font-semibold text-muted">Обновление</div>
 					{#if dateLabel}
 						<div class="shrink-0 text-[11px] text-muted">{dateLabel}</div>
 					{/if}

@@ -46,7 +46,7 @@
 			aria-label={label}
 			in:pop={{ y: 8, duration: 240 }}
 			out:fade={{ duration: 120 }}
-			class="panel w-full {wide ? 'max-w-[400px]' : 'max-w-[340px]'} px-7 pt-7 pb-6 [--pill-surface:var(--color-surface)]"
+			class="panel panel-floating w-full {wide ? 'max-w-[400px]' : 'max-w-[340px]'} px-7 pt-7 pb-6 [--pill-surface:var(--color-surface)]"
 		>
 			{@render children()}
 		</div>

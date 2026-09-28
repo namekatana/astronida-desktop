@@ -22,7 +22,7 @@
 				: 'scale-50 opacity-0'}"
 		></span>
 	</span>
-	<h1 class="min-w-0 truncate text-[15px] font-semibold">@{friend.username}</h1>
+	<h1 class="min-w-0 truncate text-[15px] leading-6 font-semibold">@{friend.username}</h1>
 	<span class="ml-auto shrink-0 text-[12px] text-muted">
 		{friend.online ? 'в сети' : 'не в сети'}
 	</span>

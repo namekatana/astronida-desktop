@@ -46,7 +46,7 @@
 </script>
 
 <aside class="panel relative flex shrink-0 flex-col" style="width: {width}px">
-	<div class="flex items-center gap-1 pr-3 pb-[7px] pl-5 pt-[11px]">
+	<div class="flex items-center gap-1 pt-3 pr-3 pb-2 pl-5">
 		<ConnectionTitle title={serverName} class="flex-1" />
 		<button
 			type="button"
@@ -62,7 +62,7 @@
 
 	<div class="scrollbar-none min-h-0 flex-1 overflow-y-auto px-2.5 py-3">
 		{#if uncategorized.length > 0}
-			<div class="mb-2">
+			<div class="mb-4">
 				<ChannelList
 					channels={uncategorized}
 					{selectedChannelId}
@@ -75,12 +75,12 @@
 
 		{#each categories as category (category.id)}
 			{@const isCollapsed = collapsed[category.id] === true}
-			<div class="mb-2">
+			<div class="mb-4">
 				<button
 					type="button"
 					aria-expanded={!isCollapsed}
 					onclick={() => toggle(category.id)}
-					class="flex h-7 w-full items-center gap-1.5 px-2 text-[11px] font-medium tracking-[0.1em] text-muted uppercase transition-colors duration-150 hover:text-ink"
+					class="flex h-7 w-full items-center gap-1.5 px-2 text-[12px] font-bold text-muted transition-colors duration-150 hover:text-ink"
 				>
 					<Icon
 						name="chevron"

@@ -108,7 +108,7 @@
 				<div class="min-w-0 flex-1">
 					<div class="flex h-6 items-center gap-2">
 						<div
-							class="flex min-w-0 flex-1 items-center gap-1.5 text-[11px] font-medium tracking-[0.1em] uppercase transition-colors duration-200 {statusColor}"
+							class="flex min-w-0 flex-1 items-center gap-1.5 text-[13px] font-semibold transition-colors duration-200 {statusColor}"
 						>
 							<Icon
 								name="voice"

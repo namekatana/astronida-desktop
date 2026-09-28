@@ -81,9 +81,9 @@
 	in:pop={{ y: 6, duration: 220 }}
 	out:fade={{ duration: 120 }}
 	style="left: {left}px; bottom: {bottom}px; width: {width}px"
-	class="panel fixed z-50 origin-bottom-right px-4 pt-3.5 pb-4"
+	class="panel panel-floating fixed z-50 origin-bottom-right px-4 pt-3.5 pb-4"
 >
-	<div class="text-[11px] font-medium tracking-[0.1em] text-muted uppercase">Соединение</div>
+	<div class="text-[13px] font-semibold text-muted">Соединение</div>
 	<div class="mt-2 grid grid-cols-3 gap-2">
 		<div class="rounded-md bg-surface-raised px-2.5 py-2">
 			<div class="text-[10px] text-muted">Пинг</div>
@@ -115,7 +115,7 @@
 	</div>
 
 	<div class="mt-4 flex items-baseline justify-between gap-2">
-		<div class="flex items-center gap-1.5 text-[11px] font-medium tracking-[0.1em] text-muted uppercase">
+		<div class="flex items-center gap-1.5 text-[13px] font-semibold text-muted">
 			<Icon name="lock" size={11} />
 			Сквозное шифрование
 		</div>

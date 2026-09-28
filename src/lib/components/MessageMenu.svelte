@@ -41,7 +41,7 @@
 	in:pop={{ y: -4, duration: 180 }}
 	out:fade={{ duration: 100 }}
 	style="left: {left}px; top: {top}px; width: {width}px"
-	class="panel fixed z-50 origin-top-left p-1.5"
+	class="panel panel-floating fixed z-50 origin-top-left p-1.5"
 >
 	<button
 		type="button"

@@ -11,5 +11,5 @@
 
 <header class="panel flex shrink-0 items-center gap-2.5 px-5 pt-4 pb-3 text-ink">
 	<Icon name={channel.kind} class="text-muted" />
-	<h1 class="min-w-0 truncate text-[15px] font-semibold">{channel.name}</h1>
+	<h1 class="min-w-0 truncate text-[15px] leading-6 font-semibold">{channel.name}</h1>
 </header>

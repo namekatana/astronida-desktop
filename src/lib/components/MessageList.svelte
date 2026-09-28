@@ -135,7 +135,7 @@
 		{#each blocks as block (block.dateLabel)}
 			<div class="flex items-center gap-3 px-3 py-3">
 				<span class="h-px flex-1 bg-surface-line"></span>
-				<span class="text-[11px] font-medium tracking-[0.1em] text-muted uppercase">{block.dateLabel}</span>
+				<span class="text-[13px] font-semibold text-muted">{block.dateLabel}</span>
 				<span class="h-px flex-1 bg-surface-line"></span>
 			</div>
 

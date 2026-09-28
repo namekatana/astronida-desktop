@@ -45,7 +45,7 @@
 			role="menu"
 			in:pop={{ y: -6, duration: 220 }}
 			out:fade={{ duration: 120 }}
-			class="panel absolute top-full right-0 z-50 mt-2 w-52 origin-top-right p-1.5"
+			class="panel panel-floating absolute top-full right-0 z-50 mt-2 w-52 origin-top-right p-1.5"
 		>
 			{#snippet item(label: string, icon: 'plus' | 'text' | 'voice', action: () => void)}
 				<button
