@@ -1,0 +1,246 @@
+import { history } from '$lib/history/history';
+import { failureMessage, getApi, postApi } from '$lib/realtime/api-request';
+import type { Server } from './servers';
+
+export interface InviteLink {
+	link: string;
+	expiresAt: Date | null;
+	maxUses: number | null;
+	uses: number;
+}
+
+export interface InviteSettings {
+	maxAge: number | null;
+	maxUses: number | null;
+}
+
+export type GenerateResult = { ok: true; invite: InviteLink } | { ok: false; message: string };
+
+export interface InvitePreview {
+	serverId: string;
+	serverName: string;
+	memberCount: number;
+	member: boolean;
+}
+
+export type PreviewResult =
+	{ ok: true; preview: InvitePreview } | { ok: false; reason: 'not_found' | 'failed' };
+
+export type JoinResult = { ok: true; server: Server } | { ok: false; message: string };
+
+const inviteLinkPrefix = 'astronida://invite/';
+const codePattern = /^[A-Za-z0-9]{10}$/;
+const linkPattern = /^(?:astronida:\/\/invite\/|https:\/\/[^\s/]+\/invite\/)([A-Za-z0-9]{10})\/?$/;
+const messageLinkPattern = /astronida:\/\/invite\/([A-Za-z0-9]{10})(?![A-Za-z0-9])/;
+
+const cacheSection = 'invites';
+const maxStoredPreviews = 200;
+const persistDelayMs = 300;
+
+const requests = new Map<string, Promise<PreviewResult>>();
+const storedPreviews = new Map<string, InvitePreview>();
+const missingCodes = new Set<string>();
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+
+const memberPlurals = new Intl.PluralRules('ru-RU');
+const memberWords: Record<string, string> = {
+	one: 'участник',
+	few: 'участника',
+	many: 'участников',
+	other: 'участника'
+};
+
+export function memberCountLabel(count: number): string {
+	return `${count} ${memberWords[memberPlurals.select(count)]}`;
+}
+
+export function inviteLinkOf(code: string): string {
+	return inviteLinkPrefix + code;
+}
+
+export function parseInviteCode(text: string): string | null {
+	const trimmed = text.trim();
+	if (codePattern.test(trimmed)) return trimmed;
+	return trimmed.match(linkPattern)?.[1] ?? null;
+}
+
+export function inviteCodeInMessage(text: string): string | null {
+	return text.match(messageLinkPattern)?.[1] ?? null;
+}
+
+function record(body: unknown): Record<string, unknown> | null {
+	return typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : null;
+}
+
+function inviteLinkFrom(body: unknown): InviteLink | null {
+	const row = record(body);
+	if (typeof row?.code !== 'string' || !codePattern.test(row.code)) return null;
+	if (row.expires_at !== null && typeof row.expires_at !== 'string') return null;
+	if (row.max_uses !== null && typeof row.max_uses !== 'number') return null;
+	if (typeof row.uses !== 'number') return null;
+	return {
+		link: inviteLinkOf(row.code),
+		expiresAt: row.expires_at === null ? null : new Date(row.expires_at),
+		maxUses: row.max_uses,
+		uses: row.uses
+	};
+}
+
+export async function fetchInviteLink(serverId: string): Promise<InviteLink | null> {
+	const response = await postApi(`/servers/${serverId}/invite`, {});
+	return response?.status === 200 ? inviteLinkFrom(response.body) : null;
+}
+
+export async function generateInviteLink(
+	serverId: string,
+	settings: InviteSettings
+): Promise<GenerateResult> {
+	const response = await postApi(`/servers/${serverId}/invites`, {
+		max_age: settings.maxAge,
+		max_uses: settings.maxUses
+	});
+	const invite = response?.status === 201 ? inviteLinkFrom(response.body) : null;
+	if (invite) return { ok: true, invite };
+	return {
+		ok: false,
+		message: failureMessage(response, {
+			limit: 'Не удалось создать ссылку, попробуйте ещё раз',
+			failed: 'Не удалось создать ссылку, попробуйте ещё раз'
+		})
+	};
+}
+
+function previewFrom(body: unknown): InvitePreview | null {
+	const row = record(body);
+	const server = record(row?.server);
+	if (typeof server?.id !== 'string' || typeof server.name !== 'string') return null;
+	if (typeof row?.member_count !== 'number' || typeof row.member !== 'boolean') return null;
+	return {
+		serverId: server.id,
+		serverName: server.name,
+		memberCount: row.member_count,
+		member: row.member
+	};
+}
+
+function storedPreviewFrom(entry: unknown): [string, InvitePreview] | null {
+	const row = record(entry);
+	const preview = record(row?.preview);
+	if (typeof row?.code !== 'string' || !codePattern.test(row.code) || !preview) return null;
+	if (typeof preview.serverId !== 'string' || typeof preview.serverName !== 'string') return null;
+	if (typeof preview.memberCount !== 'number' || typeof preview.member !== 'boolean') return null;
+	return [
+		row.code,
+		{
+			serverId: preview.serverId,
+			serverName: preview.serverName,
+			memberCount: preview.memberCount,
+			member: preview.member
+		}
+	];
+}
+
+export async function restoreInvitePreviews() {
+	requests.clear();
+	storedPreviews.clear();
+	missingCodes.clear();
+	const raw = await history.cacheGet(cacheSection).catch(() => null);
+	if (!raw) return;
+	try {
+		const entries: unknown = JSON.parse(raw);
+		if (!Array.isArray(entries)) return;
+		for (const entry of entries) {
+			const restored = storedPreviewFrom(entry);
+			if (restored) storedPreviews.set(...restored);
+		}
+	} catch {
+		return;
+	}
+}
+
+function persistPreviews() {
+	if (persistTimer) clearTimeout(persistTimer);
+	persistTimer = setTimeout(() => {
+		persistTimer = null;
+		const entries = [...storedPreviews]
+			.slice(-maxStoredPreviews)
+			.map(([code, preview]) => ({ code, preview }));
+		void history.cachePut(cacheSection, JSON.stringify(entries)).catch(() => {});
+	}, persistDelayMs);
+}
+
+function remember(code: string, preview: InvitePreview) {
+	storedPreviews.delete(code);
+	storedPreviews.set(code, preview);
+	missingCodes.delete(code);
+	persistPreviews();
+}
+
+function forget(code: string) {
+	missingCodes.add(code);
+	if (storedPreviews.delete(code)) persistPreviews();
+}
+
+export function cachedPreview(code: string): PreviewResult | null {
+	const preview = storedPreviews.get(code);
+	if (preview) return { ok: true, preview };
+	return missingCodes.has(code) ? { ok: false, reason: 'not_found' } : null;
+}
+
+async function requestPreview(code: string): Promise<PreviewResult> {
+	const response = await getApi(`/invites/${code}`);
+	if (response?.status === 404) {
+		forget(code);
+		return { ok: false, reason: 'not_found' };
+	}
+	const preview = response?.status === 200 ? previewFrom(response.body) : null;
+	if (preview) {
+		remember(code, preview);
+		return { ok: true, preview };
+	}
+	requests.delete(code);
+	return cachedPreview(code) ?? { ok: false, reason: 'failed' };
+}
+
+export function previewInvite(code: string): Promise<PreviewResult> {
+	const known = requests.get(code);
+	if (known) return known;
+	const pending = requestPreview(code);
+	requests.set(code, pending);
+	return pending;
+}
+
+function rememberMembership(code: string) {
+	const known = storedPreviews.get(code);
+	if (!known || known.member) return;
+	const joined = { ...known, member: true, memberCount: known.memberCount + 1 };
+	remember(code, joined);
+	requests.set(code, Promise.resolve({ ok: true, preview: joined }));
+}
+
+function serverFrom(body: unknown): Server | null {
+	const row = record(body);
+	if (typeof row?.id !== 'string' || typeof row.name !== 'string') return null;
+	if (typeof row.owner_id !== 'string') return null;
+	return { id: row.id, name: row.name, ownerId: row.owner_id };
+}
+
+export async function joinByInvite(code: string): Promise<JoinResult> {
+	const response = await postApi(`/invites/${code}/join`, {});
+	const server = response?.status === 200 ? serverFrom(response.body) : null;
+	if (server) {
+		rememberMembership(code);
+		return { ok: true, server };
+	}
+	if (response?.status === 404) {
+		forget(code);
+		return { ok: false, message: 'Приглашение недействительно или истекло' };
+	}
+	return {
+		ok: false,
+		message: failureMessage(response, {
+			limit: 'Не удалось присоединиться, попробуйте ещё раз',
+			failed: 'Не удалось присоединиться, попробуйте ещё раз'
+		})
+	};
+}

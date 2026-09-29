@@ -19,6 +19,7 @@
 		onprefetch: (channelId: string) => void;
 		oncreatecategory: () => void;
 		oncreatechannel: (kind: ChannelKind) => void;
+		oninvite: () => void;
 	}
 
 	let {
@@ -31,7 +32,8 @@
 		onselect,
 		onprefetch,
 		oncreatecategory,
-		oncreatechannel
+		oncreatechannel,
+		oninvite
 	}: Props = $props();
 
 	const uncategorized = $derived(channels.filter((channel) => channel.categoryId === null));
@@ -50,9 +52,9 @@
 		<ConnectionTitle title={serverName} class="flex-1" />
 		<button
 			type="button"
-			aria-label="Пригласить"
-			title="Скоро"
-			class="flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors duration-200 hover:bg-white/[0.06] hover:text-ink"
+			aria-label="Пригласить друзей"
+			onclick={oninvite}
+			class="pressable flex h-8 w-8 items-center justify-center rounded-full text-muted duration-200 hover:bg-white/[0.06] hover:text-ink"
 		>
 			<Icon name="user-plus" size={16} />
 		</button>

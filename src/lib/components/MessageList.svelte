@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Message } from '$lib/messages/messages';
+	import type { Server } from '$lib/servers/servers';
 	import MessageGroup from './MessageGroup.svelte';
 	import Scrollbar from './Scrollbar.svelte';
 	import TypingIndicator from './TypingIndicator.svelte';
@@ -12,6 +13,7 @@
 		dividerId?: string | null;
 		onloadolder?: () => void;
 		oncancel?: (messageId: string) => void;
+		onjoinedinvite?: (server: Server) => void;
 	}
 
 	let {
@@ -21,7 +23,8 @@
 		typing = [],
 		dividerId = null,
 		onloadolder,
-		oncancel
+		oncancel,
+		onjoinedinvite
 	}: Props = $props();
 
 	const groupGapMs = 5 * 60 * 1000;
@@ -169,7 +172,7 @@
 							<span class="h-px flex-1 bg-white/25"></span>
 						</div>
 					{/if}
-					<MessageGroup messages={group.messages} {oncancel} />
+					<MessageGroup messages={group.messages} {oncancel} {onjoinedinvite} />
 				{/each}
 			</div>
 		{/each}

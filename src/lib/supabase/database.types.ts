@@ -272,6 +272,41 @@ export type Database = {
 				};
 				Relationships: [];
 			};
+			server_invites: {
+				Row: {
+					code: string;
+					expires_at: string | null;
+					is_default: boolean;
+					max_uses: number | null;
+					server_id: string;
+					uses: number;
+				};
+				Insert: {
+					code: string;
+					expires_at?: string | null;
+					is_default?: boolean;
+					max_uses?: number | null;
+					server_id: string;
+					uses?: number;
+				};
+				Update: {
+					code?: string;
+					expires_at?: string | null;
+					is_default?: boolean;
+					max_uses?: number | null;
+					server_id?: string;
+					uses?: number;
+				};
+				Relationships: [
+					{
+						foreignKeyName: 'server_invites_server_id_fkey';
+						columns: ['server_id'];
+						isOneToOne: false;
+						referencedRelation: 'servers';
+						referencedColumns: ['id'];
+					}
+				];
+			};
 			server_members: {
 				Row: {
 					joined_at: string;

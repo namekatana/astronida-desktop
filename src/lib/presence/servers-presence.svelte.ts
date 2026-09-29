@@ -2,6 +2,7 @@ import { untrack } from 'svelte';
 import { workspaceCache } from '$lib/cache/workspace-cache';
 import type { Category, Channel } from '$lib/channels/channels';
 import type { Message } from '$lib/messages/messages';
+import type { JoinedMember } from '$lib/servers/members';
 import { voice } from '$lib/voice/voice.svelte';
 import { subscribeToServerPresence, type ServerPresence, type VoiceAnnouncement } from './presence';
 
@@ -24,6 +25,7 @@ export function createServersPresence(input: {
 	onChannelMessage: (serverId: string, channelId: string, message: Message) => void;
 	onCategoryCreated: (category: Category) => void;
 	onChannelCreated: (channel: Channel) => void;
+	onMemberJoined: (serverId: string, member: JoinedMember) => void;
 }) {
 	const byServer = $state<Record<string, ServerPresence>>(input.initial);
 	const subscriptions = new Map<string, () => void>();
@@ -42,7 +44,8 @@ export function createServersPresence(input: {
 			onChannelMessage: (channelId, message) =>
 				input.onChannelMessage(serverId, channelId, message),
 			onCategoryCreated: input.onCategoryCreated,
-			onChannelCreated: input.onChannelCreated
+			onChannelCreated: input.onChannelCreated,
+			onMemberJoined: (member) => input.onMemberJoined(serverId, member)
 		});
 	}
 

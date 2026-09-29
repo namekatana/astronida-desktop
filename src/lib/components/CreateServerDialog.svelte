@@ -7,10 +7,11 @@
 
 	interface Props {
 		oncreated: (server: Server) => void;
+		onjoin: () => void;
 		onclose: () => void;
 	}
 
-	let { oncreated, onclose }: Props = $props();
+	let { oncreated, onjoin, onclose }: Props = $props();
 
 	let name = $state('');
 	let submitted = $state(false);
@@ -78,7 +79,15 @@
 			Astronida
 		</p>
 
-		<div class="flex justify-center pt-4">
+		<div class="flex justify-center gap-5 pt-4">
+			<button
+				type="button"
+				disabled={submitting}
+				onclick={onjoin}
+				class="link-underline text-[13px] text-ink-secondary transition-colors duration-200 hover:text-ink disabled:opacity-60"
+			>
+				У меня есть приглашение
+			</button>
 			<button
 				type="button"
 				disabled={submitting}

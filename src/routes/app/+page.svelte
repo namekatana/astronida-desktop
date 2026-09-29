@@ -20,6 +20,8 @@
 	import FriendProfile from '$lib/components/FriendProfile.svelte';
 	import FriendsPanel from '$lib/components/FriendsPanel.svelte';
 	import HomeEmptyState from '$lib/components/HomeEmptyState.svelte';
+	import InviteDialog from '$lib/components/InviteDialog.svelte';
+	import JoinServerDialog from '$lib/components/JoinServerDialog.svelte';
 	import MemberPanel from '$lib/components/MemberPanel.svelte';
 	import MessageComposer from '$lib/components/MessageComposer.svelte';
 	import MessageList from '$lib/components/MessageList.svelte';
@@ -37,7 +39,7 @@
 	import { createIncoming } from '$lib/notifications/incoming.svelte';
 	import { unread } from '$lib/notifications/unread.svelte';
 	import { createServersPresence } from '$lib/presence/servers-presence.svelte';
-	import { loadMembers } from '$lib/servers/members';
+	import { loadMembers, type JoinedMember } from '$lib/servers/members';
 	import type { Server } from '$lib/servers/servers';
 	import { createSync } from '$lib/sync/sync';
 	import { lastSelection } from '$lib/ui/last-selection.svelte';
@@ -64,6 +66,8 @@
 	let signingOut = $state(false);
 	let creating = $state(false);
 	let addingFriend = $state(false);
+	let joinDialogValue = $state<string | null>(null);
+	let inviting = $state(false);
 	let channelDialog = $state<'category' | ChannelKind | null>(null);
 
 	// svelte-ignore state_referenced_locally
@@ -72,6 +76,7 @@
 	const categories = $derived(workspace?.categories ?? []);
 	const channels = $derived(workspace?.channels ?? []);
 	const members = $derived(workspace?.members ?? []);
+	const memberIds = $derived(new Set(members.map((member) => member.id)));
 	const channelsLoading = $derived(selectedServerId !== null && workspace === undefined);
 
 	const feeds = createFeeds();
@@ -164,7 +169,8 @@
 		onChannelMessage: (serverId, channelId, message) =>
 			incoming.handleChannelMessage(serverId, channelId, message),
 		onCategoryCreated: addCategory,
-		onChannelCreated: addChannel
+		onChannelCreated: addChannel,
+		onMemberJoined: addMember
 	});
 
 	// svelte-ignore state_referenced_locally
@@ -281,6 +287,25 @@
 		creating = false;
 	}
 
+	function handleServerJoined(server: Server) {
+		if (!servers.some((known) => known.id === server.id)) servers.push(server);
+		selectedServerId = server.id;
+		joinDialogValue = null;
+	}
+
+	function openJoinServer() {
+		creating = false;
+		joinDialogValue = '';
+	}
+
+
+	function addMember(serverId: string, member: JoinedMember) {
+		const target = workspaces[serverId];
+		if (!target || target.members.some((known) => known.id === member.id)) return;
+		const ownerId = servers.find((server) => server.id === serverId)?.ownerId;
+		target.members.push({ ...member, online: false, owner: member.id === ownerId });
+	}
+
 	function addCategory(category: Category) {
 		const target = workspaces[category.serverId];
 		if (!target || target.categories.some((known) => known.id === category.id)) return;
@@ -383,12 +408,33 @@
 	{#if creating}
 		<CreateServerDialog
 			oncreated={handleServerCreated}
+			onjoin={openJoinServer}
 			onclose={() => (creating = false)}
+		/>
+	{/if}
+
+	{#if joinDialogValue !== null}
+		<JoinServerDialog
+			initialValue={joinDialogValue}
+			onjoined={handleServerJoined}
+			onclose={() => (joinDialogValue = null)}
 		/>
 	{/if}
 
 	{#if addingFriend}
 		<AddFriendDialog friendIds={friends.ids} onclose={() => (addingFriend = false)} />
+	{/if}
+
+	{#if selectedServer && inviting}
+		<InviteDialog
+			serverId={selectedServer.id}
+			serverName={selectedServer.name}
+			friends={friends.list}
+			{memberIds}
+			canManage={selectedServer.ownerId === data.userId}
+			oninvite={(channelId, link) => sending.send(channelId, link)}
+			onclose={() => (inviting = false)}
+		/>
 	{/if}
 
 	{#if selectedServerId}
@@ -435,6 +481,7 @@
 				onprefetch={prefetchChannel}
 				oncreatecategory={() => (channelDialog = 'category')}
 				oncreatechannel={(kind) => (channelDialog = kind)}
+				oninvite={() => (inviting = true)}
 			/>
 		{:else}
 			<FriendsPanel
@@ -470,6 +517,7 @@
 					dividerId={openChat.dividerId}
 					onloadolder={openChat.loadOlder}
 					oncancel={cancelSend}
+					onjoinedinvite={handleServerJoined}
 				/>
 				{#key openChatId}
 					<MessageComposer

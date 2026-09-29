@@ -2,6 +2,7 @@ import { Presence, type Channel as PhoenixChannel } from 'phoenix';
 import { categoryFrom, channelFrom, type Category, type Channel } from '$lib/channels/channels';
 import { fromPayload, type Message, type MessagePayload } from '$lib/messages/messages';
 import { phoenixSocket } from '$lib/realtime/socket';
+import { joinedMemberFrom, type JoinedMember } from '$lib/servers/members';
 
 export interface VoiceMember {
 	userId: string;
@@ -106,6 +107,7 @@ export function subscribeToServerPresence(input: {
 	onChannelMessage: (channelId: string, message: Message) => void;
 	onCategoryCreated: (category: Category) => void;
 	onChannelCreated: (channel: Channel) => void;
+	onMemberJoined: (member: JoinedMember) => void;
 }): () => void {
 	const channel = phoenixSocket().channel(`server:${input.serverId}`);
 	channels.set(input.serverId, channel);
@@ -125,6 +127,10 @@ export function subscribeToServerPresence(input: {
 	channel.on('channel_created', (payload: unknown) => {
 		const created = channelFrom(payload);
 		if (created?.serverId === input.serverId) input.onChannelCreated(created);
+	});
+	channel.on('member_joined', (payload: unknown) => {
+		const member = joinedMemberFrom(payload);
+		if (member) input.onMemberJoined(member);
 	});
 	channel.join().receive('ok', (reply: { voice_url: string }) => {
 		voiceUrls.set(input.serverId, reply.voice_url);

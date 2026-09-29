@@ -4,15 +4,19 @@
 
 <script lang="ts">
 	import type { Message } from '$lib/messages/messages';
+	import { inviteCodeInMessage } from '$lib/servers/invites';
+	import type { Server } from '$lib/servers/servers';
 	import { initials } from '$lib/ui/initials';
+	import InviteCard from './InviteCard.svelte';
 	import MessageMenu from './MessageMenu.svelte';
 
 	interface Props {
 		messages: Message[];
 		oncancel?: (messageId: string) => void;
+		onjoinedinvite?: (server: Server) => void;
 	}
 
-	let { messages, oncancel }: Props = $props();
+	let { messages, oncancel, onjoinedinvite }: Props = $props();
 
 	let menu = $state<{ messageId: string; x: number; y: number } | null>(null);
 
@@ -59,6 +63,7 @@
 			</div>
 
 			{#each messages as message (message.id)}
+				{@const inviteCode = message.status === undefined ? inviteCodeInMessage(message.text) : null}
 				<div data-message-id={message.id}>
 					<p
 						dir="auto"
@@ -71,6 +76,9 @@
 					</p>
 					{#if message.status === 'failed'}
 						<p class="pb-0.5 text-[11px] text-danger">Не отправлено</p>
+					{/if}
+					{#if inviteCode && onjoinedinvite}
+						<InviteCard code={inviteCode} onjoined={onjoinedinvite} />
 					{/if}
 				</div>
 			{/each}

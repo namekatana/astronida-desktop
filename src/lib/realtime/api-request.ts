@@ -8,17 +8,28 @@ export interface ApiResponse {
 	body: unknown;
 }
 
-export async function postApi(
+export function postApi(path: string, body: Record<string, unknown>): Promise<ApiResponse | null> {
+	return requestApi(path, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(body)
+	});
+}
+
+export function getApi(path: string): Promise<ApiResponse | null> {
+	return requestApi(path, { method: 'GET' });
+}
+
+async function requestApi(
 	path: string,
-	body: Record<string, unknown>
+	init: { method: string; headers?: Record<string, string>; body?: string }
 ): Promise<ApiResponse | null> {
 	const token = auth.session?.access_token;
 	if (!token) return null;
 	try {
 		const response = await fetch(apiUrl(path), {
-			method: 'POST',
-			headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-			body: JSON.stringify(body),
+			...init,
+			headers: { ...init.headers, Authorization: `Bearer ${token}` },
 			signal: AbortSignal.timeout(requestTimeoutMs)
 		});
 		return { status: response.status, body: await response.json().catch(() => null) };
