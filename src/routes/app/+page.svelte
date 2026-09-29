@@ -9,6 +9,7 @@
 		type Channel,
 		type ChannelKind
 	} from '$lib/channels/channels';
+	import ActiveFriendsPanel from '$lib/components/ActiveFriendsPanel.svelte';
 	import AddFriendDialog from '$lib/components/AddFriendDialog.svelte';
 	import ChannelPanel from '$lib/components/ChannelPanel.svelte';
 	import ChatHeader from '$lib/components/ChatHeader.svelte';
@@ -16,13 +17,16 @@
 	import CreateChannelDialog from '$lib/components/CreateChannelDialog.svelte';
 	import CreateServerDialog from '$lib/components/CreateServerDialog.svelte';
 	import DirectChatHeader from '$lib/components/DirectChatHeader.svelte';
+	import FriendProfile from '$lib/components/FriendProfile.svelte';
 	import FriendsPanel from '$lib/components/FriendsPanel.svelte';
+	import HomeEmptyState from '$lib/components/HomeEmptyState.svelte';
 	import MemberPanel from '$lib/components/MemberPanel.svelte';
 	import MessageComposer from '$lib/components/MessageComposer.svelte';
 	import MessageList from '$lib/components/MessageList.svelte';
 	import ResizeHandle from '$lib/components/ResizeHandle.svelte';
 	import ServerBar from '$lib/components/ServerBar.svelte';
 	import VoiceDock from '$lib/components/VoiceDock.svelte';
+	import { findActiveFriends } from '$lib/friends/active-friends';
 	import { acceptFriendRequest, declineFriendRequest } from '$lib/friends/channel';
 	import { createFriendsState } from '$lib/friends/friends-state.svelte';
 	import { history } from '$lib/history/history';
@@ -202,6 +206,15 @@
 		}));
 	});
 
+	const activeFriends = $derived(
+		findActiveFriends({
+			friends: friends.withPresence,
+			servers,
+			presenceByServer: presence.byServer,
+			workspaces
+		})
+	);
+
 	const unreadServerIds = $derived.by(() => {
 		const unreadChannels = new Set(unread.channelIds);
 		return new Set(
@@ -236,6 +249,12 @@
 	function selectFriend(friendId: string) {
 		selectedFriendId = friendId;
 		lastSelection.friendId = friendId;
+	}
+
+	function closeDirectChat(event: KeyboardEvent) {
+		if (event.key !== 'Escape' || event.defaultPrevented || !selectedFriend) return;
+		selectedFriendId = null;
+		lastSelection.friendId = null;
 	}
 
 	function openHome(directChannelId: string | null) {
@@ -349,6 +368,8 @@
 		selectedChannelId = firstTextChannel()?.id ?? null;
 	}
 </script>
+
+<svelte:window onkeydown={closeDirectChat} />
 
 <div class="relative flex h-full flex-col">
 	{#if veilVisible}
@@ -465,7 +486,7 @@
 				</div>
 			{:else}
 				<div class="flex flex-1 items-center justify-center">
-					<span class="text-[13px] text-muted">Выберите друга, чтобы начать переписку</span>
+					<HomeEmptyState />
 				</div>
 			{/if}
 		</main>
@@ -473,18 +494,18 @@
 		<div class="relative flex shrink-0 flex-col gap-3" style="width: {panelWidths.members}px">
 			{#if selectedServer}
 				<MemberPanel members={membersWithPresence} />
+			{:else if selectedFriend}
+				<FriendProfile friend={selectedFriend} />
 			{:else}
-				<div class="min-h-0 flex-1"></div>
+				<ActiveFriendsPanel active={activeFriends} />
 			{/if}
 			<VoiceDock occupants={occupants.participants} ondisconnect={handleVoiceDisconnect} />
-			{#if selectedServer}
-				<ResizeHandle
-					side="left"
-					bind:width={panelWidths.members}
-					min={panelLimits.min}
-					max={panelLimits.max}
-				/>
-			{/if}
+			<ResizeHandle
+				side="left"
+				bind:width={panelWidths.members}
+				min={panelLimits.min}
+				max={panelLimits.max}
+			/>
 		</div>
 	</div>
 </div>

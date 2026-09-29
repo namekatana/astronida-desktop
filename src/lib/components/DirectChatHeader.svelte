@@ -9,7 +9,7 @@
 	let { friend }: Props = $props();
 </script>
 
-<header class="panel flex shrink-0 items-center gap-2.5 px-5 pt-4 pb-3 text-ink">
+<header class="panel flex shrink-0 items-center gap-2.5 px-5 py-3.5 text-ink">
 	<span class="relative -my-1 shrink-0">
 		<span
 			class="flex h-6 w-6 items-center justify-center rounded-full bg-surface-raised text-[10px] font-medium text-ink"
@@ -23,7 +23,4 @@
 		></span>
 	</span>
 	<h1 class="min-w-0 truncate text-[15px] leading-6 font-semibold">@{friend.username}</h1>
-	<span class="ml-auto shrink-0 text-[12px] text-muted">
-		{friend.online ? 'в сети' : 'не в сети'}
-	</span>
 </header>

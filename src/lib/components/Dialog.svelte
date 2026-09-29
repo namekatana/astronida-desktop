@@ -22,7 +22,9 @@
 
 	$effect(() => {
 		const offKey = on(document, 'keydown', (event) => {
-			if (event.key === 'Escape' && !locked) onclose();
+			if (event.key !== 'Escape') return;
+			event.preventDefault();
+			if (!locked) onclose();
 		});
 		return offKey;
 	});

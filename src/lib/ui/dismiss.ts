@@ -6,7 +6,9 @@ export function dismissOn(root: HTMLElement, close: (target: Node | null) => voi
 		if (!root.contains(target)) close(target);
 	});
 	const offKey = on(document, 'keydown', (event) => {
-		if (event.key === 'Escape') close(null);
+		if (event.key !== 'Escape') return;
+		event.preventDefault();
+		close(null);
 	});
 	return () => {
 		offPointer();
