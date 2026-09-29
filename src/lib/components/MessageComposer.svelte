@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { messageMaxLength } from '$lib/messages/messages';
+	import { hasVisibleContent } from '$lib/ui/visible-text';
 	import Icon from './Icon.svelte';
 
 	interface Props {
@@ -30,7 +31,7 @@
 		return () => observer.disconnect();
 	});
 
-	const canSend = $derived(value.trim().length > 0);
+	const canSend = $derived(hasVisibleContent(value));
 	const length = $derived(value.length);
 	const counterColor = $derived(
 		length >= messageMaxLength

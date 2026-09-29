@@ -1,4 +1,4 @@
-import { withoutBidiControls } from '$lib/ui/visible-text';
+import { hasVisibleContent, withoutBidiControls } from '$lib/ui/visible-text';
 import type { Feeds } from './feeds.svelte';
 import type { Message, MessageAuthor } from './messages';
 import {
@@ -54,7 +54,7 @@ export function createSending(input: { feeds: Feeds; author: () => MessageAuthor
 
 	function send(channelId: string, text: string) {
 		const visibleText = withoutBidiControls(text).trim();
-		if (!visibleText) return;
+		if (!hasVisibleContent(visibleText)) return;
 		const entry = createEntry(channelId, visibleText);
 		feeds.addPending(channelId, pendingMessageOf(entry));
 		outbox.enqueue(entry);
