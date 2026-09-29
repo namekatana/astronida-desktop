@@ -231,6 +231,36 @@ input {
 	}
 }
 
+@keyframes reply-flash {
+	0% {
+		background-color: rgba(255, 255, 255, 0);
+	}
+	12%,
+	45% {
+		background-color: rgba(255, 255, 255, 0.08);
+	}
+	100% {
+		background-color: rgba(255, 255, 255, 0);
+	}
+}
+
+.reply-flash {
+	animation: reply-flash 1400ms ease-in-out;
+}
+
+.reply-mention {
+	position: relative;
+}
+
+.reply-mention::before {
+	content: '';
+	position: absolute;
+	inset-block: 0;
+	left: 0;
+	width: 2px;
+	background-color: rgba(255, 255, 255, 0.6);
+}
+
 .collapsible {
 	display: grid;
 	grid-template-rows: 0fr;

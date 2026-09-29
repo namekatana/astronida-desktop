@@ -12,9 +12,10 @@
 		mode: MessageMenuMode;
 		onclose: () => void;
 		oncancel?: () => void;
+		onreply?: () => void;
 	}
 
-	let { x, y, mode, onclose, oncancel }: Props = $props();
+	let { x, y, mode, onclose, oncancel, onreply }: Props = $props();
 
 	const width = 200;
 	const margin = 8;
@@ -27,6 +28,11 @@
 
 	function cancelSending() {
 		oncancel?.();
+		onclose();
+	}
+
+	function reply() {
+		onreply?.();
 		onclose();
 	}
 
@@ -62,9 +68,11 @@
 >
 	{#if mode === 'pending'}
 		{@render item('close', 'Отменить отправку', cancelSending, true)}
+	{:else if mode === 'own'}
+		{@render item('reply', 'Ответить', reply)}
 	{:else}
 		<div class="flex flex-col gap-0.5">
-			{@render item('reply', 'Ответить', onclose)}
+			{@render item('reply', 'Ответить', reply)}
 			{@render item('forward', 'Переслать', onclose)}
 			{@render item('pin', 'Закрепить сообщение', onclose)}
 			{@render item('copy', 'Скопировать', onclose)}

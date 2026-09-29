@@ -1,1 +1,1 @@
-export type MessageMenuMode = 'pending' | 'received';
+export type MessageMenuMode = 'pending' | 'received' | 'own';

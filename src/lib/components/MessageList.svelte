@@ -1,7 +1,10 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import type { Message } from '$lib/messages/messages';
 	import type { Server } from '$lib/servers/servers';
+	import type { MessageMenuMode } from './message-menu';
 	import MessageGroup from './MessageGroup.svelte';
+	import MessageMenu from './MessageMenu.svelte';
 	import Scrollbar from './Scrollbar.svelte';
 	import TypingIndicator from './TypingIndicator.svelte';
 
@@ -14,6 +17,7 @@
 		dividerId?: string | null;
 		onloadolder?: () => void;
 		oncancel?: (messageId: string) => void;
+		onreply?: (message: Message) => void;
 		onjoinedinvite?: (server: Server) => void;
 		onopeninvite?: (code: string) => void;
 	}
@@ -27,6 +31,7 @@
 		dividerId = null,
 		onloadolder,
 		oncancel,
+		onreply,
 		onjoinedinvite,
 		onopeninvite
 	}: Props = $props();
@@ -83,6 +88,10 @@
 	});
 
 	let scroller = $state<HTMLDivElement>();
+	let menu = $state<{ message: Message; mode: MessageMenuMode; x: number; y: number } | null>(
+		null
+	);
+	let flashId = $state<string | null>(null);
 
 	let heightBeforePrepend: number | null = null;
 	let pinnedToBottom = true;
@@ -98,7 +107,7 @@
 
 	$effect(() => {
 		void blocks;
-		if (!scroller) return;
+		if (!scroller || menu) return;
 		if (shownList !== messages) {
 			shownList = messages;
 			pinnedToBottom = true;
@@ -115,7 +124,7 @@
 		const element = scroller;
 		if (!element) return;
 		const observer = new ResizeObserver(() => {
-			if (pinnedToBottom) scrollToBottom(element);
+			if (pinnedToBottom && !menu) scrollToBottom(element);
 		});
 		observer.observe(element);
 		return () => observer.disconnect();
@@ -146,13 +155,73 @@
 		heightBeforePrepend = scroller.scrollHeight;
 		onloadolder?.();
 	}
+
+	function messageAt(target: EventTarget | null): Message | undefined {
+		if (!(target instanceof Element)) return undefined;
+		const row = target.closest<HTMLElement>('[data-message-id]');
+		const messageId =
+			row?.dataset.messageId ?? target.closest<HTMLElement>('[data-group-first]')?.dataset.groupFirst;
+		return messageId ? messages.find((message) => message.id === messageId) : undefined;
+	}
+
+	function menuModeFor(message: Message): MessageMenuMode | null {
+		if (message.status !== undefined) return oncancel ? 'pending' : null;
+		if (message.author.id === selfId) return onreply ? 'own' : null;
+		return 'received';
+	}
+
+	function openMenu(event: MouseEvent) {
+		const message = messageAt(event.target);
+		const mode = message ? menuModeFor(message) : null;
+		if (!message || !mode) return;
+		event.preventDefault();
+		menu = { message, mode, x: event.clientX, y: event.clientY };
+	}
+
+	$effect(() => {
+		const messageId = menu?.message.id;
+		if (messageId && !messages.some((message) => message.id === messageId)) menu = null;
+	});
+
+	const jumpableIds = $derived(
+		new Set(messages.filter((message) => message.status === undefined).map((message) => message.id))
+	);
+
+	function canJumpTo(messageId: string): boolean {
+		return jumpableIds.has(messageId);
+	}
+
+	async function jumpTo(messageId: string) {
+		const element = scroller;
+		const row = element?.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(messageId)}"]`);
+		if (!element || !row) return;
+		const viewport = element.getBoundingClientRect();
+		const rowBox = row.getBoundingClientRect();
+		const fullyVisible = rowBox.top >= viewport.top && rowBox.bottom <= viewport.bottom;
+		if (!fullyVisible) {
+			const top = rowBox.top - viewport.top + element.scrollTop;
+			const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+			element.scrollTo({
+				top: Math.max(0, top - (element.clientHeight - rowBox.height) / 2),
+				behavior: reduceMotion ? 'auto' : 'smooth'
+			});
+		}
+		flashId = null;
+		await tick();
+		flashId = messageId;
+	}
 </script>
 
 <div class="panel-deep relative flex min-h-0 flex-1 flex-col overflow-hidden">
 	<div
 		bind:this={scroller}
+		role="log"
+		aria-label="Сообщения"
 		onscroll={handleScroll}
-		class="scrollbar-none flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pt-3 pb-7"
+		oncontextmenu={openMenu}
+		class="scrollbar-none flex min-h-0 flex-1 flex-col px-2 pt-3 pb-7 {menu
+			? 'overflow-hidden'
+			: 'overflow-y-auto'}"
 	>
 		{#if messages.length === 0 && !loading}
 			<div class="flex flex-1 items-center justify-center">
@@ -176,7 +245,17 @@
 							<span class="h-px flex-1 bg-white/25"></span>
 						</div>
 					{/if}
-					<MessageGroup messages={group.messages} {selfId} {oncancel} {onjoinedinvite} {onopeninvite} />
+					<MessageGroup
+						messages={group.messages}
+						{selfId}
+						highlightedId={menu?.message.id}
+						{flashId}
+						{canJumpTo}
+						onjump={jumpTo}
+						onflashend={() => (flashId = null)}
+						{onjoinedinvite}
+						{onopeninvite}
+					/>
 				{/each}
 			</div>
 		{/each}
@@ -184,3 +263,15 @@
 	<Scrollbar target={scroller} />
 	<TypingIndicator names={typing} />
 </div>
+
+{#if menu}
+	{@const message = menu.message}
+	<MessageMenu
+		x={menu.x}
+		y={menu.y}
+		mode={menu.mode}
+		onclose={() => (menu = null)}
+		oncancel={() => oncancel?.(message.id)}
+		onreply={() => onreply?.(message)}
+	/>
+{/if}

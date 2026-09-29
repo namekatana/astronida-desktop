@@ -33,6 +33,7 @@
 	import { createFriendsState } from '$lib/friends/friends-state.svelte';
 	import { history } from '$lib/history/history';
 	import { createFeeds } from '$lib/messages/feeds.svelte';
+	import type { Message, MessageReply } from '$lib/messages/messages';
 	import { createOpenChat } from '$lib/messages/open-chat.svelte';
 	import { createSending } from '$lib/messages/sending.svelte';
 	import { typingIn } from '$lib/messages/typing.svelte';
@@ -257,8 +258,13 @@
 		lastSelection.friendId = friendId;
 	}
 
-	function closeDirectChat(event: KeyboardEvent) {
-		if (event.key !== 'Escape' || event.defaultPrevented || !selectedFriend) return;
+	function handleEscape(event: KeyboardEvent) {
+		if (event.key !== 'Escape' || event.defaultPrevented) return;
+		if (activeReply) {
+			replyTarget = null;
+			return;
+		}
+		if (!selectedFriend) return;
 		selectedFriendId = null;
 		lastSelection.friendId = null;
 	}
@@ -354,11 +360,29 @@
 				: ''
 	);
 
+	let replyTarget = $state<{ chatId: string; reply: MessageReply } | null>(null);
+	const activeReply = $derived(
+		replyTarget && replyTarget.chatId === openChatId ? replyTarget.reply : null
+	);
+
+	$effect(() => {
+		if (replyTarget && replyTarget.chatId !== openChatId) replyTarget = null;
+	});
+
+	function startReply(message: Message) {
+		if (!openChatId) return;
+		replyTarget = {
+			chatId: openChatId,
+			reply: { id: message.id, original: { author: message.author, text: message.text } }
+		};
+	}
+
 	function handleSend(text: string) {
 		const channelId = openChatId;
 		if (!channelId || !username) return;
 		openChat.resetTyping();
-		sending.send(channelId, text);
+		sending.send(channelId, text, activeReply ?? undefined);
+		replyTarget = null;
 	}
 
 	function cancelSend(messageId: string) {
@@ -399,7 +423,7 @@
 	}
 </script>
 
-<svelte:window onkeydown={closeDirectChat} />
+<svelte:window onkeydown={handleEscape} />
 
 <div class="relative flex h-full flex-col">
 	{#if veilVisible}
@@ -517,14 +541,17 @@
 					dividerId={openChat.dividerId}
 					onloadolder={openChat.loadOlder}
 					oncancel={cancelSend}
+					onreply={startReply}
 					onjoinedinvite={handleServerJoined}
 					onopeninvite={openInvite}
 				/>
 				{#key openChatId}
 					<MessageComposer
 						placeholder={composerPlaceholder}
+						reply={activeReply}
 						onsend={handleSend}
 						ontyping={openChat.touchTyping}
+						oncancelreply={() => (replyTarget = null)}
 					/>
 				{/key}
 			{:else if selectedServer}

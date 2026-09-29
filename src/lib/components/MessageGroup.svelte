@@ -4,51 +4,36 @@
 
 <script lang="ts">
 	import { splitLinks } from '$lib/messages/links';
-	import type { Message } from '$lib/messages/messages';
+	import type { Message, MessageReply } from '$lib/messages/messages';
 	import { inviteCodeInMessage } from '$lib/servers/invites';
 	import type { Server } from '$lib/servers/servers';
 	import { openExternal } from '$lib/ui/external-link';
 	import { initials } from '$lib/ui/initials';
 	import InviteCard from './InviteCard.svelte';
-	import type { MessageMenuMode } from './message-menu';
-	import MessageMenu from './MessageMenu.svelte';
 
 	interface Props {
 		messages: Message[];
 		selfId: string;
-		oncancel?: (messageId: string) => void;
+		highlightedId?: string | null;
+		flashId?: string | null;
+		canJumpTo?: (messageId: string) => boolean;
+		onjump?: (messageId: string) => void;
+		onflashend?: () => void;
 		onjoinedinvite?: (server: Server) => void;
 		onopeninvite?: (code: string) => void;
 	}
 
-	let { messages, selfId, oncancel, onjoinedinvite, onopeninvite }: Props = $props();
-
-	let menu = $state<{ messageId: string; mode: MessageMenuMode; x: number; y: number } | null>(
-		null
-	);
-
-	function messageAt(target: EventTarget | null): Message | undefined {
-		const row = target instanceof Element ? target.closest<HTMLElement>('[data-message-id]') : null;
-		const messageId = row?.dataset.messageId;
-		return messageId ? messages.find((message) => message.id === messageId) : messages[0];
-	}
-
-	function menuModeFor(message: Message): MessageMenuMode | null {
-		if (message.status !== undefined) return oncancel ? 'pending' : null;
-		return message.author.id === selfId ? null : 'received';
-	}
-
-	function openMenu(event: MouseEvent) {
-		const message = messageAt(event.target);
-		const mode = message ? menuModeFor(message) : null;
-		if (!message || !mode) return;
-		event.preventDefault();
-		menu = { messageId: message.id, mode, x: event.clientX, y: event.clientY };
-	}
-
-	$effect(() => {
-		if (menu && !messages.some((message) => message.id === menu?.messageId)) menu = null;
-	});
+	let {
+		messages,
+		selfId,
+		highlightedId = null,
+		flashId = null,
+		canJumpTo,
+		onjump,
+		onflashend,
+		onjoinedinvite,
+		onopeninvite
+	}: Props = $props();
 
 	const linkClass =
 		'text-ink underline decoration-white/30 underline-offset-2 transition-[text-decoration-color] duration-150 hover:decoration-white/80';
@@ -64,13 +49,74 @@
 		onopeninvite?.(code);
 	}
 
+	function singleLine(text: string): string {
+		return text.replace(/\s+/g, ' ').trim();
+	}
+
+	function repliesToSelf(message: Message): boolean {
+		return (
+			message.status === undefined &&
+			message.author.id !== selfId &&
+			message.replyTo?.original?.author.id === selfId
+		);
+	}
+
+	function rowBackground(message: Message): string {
+		const menuOpen = highlightedId === message.id;
+		if (repliesToSelf(message)) {
+			return menuOpen
+				? 'reply-mention rounded-l-none bg-white/[0.06]'
+				: 'reply-mention rounded-l-none bg-white/[0.04] hover:bg-white/[0.06]';
+		}
+		return menuOpen ? 'bg-white/[0.03]' : 'hover:bg-white/[0.03]';
+	}
+
 	const author = $derived(messages[0].author);
 	const avatar = $derived(initials(author.name));
 	const time = $derived(timeFormat.format(messages[0].sentAt));
 </script>
 
+{#snippet quote(reply: MessageReply)}
+	{@const jumpable = reply.original !== null && (canJumpTo?.(reply.id) ?? false)}
+	<button
+		type="button"
+		disabled={!jumpable}
+		onclick={() => onjump?.(reply.id)}
+		aria-label={reply.original
+			? `Перейти к сообщению @${reply.original.author.username}`
+			: 'Ответ на удалённое сообщение'}
+		class="pressable relative flex max-w-[420px] min-w-[min(200px,100%)] flex-col overflow-hidden rounded-[8px] bg-white/[0.05] py-1.5 pr-3 pl-[15px] text-left duration-150 disabled:cursor-default {jumpable
+			? 'hover:bg-white/[0.08]'
+			: ''}"
+	>
+		<span class="absolute inset-y-0 left-0 w-[3px] bg-white/40"></span>
+		{#if reply.original}
+			<span class="truncate text-[12px] leading-4 font-semibold text-ink-secondary">
+				@{reply.original.author.username}
+			</span>
+			<span
+				dir="auto"
+				class="truncate text-[13px] leading-[18px] text-muted [unicode-bidi:plaintext]"
+			>
+				{singleLine(reply.original.text)}
+			</span>
+		{:else}
+			<span class="truncate text-[13px] leading-[18px] text-muted italic">Сообщение удалено</span>
+		{/if}
+	</button>
+{/snippet}
+
 {#snippet messageBody(message: Message)}
 	{@const inviteCode = message.status === undefined ? inviteCodeInMessage(message.text) : null}
+	{#if message.replyTo}
+		<div
+			class="mt-1 mb-1 flex transition-opacity duration-200 {message.status === 'sending'
+				? 'opacity-50'
+				: ''}"
+		>
+			{@render quote(message.replyTo)}
+		</div>
+	{/if}
 	<p
 		dir="auto"
 		class="py-0.5 text-[14px] leading-5 break-words whitespace-pre-wrap text-ink-secondary transition-opacity duration-200 select-text [unicode-bidi:plaintext] {message.status ===
@@ -88,14 +134,16 @@
 	{/if}
 {/snippet}
 
-<div role="group" oncontextmenu={openMenu} class="py-1">
+<div role="group" data-group-first={messages[0].id} class="py-1">
 	{#each messages as message, index (message.id)}
 		<div
 			data-message-id={message.id}
-			class="rounded-lg px-3 py-0.5 transition-colors duration-150 hover:bg-white/[0.03] {index ===
-			0
+			onanimationend={(event) => {
+				if (event.target === event.currentTarget && flashId === message.id) onflashend?.();
+			}}
+			class="rounded-lg px-3 py-0.5 transition-colors duration-150 {index === 0
 				? 'flex gap-3'
-				: 'pl-14'} {menu?.messageId === message.id ? 'bg-white/[0.03]' : ''}"
+				: 'pl-14'} {rowBackground(message)} {flashId === message.id ? 'reply-flash' : ''}"
 		>
 			{#if index === 0}
 				<span
@@ -119,14 +167,3 @@
 		</div>
 	{/each}
 </div>
-
-{#if menu}
-	{@const messageId = menu.messageId}
-	<MessageMenu
-		x={menu.x}
-		y={menu.y}
-		mode={menu.mode}
-		onclose={() => (menu = null)}
-		oncancel={() => oncancel?.(messageId)}
-	/>
-{/if}
