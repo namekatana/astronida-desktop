@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { generateInviteLink, type InviteLink } from '$lib/servers/invites';
-	import Icon from './Icon.svelte';
+	import { describeInviteSettings, generateInviteLink, type InviteLink } from '$lib/servers/invites';
 	import PillButton from './PillButton.svelte';
+	import SelectMenu from './SelectMenu.svelte';
 
 	interface Props {
 		serverId: string;
@@ -36,6 +36,8 @@
 	let submitting = $state(false);
 	let error = $state('');
 
+	const summary = $derived(describeInviteSettings({ maxAge, maxUses }, new Date()));
+
 	async function generate() {
 		if (submitting) return;
 		submitting = true;
@@ -45,55 +47,48 @@
 		if (result.ok) oncreated(result.invite);
 		else error = result.message;
 	}
+
+	function settle(_node: Element, { duration = 150 }: { duration?: number } = {}) {
+		return {
+			duration,
+			css: (t: number) => `opacity: ${t}; filter: blur(${(1 - t) * 2}px)`
+		};
+	}
 </script>
 
-{#snippet choices(
-	label: string,
-	options: { value: number | null; label: string }[],
-	selected: number | null,
-	onpick: (value: number | null) => void
-)}
-	<div role="radiogroup" aria-label={label}>
-		<p class="text-[13px] font-semibold text-ink">{label}</p>
-		<div class="mt-2.5 flex flex-wrap gap-2">
-			{#each options as option (option.label)}
-				<button
-					type="button"
-					role="radio"
-					aria-checked={selected === option.value}
-					disabled={submitting}
-					onclick={() => onpick(option.value)}
-					class="pressable h-8 rounded-full px-3.5 text-[12px] tabular-nums duration-150 {selected ===
-					option.value
-						? 'bg-ink font-medium text-bg'
-						: 'border border-line text-ink-secondary hover:border-line-strong hover:text-ink'}"
-				>
-					{option.label}
-				</button>
-			{/each}
-		</div>
-	</div>
-{/snippet}
-
-<div class="relative flex items-center justify-center">
-	<button
-		type="button"
-		aria-label="Назад"
-		disabled={submitting}
-		onclick={onback}
-		class="pressable absolute left-0 flex h-8 w-8 items-center justify-center rounded-full text-muted duration-200 hover:bg-white/[0.06] hover:text-ink"
-	>
-		<Icon name="chevron" size={16} class="rotate-90" />
-	</button>
-	<h2 class="text-[15px] font-semibold text-ink">Настройки ссылки</h2>
-</div>
+<h2 class="text-center text-[15px] font-semibold text-ink">Настройки ссылки</h2>
 <p class="mx-auto mt-1 max-w-[280px] text-center text-[13px] leading-5 text-ink-secondary">
 	Новая ссылка не отменит старые — каждая перестанет работать сама
 </p>
 
-<div class="mt-6 flex flex-col gap-6">
-	{@render choices('Срок действия', lifetimes, maxAge, (value) => (maxAge = value))}
-	{@render choices('Максимум использований', useLimits, maxUses, (value) => (maxUses = value))}
+<div
+	class="mt-6 overflow-hidden rounded-[14px] border border-surface-line bg-white/[0.03] [corner-shape:squircle]"
+>
+	<SelectMenu
+		label="Срок действия"
+		options={lifetimes}
+		bind:value={maxAge}
+		disabled={submitting}
+	/>
+	<div class="mx-4 h-px bg-surface-line"></div>
+	<SelectMenu
+		label="Максимум использований"
+		options={useLimits}
+		bind:value={maxUses}
+		disabled={submitting}
+	/>
+</div>
+
+<div class="mt-3 grid h-5 grid-cols-1 justify-items-center">
+	{#key summary}
+		<p
+			class="col-start-1 row-start-1 text-center text-[12px] leading-5 text-muted tabular-nums"
+			in:settle
+			out:settle={{ duration: 100 }}
+		>
+			{summary}
+		</p>
+	{/key}
 </div>
 
 <p

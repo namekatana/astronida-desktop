@@ -41,6 +41,7 @@
 	let query = $state('');
 	let linkState = $state<LinkState>({ status: 'loading' });
 	let copied = $state(false);
+	let linkFlashing = $state(false);
 	let copiedTimer: ReturnType<typeof setTimeout> | null = null;
 	const invited = new SvelteSet<string>();
 	const flashing = new SvelteSet<string>();
@@ -87,14 +88,22 @@
 			return;
 		}
 		copied = true;
+		flashLink();
 		if (copiedTimer) clearTimeout(copiedTimer);
 		copiedTimer = setTimeout(() => (copied = false), 1500);
+	}
+
+	function flashLink() {
+		if (prefersReducedMotion.current) return;
+		linkFlashing = false;
+		requestAnimationFrame(() => (linkFlashing = true));
 	}
 
 	function useGeneratedLink(generated: InviteLink) {
 		linkState = { status: 'ready', invite: generated };
 		copied = false;
 		view = 'invite';
+		setTimeout(flashLink, 260);
 	}
 
 	function viewIn(_node: Element, { from }: { from: number }) {
@@ -142,9 +151,9 @@
 	}
 </script>
 
-<Dialog label={view === 'invite' ? 'Пригласить друзей' : 'Настройки ссылки'} wide {onclose}>
+<Dialog label={view === 'invite' ? 'Пригласить друзей' : 'Настройки ссылки'} wide pinTop {onclose}>
 	<div
-		class="-mx-2 grid overflow-hidden px-2 transition-[height] duration-[260ms] ease-move motion-reduce:transition-none"
+		class="-mx-2 grid grid-cols-1 overflow-hidden px-2 transition-[height] duration-[260ms] ease-move motion-reduce:transition-none"
 		style:height={shownHeight > 0 ? `${shownHeight}px` : null}
 	>
 		{#if view === 'invite'}
@@ -194,7 +203,9 @@
 		</PillInput>
 	</div>
 
-	<div class="scrollbar-none -mx-2 mt-3 h-[216px] overflow-y-auto">
+	<div
+		class="scrollbar-none mt-3 h-[216px] overflow-y-auto rounded-[14px] border border-surface-line bg-white/[0.03] p-1 [corner-shape:squircle]"
+	>
 		{#if shownFriends.length > 0}
 			<ul class="flex flex-col gap-0.5">
 				{#each shownFriends as friend, index (friend.id)}
@@ -203,7 +214,7 @@
 						onanimationend={(event) => {
 							if (event.target === event.currentTarget) flashing.delete(friend.id);
 						}}
-						class="flex h-12 items-center gap-3 rounded-lg px-2.5 transition-colors duration-150 hover:bg-white/[0.05] {flashing.has(
+						class="flex h-12 items-center gap-3 rounded-[10px] px-2.5 transition-colors [corner-shape:squircle] duration-150 hover:bg-white/[0.05] {flashing.has(
 							friend.id
 						)
 							? 'invite-flash'
@@ -243,7 +254,14 @@
 		<p class="text-[13px] font-semibold text-ink">Или отправьте ссылку</p>
 		<span class="h-px flex-1 bg-surface-line"></span>
 	</div>
-	<div class="mt-3 flex h-12 items-center gap-2 rounded-full border border-line pr-1.5 pl-5">
+	<div
+		onanimationend={(event) => {
+			if (event.target === event.currentTarget) linkFlashing = false;
+		}}
+		class="mt-3 flex h-12 items-center gap-2 rounded-full border border-line pr-1.5 pl-5 {linkFlashing
+			? 'link-flash'
+			: ''}"
+	>
 		<span
 			class="min-w-0 flex-1 truncate text-[13px] select-text {invite
 				? 'text-ink-secondary'
@@ -261,12 +279,43 @@
 			type="button"
 			disabled={!invite}
 			onclick={copyLink}
-			class="pressable flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[12px] duration-150 disabled:opacity-50 {copied
+			class="pressable grid h-9 shrink-0 items-center rounded-full px-3.5 text-[12px] duration-150 disabled:opacity-50 {copied
 				? 'bg-online/10 text-online'
 				: 'bg-white/[0.06] text-ink-secondary hover:bg-white/[0.1] hover:text-ink'}"
 		>
-			<Icon name={copied ? 'check' : 'copy'} size={13} />
-			{copied ? 'Скопировано' : 'Копировать'}
+			<span
+				aria-hidden={copied}
+				class="col-start-1 row-start-1 flex items-center justify-center gap-1.5 transition-opacity duration-150 {copied
+					? 'opacity-0'
+					: 'opacity-100'}"
+			>
+				<Icon name="copy" size={13} />
+				Копировать
+			</span>
+			<span
+				aria-hidden={!copied}
+				class="col-start-1 row-start-1 flex items-center justify-center gap-1.5 transition-opacity duration-150 {copied
+					? 'opacity-100'
+					: 'opacity-0'}"
+			>
+				<svg
+					width="13"
+					height="13"
+					viewBox="0 0 16 16"
+					fill="none"
+					stroke="currentColor"
+					stroke-width={1.5 * (16 / 13)}
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+					class="shrink-0"
+				>
+					{#if copied}
+						<path d="M3.25 8.5 6.5 11.75 12.75 4.75" in:draw={{ duration: 280 }} />
+					{/if}
+				</svg>
+				Скопировано
+			</span>
 		</button>
 	</div>
 	<p class="mx-auto mt-2 max-w-[300px] text-center text-[12px] leading-5 text-muted">
@@ -336,6 +385,21 @@
 <style>
 	.invite-flash {
 		animation: invite-flash 900ms var(--ease-soft);
+	}
+
+	.link-flash {
+		animation: link-flash 900ms var(--ease-soft);
+	}
+
+	@keyframes link-flash {
+		0% {
+			background-color: rgba(255, 255, 255, 0.1);
+			border-color: var(--color-line-strong);
+		}
+		100% {
+			background-color: transparent;
+			border-color: var(--color-line);
+		}
 	}
 
 	@keyframes invite-flash {

@@ -54,6 +54,40 @@ export function memberCountLabel(count: number): string {
 	return `${count} ${memberWords[memberPlurals.select(count)]}`;
 }
 
+const useWords: Record<string, string> = {
+	one: 'использование',
+	few: 'использования',
+	many: 'использований',
+	other: 'использования'
+};
+const timeFormat = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' });
+const dayFormat = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' });
+const dayMs = 24 * 60 * 60 * 1000;
+
+function startOfDay(date: Date): number {
+	return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}
+
+function expiryPhrase(expiresAt: Date, now: Date): string {
+	const time = timeFormat.format(expiresAt);
+	const days = Math.round((startOfDay(expiresAt) - startOfDay(now)) / dayMs);
+	if (days === 0) return `Сегодня до ${time}`;
+	if (days === 1) return `До завтра, ${time}`;
+	return `До ${dayFormat.format(expiresAt)}, ${time}`;
+}
+
+export function describeInviteSettings(settings: InviteSettings, now: Date): string {
+	const expiry =
+		settings.maxAge === null
+			? 'Бессрочная'
+			: expiryPhrase(new Date(now.getTime() + settings.maxAge * 1000), now);
+	const uses =
+		settings.maxUses === null
+			? 'без ограничений'
+			: `максимум ${settings.maxUses} ${useWords[memberPlurals.select(settings.maxUses)]}`;
+	return `${expiry} · ${uses}`;
+}
+
 export function inviteLinkOf(code: string): string {
 	return inviteLinkPrefix + code;
 }
