@@ -41,7 +41,7 @@
 		>
 		{#if activity?.kind === 'typing'}
 			<span class="flex items-center gap-1.5 text-[11px] leading-4 text-muted">
-				<span class="truncate">печатает</span>
+				<span class="truncate">Печатает</span>
 				<span class="typing-dots flex shrink-0 items-center gap-0.5" aria-hidden="true">
 					<span></span><span></span><span></span>
 				</span>
