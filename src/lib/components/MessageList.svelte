@@ -14,6 +14,7 @@
 		onloadolder?: () => void;
 		oncancel?: (messageId: string) => void;
 		onjoinedinvite?: (server: Server) => void;
+		onopeninvite?: (code: string) => void;
 	}
 
 	let {
@@ -24,7 +25,8 @@
 		dividerId = null,
 		onloadolder,
 		oncancel,
-		onjoinedinvite
+		onjoinedinvite,
+		onopeninvite
 	}: Props = $props();
 
 	const groupGapMs = 5 * 60 * 1000;
@@ -172,7 +174,7 @@
 							<span class="h-px flex-1 bg-white/25"></span>
 						</div>
 					{/if}
-					<MessageGroup messages={group.messages} {oncancel} {onjoinedinvite} />
+					<MessageGroup messages={group.messages} {oncancel} {onjoinedinvite} {onopeninvite} />
 				{/each}
 			</div>
 		{/each}

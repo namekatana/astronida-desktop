@@ -39,6 +39,7 @@
 	import { createIncoming } from '$lib/notifications/incoming.svelte';
 	import { unread } from '$lib/notifications/unread.svelte';
 	import { createServersPresence } from '$lib/presence/servers-presence.svelte';
+	import { inviteLinkOf, joinByInvite } from '$lib/servers/invites';
 	import { loadMembers, type JoinedMember } from '$lib/servers/members';
 	import type { Server } from '$lib/servers/servers';
 	import { createSync } from '$lib/sync/sync';
@@ -298,6 +299,16 @@
 		joinDialogValue = '';
 	}
 
+	const joiningInvites = new Set<string>();
+
+	async function openInvite(code: string) {
+		if (joiningInvites.has(code)) return;
+		joiningInvites.add(code);
+		const result = await joinByInvite(code);
+		joiningInvites.delete(code);
+		if (result.ok) handleServerJoined(result.server);
+		else joinDialogValue = inviteLinkOf(code);
+	}
 
 	function addMember(serverId: string, member: JoinedMember) {
 		const target = workspaces[serverId];
@@ -518,6 +529,7 @@
 					onloadolder={openChat.loadOlder}
 					oncancel={cancelSend}
 					onjoinedinvite={handleServerJoined}
+					onopeninvite={openInvite}
 				/>
 				{#key openChatId}
 					<MessageComposer

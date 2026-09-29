@@ -3,9 +3,11 @@
 </script>
 
 <script lang="ts">
+	import { splitLinks } from '$lib/messages/links';
 	import type { Message } from '$lib/messages/messages';
 	import { inviteCodeInMessage } from '$lib/servers/invites';
 	import type { Server } from '$lib/servers/servers';
+	import { openExternal } from '$lib/ui/external-link';
 	import { initials } from '$lib/ui/initials';
 	import InviteCard from './InviteCard.svelte';
 	import MessageMenu from './MessageMenu.svelte';
@@ -14,9 +16,10 @@
 		messages: Message[];
 		oncancel?: (messageId: string) => void;
 		onjoinedinvite?: (server: Server) => void;
+		onopeninvite?: (code: string) => void;
 	}
 
-	let { messages, oncancel, onjoinedinvite }: Props = $props();
+	let { messages, oncancel, onjoinedinvite, onopeninvite }: Props = $props();
 
 	let menu = $state<{ messageId: string; x: number; y: number } | null>(null);
 
@@ -36,6 +39,20 @@
 	$effect(() => {
 		if (menu && !messages.some((message) => message.id === menu?.messageId)) menu = null;
 	});
+
+	const linkClass =
+		'text-ink underline decoration-white/30 underline-offset-2 transition-[text-decoration-color] duration-150 hover:decoration-white/80';
+
+	function openLink(event: MouseEvent, href: string) {
+		event.preventDefault();
+		if (event.type === 'auxclick' && event.button !== 1) return;
+		openExternal(href);
+	}
+
+	function openInvite(event: MouseEvent, code: string) {
+		event.preventDefault();
+		onopeninvite?.(code);
+	}
 
 	const author = $derived(messages[0].author);
 	const avatar = $derived(initials(author.name));
@@ -72,7 +89,7 @@
 							? 'opacity-50'
 							: ''}"
 					>
-						{message.text}
+						{#each splitLinks(message.text) as segment, index (index)}{#if segment.kind === 'link'}<a href={segment.href} onclick={(event) => openLink(event, segment.href)} onauxclick={(event) => openLink(event, segment.href)} class={linkClass}>{segment.text}</a>{:else if segment.kind === 'invite' && onopeninvite}<a href={segment.text} onclick={(event) => openInvite(event, segment.code)} onauxclick={(event) => event.preventDefault()} class={linkClass}>{segment.text}</a>{:else}{segment.text}{/if}{/each}
 					</p>
 					{#if message.status === 'failed'}
 						<p class="pb-0.5 text-[11px] text-danger">Не отправлено</p>
