@@ -21,7 +21,8 @@ const SCHEMA: &str = "
         channel_id TEXT NOT NULL,
         author_id TEXT NOT NULL,
         content TEXT NOT NULL,
-        sent_at TEXT NOT NULL
+        sent_at TEXT NOT NULL,
+        reply BLOB
     );
     CREATE INDEX IF NOT EXISTS messages_channel_id ON messages (channel_id, id);
     CREATE TABLE IF NOT EXISTS profiles (
@@ -37,7 +38,8 @@ const SCHEMA: &str = "
         client_id TEXT PRIMARY KEY,
         channel_id TEXT NOT NULL,
         content TEXT NOT NULL,
-        created_at TEXT NOT NULL
+        created_at TEXT NOT NULL,
+        reply BLOB
     );
     CREATE TABLE IF NOT EXISTS cache (
         section TEXT PRIMARY KEY,
@@ -63,12 +65,28 @@ pub struct Author {
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ReplyOriginal {
+    author: Author,
+    content: String,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Reply {
+    id: String,
+    original: Option<ReplyOriginal>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct HistoryMessage {
     id: String,
     channel_id: String,
     author: Author,
     content: String,
     sent_at: String,
+    #[serde(default)]
+    reply: Option<Reply>,
 }
 
 #[derive(Deserialize)]
@@ -85,6 +103,8 @@ pub struct OutboxEntry {
     channel_id: String,
     content: String,
     created_at: String,
+    #[serde(default)]
+    reply: Option<Reply>,
 }
 
 #[derive(Serialize)]
@@ -132,6 +152,7 @@ fn plain_outbox(connection: &Connection) -> Result<Vec<OutboxEntry>, String> {
                 channel_id: row.get(1).unwrap_or_default(),
                 content,
                 created_at: row.get(3).unwrap_or_default(),
+                reply: None,
             }))
         })
         .map_err(describe)?
@@ -146,14 +167,46 @@ fn insert_outbox(
     entry: &OutboxEntry,
 ) -> Result<(), String> {
     let sealed = local_key::seal(cipher, &entry.content)?;
+    let sealed_reply = seal_reply(cipher, &entry.reply)?;
     transaction
         .execute(
-            "INSERT INTO outbox (client_id, channel_id, content, created_at) VALUES (?1, ?2, ?3, ?4)
+            "INSERT INTO outbox (client_id, channel_id, content, created_at, reply) VALUES (?1, ?2, ?3, ?4, ?5)
              ON CONFLICT (client_id) DO NOTHING",
-            params![entry.client_id, entry.channel_id, sealed, entry.created_at],
+            params![entry.client_id, entry.channel_id, sealed, entry.created_at, sealed_reply],
         )
         .map_err(describe)?;
     Ok(())
+}
+
+fn seal_reply(cipher: &Aes256Gcm, reply: &Option<Reply>) -> Result<Option<Vec<u8>>, String> {
+    let Some(reply) = reply else {
+        return Ok(None);
+    };
+    let json = serde_json::to_string(reply).map_err(describe)?;
+    local_key::seal(cipher, &json).map(Some)
+}
+
+fn unseal_reply(row: &Row, index: usize, cipher: &Aes256Gcm) -> rusqlite::Result<Option<Reply>> {
+    let Ok(Some(sealed)) = row.get_ref(index)?.as_blob_or_null() else {
+        return Ok(None);
+    };
+    Ok(local_key::unseal(cipher, sealed).and_then(|json| serde_json::from_str(&json).ok()))
+}
+
+fn ensure_reply_column(connection: &Connection, table: &str) -> Result<(), String> {
+    let exists: bool = connection
+        .query_row(
+            "SELECT EXISTS (SELECT 1 FROM pragma_table_info(?1) WHERE name = 'reply')",
+            params![table],
+            |row| row.get(0),
+        )
+        .map_err(describe)?;
+    if exists {
+        return Ok(());
+    }
+    connection
+        .execute_batch(&format!("ALTER TABLE {table} ADD COLUMN reply BLOB;"))
+        .map_err(describe)
 }
 
 fn migrate(connection: &mut Connection, cipher: &Aes256Gcm, fresh_key: bool) -> Result<(), String> {
@@ -207,6 +260,7 @@ fn message_from_row(row: &Row, cipher: &Aes256Gcm) -> rusqlite::Result<Option<Hi
         },
         content,
         sent_at: row.get(4)?,
+        reply: unseal_reply(row, 7, cipher)?,
     }))
 }
 
@@ -225,6 +279,8 @@ pub fn history_open(app: AppHandle, history: State<History>, user_id: String) ->
     let key = local_key::load_or_create(&dir)?;
     let mut connection = Connection::open(dir.join("history.sqlite")).map_err(describe)?;
     connection.execute_batch(SCHEMA).map_err(describe)?;
+    ensure_reply_column(&connection, "messages")?;
+    ensure_reply_column(&connection, "outbox")?;
     migrate(&mut connection, &key.cipher, key.fresh)?;
     *lock(&history)? = Some(Account {
         connection,
@@ -246,7 +302,7 @@ pub fn history_page(
     } = account(&mut slot)?;
     let mut statement = connection
         .prepare(
-            "SELECT m.id, m.channel_id, m.author_id, m.content, m.sent_at, p.username, p.display_name
+            "SELECT m.id, m.channel_id, m.author_id, m.content, m.sent_at, p.username, p.display_name, m.reply
              FROM messages m LEFT JOIN profiles p ON p.id = m.author_id
              WHERE m.channel_id = ?1 AND (?2 IS NULL OR m.id < ?2)
              ORDER BY m.id DESC LIMIT ?3",
@@ -320,17 +376,25 @@ fn upsert_messages(
         .map_err(describe)?;
     let mut message = transaction
         .prepare_cached(
-            "INSERT INTO messages (id, channel_id, author_id, content, sent_at) VALUES (?1, ?2, ?3, ?4, ?5)
-             ON CONFLICT (id) DO UPDATE SET content = excluded.content, sent_at = excluded.sent_at",
+            "INSERT INTO messages (id, channel_id, author_id, content, sent_at, reply) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+             ON CONFLICT (id) DO UPDATE SET content = excluded.content, sent_at = excluded.sent_at, reply = excluded.reply",
         )
         .map_err(describe)?;
     for item in messages {
         let sealed = local_key::seal(cipher, &item.content)?;
+        let sealed_reply = seal_reply(cipher, &item.reply)?;
         profile
             .execute(params![item.author.id, item.author.username, item.author.display_name])
             .map_err(describe)?;
         message
-            .execute(params![item.id, item.channel_id, item.author.id, sealed, item.sent_at])
+            .execute(params![
+                item.id,
+                item.channel_id,
+                item.author.id,
+                sealed,
+                item.sent_at,
+                sealed_reply
+            ])
             .map_err(describe)?;
     }
     Ok(())
@@ -386,7 +450,7 @@ pub fn history_latest_messages(
     } = account(&mut slot)?;
     let mut statement = connection
         .prepare(
-            "SELECT m.id, m.channel_id, m.author_id, m.content, m.sent_at, p.username, p.display_name
+            "SELECT m.id, m.channel_id, m.author_id, m.content, m.sent_at, p.username, p.display_name, m.reply
              FROM messages m LEFT JOIN profiles p ON p.id = m.author_id
              WHERE m.channel_id = ?1
              ORDER BY m.id DESC LIMIT 1",
@@ -412,7 +476,7 @@ pub fn outbox_list(history: State<History>) -> Result<Vec<OutboxEntry>, String> 
     } = account(&mut slot)?;
     let mut statement = connection
         .prepare(
-            "SELECT client_id, channel_id, content, created_at FROM outbox ORDER BY created_at, client_id",
+            "SELECT client_id, channel_id, content, created_at, reply FROM outbox ORDER BY created_at, client_id",
         )
         .map_err(describe)?;
     let entries = statement
@@ -428,6 +492,7 @@ pub fn outbox_list(history: State<History>) -> Result<Vec<OutboxEntry>, String> 
                     channel_id: row.get(1)?,
                     content,
                     created_at: row.get(3)?,
+                    reply: unseal_reply(row, 4, cipher)?,
                 }),
                 None => None,
             })

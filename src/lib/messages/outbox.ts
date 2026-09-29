@@ -1,11 +1,12 @@
-import { history, type OutboxRecord } from '$lib/history/history';
-import { holdRoom, sendMessage, type Message } from './messages';
+import { fromStoredReply, history, toStoredReply, type OutboxRecord } from '$lib/history/history';
+import { holdRoom, sendMessage, type Message, type MessageReply } from './messages';
 
 export interface OutboxEntry {
 	clientId: string;
 	channelId: string;
 	text: string;
 	createdAt: Date;
+	replyTo?: MessageReply;
 }
 
 interface OutboxHandlers {
@@ -16,8 +17,12 @@ interface OutboxHandlers {
 const retryDelayMs = 5000;
 const pendingPrefix = 'pending:';
 
-export function createEntry(channelId: string, text: string): OutboxEntry {
-	return { clientId: crypto.randomUUID(), channelId, text, createdAt: new Date() };
+export function createEntry(
+	channelId: string,
+	text: string,
+	replyTo: MessageReply | undefined
+): OutboxEntry {
+	return { clientId: crypto.randomUUID(), channelId, text, createdAt: new Date(), replyTo };
 }
 
 export function pendingIdOf(entry: OutboxEntry): string {
@@ -34,7 +39,8 @@ function toRecord(entry: OutboxEntry): OutboxRecord {
 		clientId: entry.clientId,
 		channelId: entry.channelId,
 		content: entry.text,
-		createdAt: entry.createdAt.toISOString()
+		createdAt: entry.createdAt.toISOString(),
+		reply: toStoredReply(entry.replyTo)
 	};
 }
 
@@ -43,7 +49,8 @@ function fromRecord(record: OutboxRecord): OutboxEntry {
 		clientId: record.clientId,
 		channelId: record.channelId,
 		text: record.content,
-		createdAt: new Date(record.createdAt)
+		createdAt: new Date(record.createdAt),
+		replyTo: fromStoredReply(record.reply)
 	};
 }
 
@@ -113,7 +120,12 @@ export function createOutbox(handlers: OutboxHandlers) {
 			while (!closed && queue.length > 0) {
 				const entry = queue[0];
 				inFlight.add(entry.clientId);
-				const result = await sendMessage({ channelId, clientId: entry.clientId, text: entry.text });
+				const result = await sendMessage({
+					channelId,
+					clientId: entry.clientId,
+					text: entry.text,
+					replyToId: entry.replyTo?.id
+				});
 				inFlight.delete(entry.clientId);
 				if (closed) return;
 				if (!result.ok && result.retry && !cancelled.has(entry.clientId)) {

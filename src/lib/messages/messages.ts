@@ -9,11 +9,17 @@ export interface MessageAuthor {
 	username: string;
 }
 
+export interface MessageReply {
+	id: string;
+	original: { author: MessageAuthor; text: string } | null;
+}
+
 export interface Message {
 	id: string;
 	author: MessageAuthor;
 	text: string;
 	sentAt: Date;
+	replyTo?: MessageReply;
 	status?: 'sending' | 'failed';
 }
 
@@ -22,25 +28,68 @@ export type SendResult = { ok: true; message: Message } | { ok: false; retry: bo
 export const messageMaxLength = 2000;
 export const pageSize = 50;
 
+interface AuthorPayload {
+	id: string;
+	username: string;
+	display_name: string;
+}
+
 export interface MessagePayload {
 	id: string;
 	channel_id: string;
 	content: string;
 	created_at: string;
-	author: { id: string; username: string; display_name: string };
+	author: AuthorPayload;
+	reply_to?: { id: string; content: string; author: AuthorPayload } | null;
+}
+
+function authorFrom(payload: AuthorPayload): MessageAuthor {
+	return { id: payload.id, username: payload.username, name: payload.display_name };
 }
 
 export function fromPayload(payload: MessagePayload): Message {
-	return {
+	const message: Message = {
 		id: payload.id,
-		author: {
-			id: payload.author.id,
-			username: payload.author.username,
-			name: payload.author.display_name
-		},
+		author: authorFrom(payload.author),
 		text: payload.content,
 		sentAt: new Date(payload.created_at)
 	};
+	if (payload.reply_to) {
+		message.replyTo = {
+			id: payload.reply_to.id,
+			original: { author: authorFrom(payload.reply_to.author), text: payload.reply_to.content }
+		};
+	}
+	return message;
+}
+
+type ProfileRow = { username: string; display_name: string } | null;
+
+function authorOfRow(authorId: string, profile: ProfileRow): MessageAuthor {
+	return {
+		id: authorId,
+		username: profile?.username ?? 'unknown',
+		name: profile?.display_name ?? '?'
+	};
+}
+
+async function loadReplyOriginals(
+	ids: string[]
+): Promise<Map<string, NonNullable<MessageReply['original']>> | null> {
+	const originals = new Map<string, NonNullable<MessageReply['original']>>();
+	if (ids.length === 0) return originals;
+	const { data, error } = await retryOnFreshToken(() =>
+		supabase
+			.from('messages')
+			.select('id, author_id, content, profiles (username, display_name)')
+			.in('id', ids)
+			.is('deleted_at', null)
+	);
+	if (error || !data) return null;
+	for (const row of data) {
+		originals.set(row.id, { author: authorOfRow(row.author_id, row.profiles), text: row.content });
+	}
+	return originals;
 }
 
 export async function loadMessages(input: {
@@ -50,7 +99,7 @@ export async function loadMessages(input: {
 }): Promise<{ messages: Message[]; hasMore: boolean } | null> {
 	let query = supabase
 		.from('messages')
-		.select('id, author_id, content, created_at, profiles (username, display_name)')
+		.select('id, author_id, content, created_at, reply_to_id, profiles (username, display_name)')
 		.eq('channel_id', input.channelId)
 		.is('deleted_at', null)
 		.order('id', { ascending: false })
@@ -61,16 +110,22 @@ export async function loadMessages(input: {
 	const { data, error } = await retryOnFreshToken(() => query);
 	if (error || !data) return null;
 
-	const messages = data.map((row) => ({
-		id: row.id,
-		author: {
-			id: row.author_id,
-			username: row.profiles?.username ?? 'unknown',
-			name: row.profiles?.display_name ?? '?'
-		},
-		text: row.content,
-		sentAt: new Date(row.created_at)
-	}));
+	const replyIds = [...new Set(data.flatMap((row) => (row.reply_to_id ? [row.reply_to_id] : [])))];
+	const originals = await loadReplyOriginals(replyIds);
+	if (!originals) return null;
+
+	const messages = data.map((row) => {
+		const message: Message = {
+			id: row.id,
+			author: authorOfRow(row.author_id, row.profiles),
+			text: row.content,
+			sentAt: new Date(row.created_at)
+		};
+		if (row.reply_to_id) {
+			message.replyTo = { id: row.reply_to_id, original: originals.get(row.reply_to_id) ?? null };
+		}
+		return message;
+	});
 	return { messages: messages.reverse(), hasMore: data.length === pageSize };
 }
 
@@ -129,6 +184,7 @@ export function sendMessage(input: {
 	channelId: string;
 	clientId: string;
 	text: string;
+	replyToId?: string;
 }): Promise<SendResult> {
 	const room = rooms.get(input.channelId);
 	if (!room || room.channel.state !== 'joined') {
@@ -137,7 +193,11 @@ export function sendMessage(input: {
 
 	return new Promise((resolve) => {
 		room.channel
-			.push('send', { content: input.text.trim(), client_id: input.clientId })
+			.push('send', {
+				content: input.text.trim(),
+				client_id: input.clientId,
+				reply_to_id: input.replyToId ?? null
+			})
 			.receive('ok', (payload: MessagePayload) =>
 				resolve({ ok: true, message: fromPayload(payload) })
 			)

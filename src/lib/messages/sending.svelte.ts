@@ -1,6 +1,6 @@
 import { hasVisibleContent, withoutBidiControls } from '$lib/ui/visible-text';
 import type { Feeds } from './feeds.svelte';
-import type { Message, MessageAuthor } from './messages';
+import type { Message, MessageAuthor, MessageReply } from './messages';
 import {
 	clientIdOf,
 	createEntry,
@@ -14,13 +14,15 @@ export function createSending(input: { feeds: Feeds; author: () => MessageAuthor
 	const { feeds } = input;
 
 	function pendingMessageOf(entry: OutboxEntry): Message {
-		return {
+		const message: Message = {
 			id: pendingIdOf(entry),
 			author: input.author(),
 			text: entry.text,
 			sentAt: entry.createdAt,
 			status: 'sending'
 		};
+		if (entry.replyTo) message.replyTo = entry.replyTo;
+		return message;
 	}
 
 	function handleSent(entry: OutboxEntry, message: Message) {
@@ -52,10 +54,10 @@ export function createSending(input: { feeds: Feeds; author: () => MessageAuthor
 		};
 	});
 
-	function send(channelId: string, text: string) {
+	function send(channelId: string, text: string, replyTo?: MessageReply) {
 		const visibleText = withoutBidiControls(text).trim();
 		if (!hasVisibleContent(visibleText)) return;
-		const entry = createEntry(channelId, visibleText);
+		const entry = createEntry(channelId, visibleText, replyTo);
 		feeds.addPending(channelId, pendingMessageOf(entry));
 		outbox.enqueue(entry);
 	}

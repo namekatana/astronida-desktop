@@ -208,6 +208,7 @@ export type Database = {
 					created_at: string;
 					deleted_at: string | null;
 					id: string;
+					reply_to_id: string | null;
 					search: unknown;
 				};
 				Insert: {
@@ -217,6 +218,7 @@ export type Database = {
 					created_at?: string;
 					deleted_at?: string | null;
 					id?: string;
+					reply_to_id?: string | null;
 					search?: unknown;
 				};
 				Update: {
@@ -226,6 +228,7 @@ export type Database = {
 					created_at?: string;
 					deleted_at?: string | null;
 					id?: string;
+					reply_to_id?: string | null;
 					search?: unknown;
 				};
 				Relationships: [
@@ -242,6 +245,13 @@ export type Database = {
 						isOneToOne: false;
 						referencedRelation: 'channels';
 						referencedColumns: ['id'];
+					},
+					{
+						foreignKeyName: 'messages_reply_to_same_channel';
+						columns: ['channel_id', 'reply_to_id'];
+						isOneToOne: false;
+						referencedRelation: 'messages';
+						referencedColumns: ['channel_id', 'id'];
 					}
 				];
 			};

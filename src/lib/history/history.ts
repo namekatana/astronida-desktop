@@ -1,5 +1,10 @@
 import { invoke } from '@tauri-apps/api/core';
-import { pageSize, type Message } from '$lib/messages/messages';
+import {
+	pageSize,
+	type Message,
+	type MessageAuthor,
+	type MessageReply
+} from '$lib/messages/messages';
 
 export interface HistoryPage {
 	messages: Message[];
@@ -16,11 +21,23 @@ export interface StoreOptions {
 	reachedStart?: boolean;
 }
 
+interface StoredAuthor {
+	id: string;
+	username: string;
+	displayName: string;
+}
+
+export interface StoredReply {
+	id: string;
+	original: { author: StoredAuthor; content: string } | null;
+}
+
 export interface OutboxRecord {
 	clientId: string;
 	channelId: string;
 	content: string;
 	createdAt: string;
+	reply: StoredReply | null;
 }
 
 interface HistoryBackend {
@@ -41,36 +58,61 @@ interface HistoryBackend {
 interface StoredMessage {
 	id: string;
 	channelId: string;
-	author: { id: string; username: string; displayName: string };
+	author: StoredAuthor;
 	content: string;
 	sentAt: string;
+	reply?: StoredReply | null;
+}
+
+function toStoredAuthor(author: MessageAuthor): StoredAuthor {
+	return { id: author.id, username: author.username, displayName: author.name };
+}
+
+function fromStoredAuthor(stored: StoredAuthor): MessageAuthor {
+	return { id: stored.id, username: stored.username, name: stored.displayName };
+}
+
+export function toStoredReply(reply: MessageReply | undefined): StoredReply | null {
+	if (!reply) return null;
+	return {
+		id: reply.id,
+		original: reply.original
+			? { author: toStoredAuthor(reply.original.author), content: reply.original.text }
+			: null
+	};
+}
+
+export function fromStoredReply(stored: StoredReply | null | undefined): MessageReply | undefined {
+	if (!stored) return undefined;
+	return {
+		id: stored.id,
+		original: stored.original
+			? { author: fromStoredAuthor(stored.original.author), text: stored.original.content }
+			: null
+	};
 }
 
 function toStored(channelId: string, message: Message): StoredMessage {
 	return {
 		id: message.id,
 		channelId,
-		author: {
-			id: message.author.id,
-			username: message.author.username,
-			displayName: message.author.name
-		},
+		author: toStoredAuthor(message.author),
 		content: message.text,
-		sentAt: message.sentAt.toISOString()
+		sentAt: message.sentAt.toISOString(),
+		reply: toStoredReply(message.replyTo)
 	};
 }
 
 function fromStored(stored: StoredMessage): Message {
-	return {
+	const message: Message = {
 		id: stored.id,
-		author: {
-			id: stored.author.id,
-			username: stored.author.username,
-			name: stored.author.displayName
-		},
+		author: fromStoredAuthor(stored.author),
 		text: stored.content,
 		sentAt: new Date(stored.sentAt)
 	};
+	const replyTo = fromStoredReply(stored.reply);
+	if (replyTo) message.replyTo = replyTo;
+	return message;
 }
 
 function confirmed(channelId: string, messages: Message[]): StoredMessage[] {
