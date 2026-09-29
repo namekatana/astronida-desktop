@@ -104,53 +104,46 @@
 <div class="panel relative shrink-0 px-4 py-3">
 	<div class="collapsible {connected ? 'is-open' : ''}" inert={!connected}>
 		<div>
-			<div class="flex items-end gap-3 pb-2.5">
-				<div class="min-w-0 flex-1">
-					<div class="flex h-6 items-center gap-2">
-						<div
-							class="flex min-w-0 flex-1 items-center gap-1.5 text-[13px] font-semibold transition-colors duration-200 {statusColor}"
+			<div class="pb-2.5">
+				<div class="flex h-6 items-center gap-2">
+					<div
+						class="flex min-w-0 flex-1 items-center gap-1.5 text-[13px] font-semibold transition-colors duration-200 {statusColor}"
+					>
+						<Icon
+							name="voice"
+							size={14}
+							class="{voice.status === 'connected' ? 'voice-live' : ''} {dotPulse
+								? 'animate-pulse'
+								: ''}"
+						/>
+						<span class="min-w-0 truncate">{statusLabel}</span>
+					</div>
+					{#if voice.status === 'connected'}
+						<button
+							bind:this={detailsAnchor}
+							type="button"
+							aria-label="Сведения о соединении"
+							aria-haspopup="dialog"
+							aria-expanded={detailsOpen}
+							onclick={() => (detailsOpen = !detailsOpen)}
+							class="pressable ml-auto flex h-6 shrink-0 items-center gap-1.5 rounded-full px-2 text-[11px] whitespace-nowrap duration-200 {detailsOpen
+								? 'bg-white/[0.08]'
+								: 'bg-white/[0.04] hover:bg-white/[0.08]'}"
 						>
-							<Icon
-								name="voice"
-								size={14}
-								class="{voice.status === 'connected' ? 'voice-live' : ''} {dotPulse
-									? 'animate-pulse'
-									: ''}"
-							/>
-							<span class="min-w-0 truncate">{statusLabel}</span>
-						</div>
-						{#if voice.status === 'connected'}
-							<button
-								bind:this={detailsAnchor}
-								type="button"
-								aria-label="Сведения о соединении"
-								aria-haspopup="dialog"
-								aria-expanded={detailsOpen}
-								onclick={() => (detailsOpen = !detailsOpen)}
-								class="pressable ml-auto flex h-6 shrink-0 items-center gap-1.5 rounded-full px-2 text-[11px] whitespace-nowrap duration-200 {detailsOpen
-									? 'bg-white/[0.08]'
-									: 'bg-white/[0.04] hover:bg-white/[0.08]'}"
-							>
-								<span class="flex items-center gap-1.5 {rttColor}">
-									{#if voice.quality !== null}
-										<SignalBars quality={voice.quality} />
-									{/if}
-									<span class="tabular-nums">{rtt === null ? '—' : `${rtt} мс`}</span>
-								</span>
-								<span class="flex text-muted">
-									<Icon name="lock" size={11} />
-								</span>
-							</button>
-						{/if}
-					</div>
-					<div class="mt-0.5 truncate text-[13px] font-medium text-ink">{shown?.channelName ?? ''}</div>
-					<div class="truncate text-[12px] text-muted">{shown?.serverName ?? ''}</div>
+							<span class="flex items-center gap-1.5 {rttColor}">
+								{#if voice.quality !== null}
+									<SignalBars quality={voice.quality} />
+								{/if}
+								<span class="tabular-nums">{rtt === null ? '—' : `${rtt} мс`}</span>
+							</span>
+							<span class="flex text-muted">
+								<Icon name="lock" size={11} />
+							</span>
+						</button>
+					{/if}
 				</div>
-				{#if shownOccupants.length > 0}
-					<div class="shrink-0 pb-0.5">
-						<AvatarStack members={shownOccupants} />
-					</div>
-				{/if}
+				<div class="mt-0.5 truncate text-[13px] font-medium text-ink">{shown?.channelName ?? ''}</div>
+				<div class="truncate text-[12px] text-muted">{shown?.serverName ?? ''}</div>
 			</div>
 		</div>
 	</div>
@@ -164,14 +157,9 @@
 					out:fade={{ duration: 120 }}
 				>
 					{#if connected}
-						<button
-							type="button"
-							aria-label="Отключиться"
-							onclick={disconnect}
-							class="pressable flex h-9 w-9 items-center justify-center rounded-full text-muted duration-200 hover:bg-white/[0.06] hover:text-danger"
-						>
-							<Icon name="phone-off" size={18} />
-						</button>
+						{#if shownOccupants.length > 0}
+							<AvatarStack members={shownOccupants} />
+						{/if}
 					{:else}
 						<span class="min-w-0 truncate text-[12px] text-muted">Голос не подключён</span>
 					{/if}
@@ -179,6 +167,17 @@
 			{/key}
 		</div>
 		<div class="flex shrink-0 items-center gap-1">
+			{#if connected}
+				<button
+					type="button"
+					aria-label="Отключиться"
+					onclick={disconnect}
+					transition:fade={{ duration: 150 }}
+					class="pressable flex h-9 w-9 items-center justify-center rounded-full text-muted duration-200 hover:bg-white/[0.06] hover:text-danger"
+				>
+					<Icon name="phone-off" size={18} />
+				</button>
+			{/if}
 			{@render toggle('mic', 'Микрофон', voice.micMuted, voice.toggleMic)}
 			{@render toggle('headphones', 'Наушники', voice.deafened, voice.toggleDeafen)}
 		</div>
