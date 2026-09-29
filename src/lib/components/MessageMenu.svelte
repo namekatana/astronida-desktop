@@ -1,17 +1,20 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
 	import { dismissOn } from '$lib/ui/dismiss';
+	import type { IconName } from '$lib/ui/icons';
 	import { pop } from '$lib/ui/pop';
+	import type { MessageMenuMode } from './message-menu';
 	import Icon from './Icon.svelte';
 
 	interface Props {
 		x: number;
 		y: number;
+		mode: MessageMenuMode;
 		onclose: () => void;
-		oncancel: () => void;
+		oncancel?: () => void;
 	}
 
-	let { x, y, onclose, oncancel }: Props = $props();
+	let { x, y, mode, onclose, oncancel }: Props = $props();
 
 	const width = 200;
 	const margin = 8;
@@ -23,7 +26,7 @@
 	const top = $derived(Math.max(margin, Math.min(y, window.innerHeight - height - margin)));
 
 	function cancelSending() {
-		oncancel();
+		oncancel?.();
 		onclose();
 	}
 
@@ -34,22 +37,42 @@
 	});
 </script>
 
+{#snippet item(icon: IconName, label: string, onclick: () => void, destructive = false)}
+	<button
+		type="button"
+		role="menuitem"
+		{onclick}
+		class="flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] text-ink-secondary transition-colors duration-150 hover:bg-white/[0.06] {destructive
+			? 'hover:text-danger'
+			: 'hover:text-ink'}"
+	>
+		<Icon name={icon} size={15} class="text-muted" />
+		<span class="min-w-0 flex-1 truncate">{label}</span>
+	</button>
+{/snippet}
+
 <div
 	bind:this={root}
 	role="menu"
-	aria-label="Неотправленное сообщение"
+	aria-label={mode === 'pending' ? 'Неотправленное сообщение' : 'Сообщение'}
 	in:pop={{ y: -4, duration: 180 }}
 	out:fade={{ duration: 100 }}
 	style="left: {left}px; top: {top}px; width: {width}px"
 	class="panel panel-floating fixed z-50 origin-top-left p-1.5"
 >
-	<button
-		type="button"
-		role="menuitem"
-		onclick={cancelSending}
-		class="flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] text-ink-secondary transition-colors duration-150 hover:bg-white/[0.06] hover:text-danger"
-	>
-		<Icon name="close" size={15} class="text-muted" />
-		<span class="min-w-0 flex-1 truncate">Отменить отправку</span>
-	</button>
+	{#if mode === 'pending'}
+		{@render item('close', 'Отменить отправку', cancelSending, true)}
+	{:else}
+		<div class="flex flex-col gap-0.5">
+			{@render item('reply', 'Ответить', onclose)}
+			{@render item('forward', 'Переслать', onclose)}
+			{@render item('pin', 'Закрепить сообщение', onclose)}
+			{@render item('copy', 'Скопировать', onclose)}
+		</div>
+		<div class="mx-1.5 my-1.5 h-px bg-surface-line"></div>
+		<div class="flex flex-col gap-0.5">
+			{@render item('trash', 'Удалить сообщение', onclose, true)}
+			{@render item('flag', 'Пожаловаться', onclose, true)}
+		</div>
+	{/if}
 </div>

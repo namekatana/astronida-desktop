@@ -522,6 +522,7 @@
 				{/if}
 				<MessageList
 					messages={openChat.messages}
+					selfId={data.userId}
 					hasMore={openChat.hasMore}
 					loading={openChat.loading}
 					typing={typingNames}

@@ -7,6 +7,7 @@
 
 	interface Props {
 		messages: Message[];
+		selfId: string;
 		hasMore?: boolean;
 		loading?: boolean;
 		typing?: string[];
@@ -19,6 +20,7 @@
 
 	let {
 		messages,
+		selfId,
 		hasMore = false,
 		loading = false,
 		typing = [],
@@ -174,7 +176,7 @@
 							<span class="h-px flex-1 bg-white/25"></span>
 						</div>
 					{/if}
-					<MessageGroup messages={group.messages} {oncancel} {onjoinedinvite} {onopeninvite} />
+					<MessageGroup messages={group.messages} {selfId} {oncancel} {onjoinedinvite} {onopeninvite} />
 				{/each}
 			</div>
 		{/each}
