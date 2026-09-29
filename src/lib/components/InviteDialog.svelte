@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { cubicIn, cubicOut } from 'svelte/easing';
+	import { cubicOut } from 'svelte/easing';
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { draw } from 'svelte/transition';
 	import { normalizeUsernameQuery, type Friend } from '$lib/friends/friends';
 	import { fetchInviteLink, type InviteLink } from '$lib/servers/invites';
 	import { initials } from '$lib/ui/initials';
+	import { viewIn, viewOut, viewShift } from '$lib/ui/view-slide';
 	import Dialog from './Dialog.svelte';
 	import Icon from './Icon.svelte';
 	import InviteSettingsView from './InviteSettingsView.svelte';
@@ -32,7 +33,6 @@
 	type View = 'invite' | 'settings';
 
 	const staggeredRows = 8;
-	const viewShift = 24;
 	const openedAt = performance.now();
 
 	let view = $state<View>('invite');
@@ -104,29 +104,6 @@
 		copied = false;
 		view = 'invite';
 		setTimeout(flashLink, 260);
-	}
-
-	function viewIn(_node: Element, { from }: { from: number }) {
-		if (prefersReducedMotion.current) {
-			return { duration: 180, css: (t: number) => `opacity: ${t}` };
-		}
-		return {
-			delay: 60,
-			duration: 260,
-			easing: cubicOut,
-			css: (t: number, u: number) => `opacity: ${t}; transform: translateX(${u * from}px)`
-		};
-	}
-
-	function viewOut(_node: Element, { to }: { to: number }) {
-		if (prefersReducedMotion.current) {
-			return { duration: 120, css: (t: number) => `opacity: ${t}` };
-		}
-		return {
-			duration: 180,
-			easing: cubicIn,
-			css: (t: number, u: number) => `opacity: ${t}; transform: translateX(${u * to}px)`
-		};
 	}
 
 	function rowIn(_node: Element, { index }: { index: number }) {

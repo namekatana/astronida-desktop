@@ -87,7 +87,17 @@
 				? 'text-accent'
 				: 'text-muted'}"
 	>
-		{label}
+		<span class="grid">
+			{#key label}
+				<span
+					class="col-start-1 row-start-1 whitespace-nowrap"
+					in:fade={{ duration: 150 }}
+					out:fade={{ duration: 100 }}
+				>
+					{label}
+				</span>
+			{/key}
+		</span>
 	</span>
 
 	{#if trailing || isPassword}

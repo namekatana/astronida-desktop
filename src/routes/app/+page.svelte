@@ -11,17 +11,17 @@
 	} from '$lib/channels/channels';
 	import ActiveFriendsPanel from '$lib/components/ActiveFriendsPanel.svelte';
 	import AddFriendDialog from '$lib/components/AddFriendDialog.svelte';
+	import AddServerDialog from '$lib/components/AddServerDialog.svelte';
+	import type { AddServerView } from '$lib/components/add-server';
 	import ChannelPanel from '$lib/components/ChannelPanel.svelte';
 	import ChatHeader from '$lib/components/ChatHeader.svelte';
 	import CreateCategoryDialog from '$lib/components/CreateCategoryDialog.svelte';
 	import CreateChannelDialog from '$lib/components/CreateChannelDialog.svelte';
-	import CreateServerDialog from '$lib/components/CreateServerDialog.svelte';
 	import DirectChatHeader from '$lib/components/DirectChatHeader.svelte';
 	import FriendProfile from '$lib/components/FriendProfile.svelte';
 	import FriendsPanel from '$lib/components/FriendsPanel.svelte';
 	import HomeEmptyState from '$lib/components/HomeEmptyState.svelte';
 	import InviteDialog from '$lib/components/InviteDialog.svelte';
-	import JoinServerDialog from '$lib/components/JoinServerDialog.svelte';
 	import MemberPanel from '$lib/components/MemberPanel.svelte';
 	import MessageComposer from '$lib/components/MessageComposer.svelte';
 	import MessageList from '$lib/components/MessageList.svelte';
@@ -65,9 +65,8 @@
 	let selectedChannelId = $state<string | null>(null);
 	let selectedFriendId = $state<string | null>(lastSelection.friendId);
 	let signingOut = $state(false);
-	let creating = $state(false);
+	let serverDialog = $state<{ view: AddServerView; value: string } | null>(null);
 	let addingFriend = $state(false);
-	let joinDialogValue = $state<string | null>(null);
 	let inviting = $state(false);
 	let channelDialog = $state<'category' | ChannelKind | null>(null);
 
@@ -285,18 +284,13 @@
 	function handleServerCreated(server: Server) {
 		servers.push(server);
 		selectedServerId = server.id;
-		creating = false;
+		serverDialog = null;
 	}
 
 	function handleServerJoined(server: Server) {
 		if (!servers.some((known) => known.id === server.id)) servers.push(server);
 		selectedServerId = server.id;
-		joinDialogValue = null;
-	}
-
-	function openJoinServer() {
-		creating = false;
-		joinDialogValue = '';
+		serverDialog = null;
 	}
 
 	const joiningInvites = new Set<string>();
@@ -307,7 +301,7 @@
 		const result = await joinByInvite(code);
 		joiningInvites.delete(code);
 		if (result.ok) handleServerJoined(result.server);
-		else joinDialogValue = inviteLinkOf(code);
+		else serverDialog = { view: 'join', value: inviteLinkOf(code) };
 	}
 
 	function addMember(serverId: string, member: JoinedMember) {
@@ -416,19 +410,13 @@
 		></div>
 	{/if}
 
-	{#if creating}
-		<CreateServerDialog
+	{#if serverDialog}
+		<AddServerDialog
+			initialView={serverDialog.view}
+			initialValue={serverDialog.value}
 			oncreated={handleServerCreated}
-			onjoin={openJoinServer}
-			onclose={() => (creating = false)}
-		/>
-	{/if}
-
-	{#if joinDialogValue !== null}
-		<JoinServerDialog
-			initialValue={joinDialogValue}
 			onjoined={handleServerJoined}
-			onclose={() => (joinDialogValue = null)}
+			onclose={() => (serverDialog = null)}
 		/>
 	{/if}
 
@@ -475,7 +463,7 @@
 		homeUnread={incoming.homeBadge > 0}
 		onselect={(id) => (selectedServerId = id)}
 		onhome={() => (selectedServerId = null)}
-		oncreate={() => (creating = true)}
+		oncreate={() => (serverDialog = { view: 'create', value: '' })}
 		onsignout={handleSignOut}
 	/>
 
