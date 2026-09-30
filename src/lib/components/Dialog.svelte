@@ -10,16 +10,31 @@
 		locked?: boolean;
 		wide?: boolean;
 		pinTop?: boolean;
+		flush?: boolean;
 		onclose: () => void;
 	}
 
-	let { label, children, locked = false, wide = false, pinTop = false, onclose }: Props = $props();
+	let {
+		label,
+		children,
+		locked = false,
+		wide = false,
+		pinTop = false,
+		flush = false,
+		onclose
+	}: Props = $props();
 
+	const opticalCenter = 0.4;
+	const minTop = 24;
+
+	let overlay = $state<HTMLDivElement | null>(null);
 	let dialog = $state<HTMLDivElement | null>(null);
 	let pinnedTop = $state<number | null>(null);
 
 	$effect(() => {
-		if (pinTop && dialog && pinnedTop === null) pinnedTop = dialog.offsetTop;
+		if (!pinTop || !overlay || !dialog || pinnedTop !== null) return;
+		const free = overlay.clientHeight - dialog.offsetHeight;
+		pinnedTop = Math.max(minTop, Math.round(free * opticalCenter));
 	});
 
 	$effect(() => {
@@ -37,6 +52,7 @@
 </script>
 
 <div
+	bind:this={overlay}
 	class="scrollbar-none absolute inset-0 z-40 overflow-y-auto bg-bg/70"
 	transition:fade={{ duration: 160 }}
 >
@@ -57,7 +73,9 @@
 			aria-label={label}
 			in:pop={{ y: 8, duration: 240 }}
 			out:fade={{ duration: 120 }}
-			class="panel panel-floating w-full {wide ? 'max-w-[400px]' : 'max-w-[340px]'} px-7 pt-7 pb-6 [--pill-surface:var(--color-surface)]"
+			class="panel panel-floating w-full {wide ? 'max-w-[400px]' : 'max-w-[340px]'} {flush
+				? ''
+				: 'px-7 pt-7 pb-6'} [--pill-surface:var(--color-surface)]"
 		>
 			{@render children()}
 		</div>

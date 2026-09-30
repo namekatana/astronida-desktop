@@ -1,15 +1,13 @@
 <script lang="ts">
 	import { describeInviteSettings, generateInviteLink, type InviteLink } from '$lib/servers/invites';
-	import PillButton from './PillButton.svelte';
 	import SelectMenu from './SelectMenu.svelte';
 
 	interface Props {
 		serverId: string;
-		onback: () => void;
 		oncreated: (invite: InviteLink) => void;
 	}
 
-	let { serverId, onback, oncreated }: Props = $props();
+	let { serverId, oncreated }: Props = $props();
 
 	const lifetimes: { value: number | null; label: string }[] = [
 		{ value: 1_800, label: '30 минут' },
@@ -56,58 +54,44 @@
 	}
 </script>
 
-<h2 class="text-center text-[15px] font-semibold text-ink">Настройки ссылки</h2>
-<p class="mx-auto mt-1 max-w-[280px] text-center text-[13px] leading-5 text-ink-secondary">
-	Новая ссылка не отменит старые — каждая перестанет работать сама
-</p>
+<div class="pt-3">
+	<div class="overflow-hidden rounded-[14px] bg-white/[0.05] [corner-shape:squircle]">
+		<SelectMenu
+			label="Срок действия"
+			options={lifetimes}
+			bind:value={maxAge}
+			disabled={submitting}
+		/>
+		<div class="mx-4 h-px bg-surface-line"></div>
+		<SelectMenu
+			label="Максимум использований"
+			options={useLimits}
+			bind:value={maxUses}
+			disabled={submitting}
+		/>
+	</div>
 
-<div
-	class="mt-6 overflow-hidden rounded-[14px] border border-surface-line bg-white/[0.03] [corner-shape:squircle]"
->
-	<SelectMenu
-		label="Срок действия"
-		options={lifetimes}
-		bind:value={maxAge}
-		disabled={submitting}
-	/>
-	<div class="mx-4 h-px bg-surface-line"></div>
-	<SelectMenu
-		label="Максимум использований"
-		options={useLimits}
-		bind:value={maxUses}
-		disabled={submitting}
-	/>
-</div>
+	<div class="mt-2 grid h-4 grid-cols-1 px-1">
+		{#key error || summary}
+			<p
+				class="col-start-1 row-start-1 truncate text-[12px] leading-4 tabular-nums {error
+					? 'text-danger'
+					: 'text-ink-secondary'}"
+				in:settle
+				out:settle={{ duration: 100 }}
+			>
+				{error || summary}
+			</p>
+		{/key}
+	</div>
 
-<div class="mt-3 grid h-5 grid-cols-1 justify-items-center">
-	{#key summary}
-		<p
-			class="col-start-1 row-start-1 text-center text-[12px] leading-5 text-muted tabular-nums"
-			in:settle
-			out:settle={{ duration: 100 }}
-		>
-			{summary}
-		</p>
-	{/key}
-</div>
-
-<p
-	class="flex h-9 items-center justify-center text-center text-[13px] leading-5 text-danger transition-opacity duration-200 {error
-		? 'opacity-100'
-		: 'opacity-0'}"
->
-	{error}
-</p>
-
-<PillButton loading={submitting} onclick={generate}>Создать новую ссылку</PillButton>
-
-<div class="flex justify-center pt-4">
 	<button
 		type="button"
 		disabled={submitting}
-		onclick={onback}
-		class="link-underline text-[13px] text-muted transition-colors duration-200 hover:text-ink disabled:opacity-60"
+		aria-busy={submitting}
+		onclick={generate}
+		class="pressable mt-3 h-10 w-full rounded-full bg-ink text-[13px] font-semibold text-bg duration-150 hover:bg-ink-hover active:bg-ink-pressed disabled:opacity-60"
 	>
-		Отмена
+		Создать ссылку
 	</button>
 </div>

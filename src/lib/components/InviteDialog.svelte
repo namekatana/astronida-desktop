@@ -1,16 +1,15 @@
 <script lang="ts">
-	import { cubicOut } from 'svelte/easing';
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { draw } from 'svelte/transition';
 	import { normalizeUsernameQuery, type Friend } from '$lib/friends/friends';
 	import { fetchInviteLink, type InviteLink } from '$lib/servers/invites';
 	import { initials } from '$lib/ui/initials';
-	import { viewIn, viewOut, viewShift } from '$lib/ui/view-slide';
 	import Dialog from './Dialog.svelte';
 	import Icon from './Icon.svelte';
-	import InviteSettingsView from './InviteSettingsView.svelte';
-	import PillInput from './PillInput.svelte';
+	import InviteSettingsPanel from './InviteSettingsPanel.svelte';
+	import SearchField from './SearchField.svelte';
+	import SheetHeader from './SheetHeader.svelte';
 
 	interface Props {
 		serverId: string;
@@ -30,14 +29,7 @@
 		| { status: 'ready'; invite: InviteLink }
 		| { status: 'failed' };
 
-	type View = 'invite' | 'settings';
-
-	const staggeredRows = 8;
-	const openedAt = performance.now();
-
-	let view = $state<View>('invite');
-	let inviteHeight = $state(0);
-	let settingsHeight = $state(0);
+	let settingsOpen = $state(false);
 	let query = $state('');
 	let linkState = $state<LinkState>({ status: 'loading' });
 	let copied = $state(false);
@@ -47,12 +39,6 @@
 	const flashing = new SvelteSet<string>();
 
 	const invite = $derived(linkState.status === 'ready' ? linkState.invite : null);
-	let shownHeight = $state(0);
-
-	$effect(() => {
-		const measured = view === 'invite' ? inviteHeight : settingsHeight;
-		if (measured > 0) shownHeight = measured;
-	});
 
 	const shownFriends = $derived.by(() => {
 		const sorted = [...friends].sort((a, b) => a.username.localeCompare(b.username));
@@ -102,22 +88,8 @@
 	function useGeneratedLink(generated: InviteLink) {
 		linkState = { status: 'ready', invite: generated };
 		copied = false;
-		view = 'invite';
-		setTimeout(flashLink, 260);
-	}
-
-	function rowIn(_node: Element, { index }: { index: number }) {
-		if (index >= staggeredRows || performance.now() - openedAt > 150) return { duration: 0 };
-		const delay = 80 + index * 30;
-		if (prefersReducedMotion.current) {
-			return { delay, duration: 200, css: (t: number) => `opacity: ${t}` };
-		}
-		return {
-			delay,
-			duration: 260,
-			easing: cubicOut,
-			css: (t: number, u: number) => `opacity: ${t}; transform: translateY(${u * 6}px)`
-		};
+		settingsOpen = false;
+		setTimeout(flashLink, 120);
 	}
 
 	function settle(_node: Element, { duration = 150 }: { duration?: number } = {}) {
@@ -128,70 +100,34 @@
 	}
 </script>
 
-<Dialog label={view === 'invite' ? 'Пригласить друзей' : 'Настройки ссылки'} wide pinTop {onclose}>
-	<div
-		class="-mx-2 grid grid-cols-1 overflow-hidden px-2 transition-[height] duration-[260ms] ease-move motion-reduce:transition-none"
-		style:height={shownHeight > 0 ? `${shownHeight}px` : null}
-	>
-		{#if view === 'invite'}
-			<div
-				bind:offsetHeight={inviteHeight}
-				class="col-start-1 row-start-1 self-start"
-				in:viewIn={{ from: -viewShift }}
-				out:viewOut={{ to: -viewShift }}
-			>
-				{@render inviteView()}
-			</div>
-		{:else}
-			<div
-				bind:offsetHeight={settingsHeight}
-				class="col-start-1 row-start-1 self-start"
-				in:viewIn={{ from: viewShift }}
-				out:viewOut={{ to: viewShift }}
-			>
-				<InviteSettingsView
-					{serverId}
-					onback={() => (view = 'invite')}
-					oncreated={useGeneratedLink}
-				/>
-			</div>
-		{/if}
-	</div>
-</Dialog>
+<Dialog label="Пригласить друзей" wide flush pinTop {onclose}>
+	<SheetHeader
+		title="Пригласить"
+		subtitle={`«${serverName}»`}
+		actionLabel="Готово"
+		onaction={onclose}
+	/>
 
-{#snippet inviteView()}
-	<h2 class="text-center text-[15px] font-semibold text-ink">Пригласить друзей</h2>
-	<p
-		class="mx-auto mt-1 max-w-[300px] truncate text-center text-[13px] leading-5 text-ink-secondary"
-	>
-		на сервер «{serverName}»
-	</p>
-
-	<div class="mt-4">
-		<PillInput
-			label="Поиск друзей"
-			prefix="@"
+	<div class="px-4">
+		<SearchField
 			bind:value={query}
+			placeholder="Поиск друзей"
 			transform={normalizeUsernameQuery}
-		>
-			{#snippet trailing()}
-				<span class="flex text-muted"><Icon name="search" size={16} /></span>
-			{/snippet}
-		</PillInput>
+		/>
 	</div>
 
 	<div
-		class="scrollbar-none mt-3 h-[216px] overflow-y-auto rounded-[14px] border border-surface-line bg-white/[0.03] p-1 [corner-shape:squircle]"
+		class="scrollbar-none mt-1 h-[232px] overflow-y-auto px-2 py-2 [mask-image:linear-gradient(to_bottom,transparent,black_10px,black_calc(100%-10px),transparent)]"
 	>
 		{#if shownFriends.length > 0}
+			<h3 class="px-3 pt-2 pb-1 text-[12px] font-semibold text-muted">Друзья</h3>
 			<ul class="flex flex-col gap-0.5">
-				{#each shownFriends as friend, index (friend.id)}
+				{#each shownFriends as friend (friend.id)}
 					<li
-						in:rowIn|global={{ index }}
 						onanimationend={(event) => {
 							if (event.target === event.currentTarget) flashing.delete(friend.id);
 						}}
-						class="flex h-12 items-center gap-3 rounded-[10px] px-2.5 transition-colors [corner-shape:squircle] duration-150 hover:bg-white/[0.05] {flashing.has(
+						class="flex h-11 items-center gap-3 rounded-[10px] px-2.5 transition-colors duration-150 [corner-shape:squircle] hover:bg-white/[0.04] {flashing.has(
 							friend.id
 						)
 							? 'invite-flash'
@@ -202,7 +138,7 @@
 						>
 							{initials(friend.name)}
 						</span>
-						<span class="min-w-0 flex-1 truncate text-[13px] text-ink">@{friend.username}</span>
+						<span class="min-w-0 flex-1 truncate text-[14px] text-ink">@{friend.username}</span>
 						<span class="grid shrink-0 justify-items-end">
 							{#key memberIds.has(friend.id) || invited.has(friend.id)}
 								<span class="col-start-1 row-start-1 flex" in:settle out:settle={{ duration: 100 }}>
@@ -217,7 +153,7 @@
 			<div class="flex h-full flex-col items-center justify-center gap-1 px-6 text-center">
 				{#if friends.length === 0}
 					<p class="text-[13px] text-ink">Пока некого пригласить</p>
-					<p class="text-[12px] leading-5 text-muted">Добавьте друзей или отправьте ссылку ниже</p>
+					<p class="text-[12px] leading-5 text-muted">Отправьте ссылку ниже</p>
 				{:else}
 					<p class="text-[13px] text-ink">Никого не нашлось</p>
 					<p class="text-[12px] leading-5 text-muted">Проверьте имя пользователя</p>
@@ -226,114 +162,123 @@
 		{/if}
 	</div>
 
-	<div class="mt-4 flex items-center gap-3">
-		<span class="h-px flex-1 bg-surface-line"></span>
-		<p class="text-[13px] font-semibold text-ink">Или отправьте ссылку</p>
-		<span class="h-px flex-1 bg-surface-line"></span>
-	</div>
-	<div
-		onanimationend={(event) => {
-			if (event.target === event.currentTarget) linkFlashing = false;
-		}}
-		class="mt-3 flex h-12 items-center gap-2 rounded-full border border-line pr-1.5 pl-5 {linkFlashing
-			? 'link-flash'
-			: ''}"
-	>
-		<span
-			class="min-w-0 flex-1 truncate text-[13px] select-text {invite
-				? 'text-ink-secondary'
-				: 'text-muted'}"
+	<div class="px-4 pt-1 pb-4">
+		<h3 class="px-1 pb-1.5 text-[12px] font-semibold text-muted">Ссылка-приглашение</h3>
+		<div
+			onanimationend={(event) => {
+				if (event.target === event.currentTarget) linkFlashing = false;
+			}}
+			class="flex h-11 items-center gap-2.5 rounded-full bg-white/[0.05] pr-1.5 pl-4 {linkFlashing
+				? 'link-flash'
+				: ''}"
 		>
-			{#if invite}
-				{invite.link}
-			{:else if linkState.status === 'loading'}
-				Создаём ссылку…
-			{:else}
-				Не удалось получить ссылку
-			{/if}
-		</span>
-		<button
-			type="button"
-			disabled={!invite}
-			onclick={copyLink}
-			class="pressable grid h-9 shrink-0 items-center rounded-full px-3.5 text-[12px] duration-150 disabled:opacity-50 {copied
-				? 'bg-online/10 text-online'
-				: 'bg-white/[0.06] text-ink-secondary hover:bg-white/[0.1] hover:text-ink'}"
-		>
+			<Icon name="link" size={14} class="shrink-0 text-muted" />
 			<span
-				aria-hidden={copied}
-				class="col-start-1 row-start-1 flex items-center justify-center gap-1.5 transition-opacity duration-150 {copied
-					? 'opacity-0'
-					: 'opacity-100'}"
+				class="min-w-0 flex-1 truncate text-[13px] select-text {invite
+					? 'text-ink-secondary'
+					: 'text-muted'}"
 			>
-				<Icon name="copy" size={13} />
-				Копировать
+				{#if invite}
+					{invite.link}
+				{:else if linkState.status === 'loading'}
+					Создаём ссылку…
+				{:else}
+					Не удалось получить ссылку
+				{/if}
 			</span>
-			<span
-				aria-hidden={!copied}
-				class="col-start-1 row-start-1 flex items-center justify-center gap-1.5 transition-opacity duration-150 {copied
-					? 'opacity-100'
-					: 'opacity-0'}"
-			>
-				<svg
-					width="13"
-					height="13"
-					viewBox="0 0 16 16"
-					fill="none"
-					stroke="currentColor"
-					stroke-width={1.5 * (16 / 13)}
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					aria-hidden="true"
-					class="shrink-0"
-				>
-					{#if copied}
-						<path d="M3.25 8.5 6.5 11.75 12.75 4.75" in:draw={{ duration: 280 }} />
-					{/if}
-				</svg>
-				Скопировано
-			</span>
-		</button>
-	</div>
-	<p class="mx-auto mt-2 max-w-[300px] text-center text-[12px] leading-5 text-muted">
-		Все ссылки-приглашения перестают действовать через 7 дней.
-		{#if canManage}
 			<button
 				type="button"
-				onclick={() => (view = 'settings')}
-				class="link-underline text-ink-secondary transition-colors duration-200 hover:text-ink"
+				disabled={!invite}
+				onclick={copyLink}
+				class="pressable grid h-8 shrink-0 items-center rounded-full px-3.5 text-[12px] font-semibold duration-150 disabled:opacity-50 {copied
+					? 'bg-online/10 text-online'
+					: 'bg-white/[0.08] text-ink hover:bg-white/[0.12]'}"
 			>
-				Изменить ссылку
+				<span
+					aria-hidden={copied}
+					class="col-start-1 row-start-1 flex items-center justify-center transition-opacity duration-150 {copied
+						? 'opacity-0'
+						: 'opacity-100'}"
+				>
+					Копировать
+				</span>
+				<span
+					aria-hidden={!copied}
+					class="col-start-1 row-start-1 flex items-center justify-center gap-1.5 transition-opacity duration-150 {copied
+						? 'opacity-100'
+						: 'opacity-0'}"
+				>
+					<svg
+						width="12"
+						height="12"
+						viewBox="0 0 16 16"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+						class="shrink-0"
+					>
+						{#if copied}
+							<path d="M3.25 8.5 6.5 11.75 12.75 4.75" in:draw={{ duration: 280 }} />
+						{/if}
+					</svg>
+					Скопировано
+				</span>
 			</button>
-		{/if}
-	</p>
+		</div>
+		<div class="mt-2 flex items-center gap-1.5 px-1 text-[12px] leading-4 text-muted">
+			<span>Действует 7 дней</span>
+			{#if canManage}
+				<span aria-hidden="true">·</span>
+				<button
+					type="button"
+					aria-expanded={settingsOpen}
+					aria-controls="invite-settings"
+					onclick={() => (settingsOpen = !settingsOpen)}
+					class="grid text-ink-secondary transition-colors duration-150 hover:text-ink"
+				>
+					<span
+						class="col-start-1 row-start-1 transition-opacity duration-150 {settingsOpen
+							? 'opacity-0'
+							: 'opacity-100'}">Настроить</span
+					>
+					<span
+						class="col-start-1 row-start-1 transition-opacity duration-150 {settingsOpen
+							? 'opacity-100'
+							: 'opacity-0'}">Скрыть</span
+					>
+				</button>
+			{/if}
+		</div>
 
-	<div class="flex justify-center pt-3">
-		<button
-			type="button"
-			onclick={onclose}
-			class="link-underline text-[13px] text-muted transition-colors duration-200 hover:text-ink"
-		>
-			Закрыть
-		</button>
+		{#if canManage}
+			<div
+				id="invite-settings"
+				class="collapsible {settingsOpen ? 'is-open' : ''}"
+				inert={!settingsOpen}
+			>
+				<div>
+					<InviteSettingsPanel {serverId} oncreated={useGeneratedLink} />
+				</div>
+			</div>
+		{/if}
 	</div>
-{/snippet}
+</Dialog>
 
 {#snippet action(friend: Friend)}
 	{#if memberIds.has(friend.id)}
-		<span class="flex h-8 items-center gap-1.5 px-1 text-[12px] text-muted">
-			<Icon name="user-check" size={14} />
-			На сервере
-		</span>
+		<span class="flex h-7 items-center px-1 text-[12px] text-muted">На сервере</span>
 	{:else if invited.has(friend.id)}
-		<span class="flex h-8 items-center gap-1.5 px-1 text-[12px] text-muted">
+		<span class="flex h-7 items-center gap-1.5 px-1 text-[12px] text-muted">
 			<svg
-				width="14"
-				height="14"
+				width="13"
+				height="13"
 				viewBox="0 0 16 16"
 				fill="none"
 				stroke="currentColor"
-				stroke-width={1.5 * (16 / 14)}
+				stroke-width="2"
 				stroke-linecap="round"
 				stroke-linejoin="round"
 				aria-hidden="true"
@@ -351,9 +296,8 @@
 			type="button"
 			disabled={!invite || !friend.channelId}
 			onclick={() => inviteFriend(friend)}
-			class="pressable flex h-8 items-center gap-1.5 rounded-full border border-line px-3 text-[12px] text-ink duration-150 hover:border-line-strong disabled:opacity-50"
+			class="pressable flex h-7 items-center rounded-full bg-white/[0.08] px-3 text-[12px] font-semibold text-ink duration-150 hover:bg-white/[0.12] disabled:opacity-50"
 		>
-			<Icon name="user-plus" size={14} />
 			Пригласить
 		</button>
 	{/if}
@@ -370,18 +314,16 @@
 
 	@keyframes link-flash {
 		0% {
-			background-color: rgba(255, 255, 255, 0.1);
-			border-color: var(--color-line-strong);
+			background-color: rgba(255, 255, 255, 0.14);
 		}
 		100% {
-			background-color: transparent;
-			border-color: var(--color-line);
+			background-color: rgba(255, 255, 255, 0.05);
 		}
 	}
 
 	@keyframes invite-flash {
 		0% {
-			background-color: rgba(255, 255, 255, 0.12);
+			background-color: rgba(255, 255, 255, 0.1);
 		}
 		100% {
 			background-color: transparent;
