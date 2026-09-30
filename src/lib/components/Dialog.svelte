@@ -2,6 +2,8 @@
 	import type { Snippet } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { on } from 'svelte/events';
+	import { cubicOut } from 'svelte/easing';
+	import { materialize } from '$lib/ui/materialize';
 	import { pop } from '$lib/ui/pop';
 
 	interface Props {
@@ -11,6 +13,7 @@
 		wide?: boolean;
 		pinTop?: boolean;
 		flush?: boolean;
+		alert?: boolean;
 		onclose: () => void;
 	}
 
@@ -21,8 +24,23 @@
 		wide = false,
 		pinTop = false,
 		flush = false,
+		alert = false,
 		onclose
 	}: Props = $props();
+
+	const width = $derived(alert ? 'max-w-[280px]' : wide ? 'max-w-[400px]' : 'max-w-[340px]');
+
+	function enter(node: Element) {
+		return alert
+			? materialize(node, { scale: 1.06, blur: 4, duration: 280 })
+			: pop(node, { y: 8, duration: 240 });
+	}
+
+	function leave(node: Element) {
+		return alert
+			? materialize(node, { scale: 0.97, duration: 150, easing: cubicOut })
+			: fade(node, { duration: 120 });
+	}
 
 	const opticalCenter = 0.4;
 	const minTop = 24;
@@ -71,9 +89,9 @@
 			role="dialog"
 			aria-modal="true"
 			aria-label={label}
-			in:pop={{ y: 8, duration: 240 }}
-			out:fade={{ duration: 120 }}
-			class="panel panel-floating w-full {wide ? 'max-w-[400px]' : 'max-w-[340px]'} {flush
+			in:enter
+			out:leave
+			class="panel panel-floating w-full {width} {alert ? 'will-change-transform' : ''} {flush
 				? ''
 				: 'px-7 pt-7 pb-6'} [--pill-surface:var(--color-surface)]"
 		>

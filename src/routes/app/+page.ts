@@ -3,6 +3,7 @@ import { auth } from '$lib/auth/session.svelte';
 import { workspaceCache, type CachedAccount } from '$lib/cache/workspace-cache';
 import { loadFriends } from '$lib/friends/friends';
 import { history } from '$lib/history/history';
+import { restorePinned } from '$lib/messages/pins-cache';
 import { restoreInvitePreviews } from '$lib/servers/invites';
 import { loadServers } from '$lib/servers/servers';
 import { supabase } from '$lib/supabase/client';
@@ -28,7 +29,11 @@ export async function load() {
 	}
 
 	await history.open(user.id).catch(() => {});
-	const [cache] = await Promise.all([workspaceCache.read(user.id), restoreInvitePreviews()]);
+	const [cache] = await Promise.all([
+		workspaceCache.read(user.id),
+		restoreInvitePreviews(),
+		restorePinned()
+	]);
 	const refresh = fetchAccount(user.id);
 	const account = cache.account ?? (await refresh);
 

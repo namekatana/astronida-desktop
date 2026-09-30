@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { draw } from 'svelte/transition';
+	import { draw, fade } from 'svelte/transition';
 	import { normalizeUsernameQuery, type Friend } from '$lib/friends/friends';
-	import { fetchInviteLink, type InviteLink } from '$lib/servers/invites';
+	import { cachedInviteLink, fetchInviteLink, type InviteLink } from '$lib/servers/invites';
 	import { initials } from '$lib/ui/initials';
 	import Dialog from './Dialog.svelte';
 	import Icon from './Icon.svelte';
@@ -29,9 +29,19 @@
 		| { status: 'ready'; invite: InviteLink }
 		| { status: 'failed' };
 
+	const slowLoadingMs = 400;
+
+	function initialLinkState(target: string): LinkState {
+		const cached = cachedInviteLink(target);
+		return cached ? { status: 'ready', invite: cached } : { status: 'loading' };
+	}
+
 	let settingsOpen = $state(false);
 	let query = $state('');
-	let linkState = $state<LinkState>({ status: 'loading' });
+	// svelte-ignore state_referenced_locally
+	let linkState = $state<LinkState>(initialLinkState(serverId));
+	let slowLoading = $state(false);
+	let generated = false;
 	let copied = $state(false);
 	let linkFlashing = $state(false);
 	let copiedTimer: ReturnType<typeof setTimeout> | null = null;
@@ -39,6 +49,9 @@
 	const flashing = new SvelteSet<string>();
 
 	const invite = $derived(linkState.status === 'ready' ? linkState.invite : null);
+	const linkUnavailable = $derived(
+		linkState.status === 'failed' || (linkState.status === 'loading' && slowLoading)
+	);
 
 	const shownFriends = $derived.by(() => {
 		const sorted = [...friends].sort((a, b) => a.username.localeCompare(b.username));
@@ -48,13 +61,19 @@
 	$effect(() => {
 		const target = serverId;
 		let active = true;
-		linkState = { status: 'loading' };
+		const cached = cachedInviteLink(target);
+		linkState = cached ? { status: 'ready', invite: cached } : { status: 'loading' };
+		slowLoading = false;
+		const slowTimer = setTimeout(() => (slowLoading = true), slowLoadingMs);
 		void fetchInviteLink(target).then((loaded) => {
-			if (!active) return;
-			linkState = loaded ? { status: 'ready', invite: loaded } : { status: 'failed' };
+			clearTimeout(slowTimer);
+			if (!active || generated) return;
+			if (loaded) linkState = { status: 'ready', invite: loaded };
+			else if (!cached) linkState = { status: 'failed' };
 		});
 		return () => {
 			active = false;
+			clearTimeout(slowTimer);
 			if (copiedTimer) clearTimeout(copiedTimer);
 		};
 	});
@@ -85,8 +104,9 @@
 		requestAnimationFrame(() => (linkFlashing = true));
 	}
 
-	function useGeneratedLink(generated: InviteLink) {
-		linkState = { status: 'ready', invite: generated };
+	function useGeneratedLink(created: InviteLink) {
+		generated = true;
+		linkState = { status: 'ready', invite: created };
 		copied = false;
 		settingsOpen = false;
 		setTimeout(flashLink, 120);
@@ -117,7 +137,7 @@
 	</div>
 
 	<div
-		class="scrollbar-none mt-1 h-[232px] overflow-y-auto px-2 py-2 [mask-image:linear-gradient(to_bottom,transparent,black_10px,black_calc(100%-10px),transparent)]"
+		class="scrollbar-none mt-1 h-[244px] overflow-y-auto px-2 py-2 [mask-image:linear-gradient(to_bottom,transparent,black_10px,black_calc(100%-10px),transparent)]"
 	>
 		{#if shownFriends.length > 0}
 			<h3 class="px-3 pt-2 pb-1 text-[12px] font-semibold text-muted">Друзья</h3>
@@ -179,16 +199,20 @@
 					: 'text-muted'}"
 			>
 				{#if invite}
-					{invite.link}
+					{#key invite.link}
+						<span in:fade={{ duration: 150 }}>{invite.link}</span>
+					{/key}
 				{:else if linkState.status === 'loading'}
-					Создаём ссылку…
+					{#if slowLoading}
+						<span in:fade={{ duration: 150 }}>Создаём ссылку…</span>
+					{/if}
 				{:else}
 					Не удалось получить ссылку
 				{/if}
 			</span>
 			<button
 				type="button"
-				disabled={!invite}
+				disabled={linkUnavailable}
 				onclick={copyLink}
 				class="pressable grid h-8 shrink-0 items-center rounded-full px-3.5 text-[12px] font-semibold duration-150 disabled:opacity-50 {copied
 					? 'bg-online/10 text-online'
@@ -294,7 +318,7 @@
 	{:else}
 		<button
 			type="button"
-			disabled={!invite || !friend.channelId}
+			disabled={linkUnavailable || !friend.channelId}
 			onclick={() => inviteFriend(friend)}
 			class="pressable flex h-7 items-center rounded-full bg-white/[0.08] px-3 text-[12px] font-semibold text-ink duration-150 hover:bg-white/[0.12] disabled:opacity-50"
 		>

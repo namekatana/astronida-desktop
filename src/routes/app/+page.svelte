@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { signOut } from '$lib/auth/auth';
 	import { workspaceCache, type Workspace } from '$lib/cache/workspace-cache';
@@ -17,6 +17,7 @@
 	import ChatHeader from '$lib/components/ChatHeader.svelte';
 	import CreateCategoryDialog from '$lib/components/CreateCategoryDialog.svelte';
 	import CreateChannelDialog from '$lib/components/CreateChannelDialog.svelte';
+	import DeleteMessageDialog from '$lib/components/DeleteMessageDialog.svelte';
 	import DirectChatHeader from '$lib/components/DirectChatHeader.svelte';
 	import ForwardDialog from '$lib/components/ForwardDialog.svelte';
 	import FriendProfile from '$lib/components/FriendProfile.svelte';
@@ -26,6 +27,8 @@
 	import MemberPanel from '$lib/components/MemberPanel.svelte';
 	import MessageComposer from '$lib/components/MessageComposer.svelte';
 	import MessageList from '$lib/components/MessageList.svelte';
+	import PinnedBar from '$lib/components/PinnedBar.svelte';
+	import PinnedToggle from '$lib/components/PinnedToggle.svelte';
 	import ResizeHandle from '$lib/components/ResizeHandle.svelte';
 	import ServerBar from '$lib/components/ServerBar.svelte';
 	import VoiceDock from '$lib/components/VoiceDock.svelte';
@@ -35,24 +38,28 @@
 	import { history } from '$lib/history/history';
 	import { createFeeds } from '$lib/messages/feeds.svelte';
 	import {
+		deleteMessage,
 		forwardMessage,
+		type DeleteFailure,
 		type ForwardResult,
 		type Message,
 		type MessageReply
 	} from '$lib/messages/messages';
 	import { createOpenChat } from '$lib/messages/open-chat.svelte';
+	import { createPins } from '$lib/messages/pins.svelte';
 	import { createSending } from '$lib/messages/sending.svelte';
 	import { typingIn } from '$lib/messages/typing.svelte';
 	import { createIncoming } from '$lib/notifications/incoming.svelte';
 	import { unread } from '$lib/notifications/unread.svelte';
 	import { createServersPresence } from '$lib/presence/servers-presence.svelte';
-	import { inviteLinkOf, joinByInvite } from '$lib/servers/invites';
+	import { inviteLinkOf, joinByInvite, prefetchInviteLink } from '$lib/servers/invites';
 	import { loadMembers, type JoinedMember } from '$lib/servers/members';
 	import type { Server } from '$lib/servers/servers';
 	import { createSync } from '$lib/sync/sync';
 	import { lastSelection } from '$lib/ui/last-selection.svelte';
 	import { panelLimits, panelWidths } from '$lib/ui/panel-widths.svelte';
 	import { windowTitle } from '$lib/ui/title.svelte';
+	import { toast } from '$lib/ui/toast.svelte';
 	import { createVoiceOccupants } from '$lib/voice/occupants.svelte';
 	import { voice } from '$lib/voice/voice.svelte';
 	import type { PageData } from './$types';
@@ -177,7 +184,8 @@
 			incoming.handleChannelMessage(serverId, channelId, message),
 		onCategoryCreated: addCategory,
 		onChannelCreated: addChannel,
-		onMemberJoined: addMember
+		onMemberJoined: addMember,
+		onMessageDeleted: sync.forget
 	});
 
 	// svelte-ignore state_referenced_locally
@@ -190,6 +198,70 @@
 
 	// svelte-ignore state_referenced_locally
 	const openChat = createOpenChat({ userId: data.userId, feeds, sync, chatId: () => openChatId });
+
+	const pins = createPins({ chatId: () => openChatId, sync });
+	const canPin = $derived(
+		selectedChannel ? selectedServer?.ownerId === data.userId : selectedFriend !== null
+	);
+	const canDeleteOthers = $derived(
+		selectedChannel !== null && selectedServer?.ownerId === data.userId
+	);
+
+	let deleting = $state<{
+		chatId: string;
+		message: Message;
+		busy: boolean;
+		error: string | null;
+	} | null>(null);
+
+	const deleteFailureText: Record<DeleteFailure, string> = {
+		forbidden: 'Нет прав удалить это сообщение',
+		rate_limited: 'Слишком часто, попробуйте через минуту',
+		failed: 'Не удалось удалить — проверьте соединение'
+	};
+
+	function startDelete(message: Message) {
+		if (openChatId) deleting = { chatId: openChatId, message, busy: false, error: null };
+	}
+
+	async function confirmDelete() {
+		const target = deleting;
+		if (!target || target.busy) return;
+		target.busy = true;
+		target.error = null;
+		const result = await deleteMessage({ channelId: target.chatId, messageId: target.message.id });
+		if (deleting !== target) return;
+		if (result.ok) {
+			sync.forget(target.chatId, target.message.id);
+			deleting = null;
+			toast.show('Сообщение удалено');
+			return;
+		}
+		target.busy = false;
+		target.error = deleteFailureText[result.reason];
+	}
+
+	function copyMessage(message: Message) {
+		navigator.clipboard
+			.writeText(message.text)
+			.then(() => toast.show('Скопировано'))
+			.catch(() => {});
+	}
+	let messageList = $state<ReturnType<typeof MessageList>>();
+	let revealingPin = $state(false);
+
+	async function openPinned() {
+		const message = pins.current;
+		if (!message || revealingPin) return;
+		revealingPin = true;
+		const found = await openChat.reveal(message.id);
+		revealingPin = false;
+		if (found) {
+			await tick();
+			await messageList?.jumpTo(message.id);
+		}
+		pins.advance();
+	}
 
 	// svelte-ignore state_referenced_locally
 	const incoming = createIncoming({
@@ -497,6 +569,15 @@
 		/>
 	{/if}
 
+	{#if deleting}
+		<DeleteMessageDialog
+			busy={deleting.busy}
+			error={deleting.error}
+			onconfirm={confirmDelete}
+			onclose={() => (deleting = null)}
+		/>
+	{/if}
+
 	{#if forwarding}
 		<ForwardDialog
 			message={forwarding.message}
@@ -508,18 +589,23 @@
 		/>
 	{/if}
 
-	{#if selectedServerId}
+	{#if selectedServer}
 		{#if channelDialog === 'category'}
 			<CreateCategoryDialog
-				serverId={selectedServerId}
+				serverId={selectedServer.id}
+				serverName={selectedServer.name}
+				{categories}
+				{channels}
 				oncreated={handleCategoryCreated}
 				onclose={() => (channelDialog = null)}
 			/>
 		{:else if channelDialog !== null}
 			<CreateChannelDialog
-				serverId={selectedServerId}
+				serverId={selectedServer.id}
+				serverName={selectedServer.name}
 				initialKind={channelDialog}
 				{categories}
+				{channels}
 				oncreated={handleChannelCreated}
 				onclose={() => (channelDialog = null)}
 			/>
@@ -553,6 +639,7 @@
 				oncreatecategory={() => (channelDialog = 'category')}
 				oncreatechannel={(kind) => (channelDialog = kind)}
 				oninvite={() => (inviting = true)}
+				onprefetchinvite={() => prefetchInviteLink(selectedServer.id)}
 			/>
 		{:else}
 			<FriendsPanel
@@ -575,12 +662,38 @@
 
 		<main class="flex min-w-0 flex-1 flex-col gap-3">
 			{#if openChatId}
+				{#snippet pinnedToggle()}
+					<PinnedToggle
+						count={pins.list.length}
+						visible={pins.collapsed && pins.list.length > 0}
+						onshow={pins.expand}
+					/>
+				{/snippet}
+				{#snippet pinnedBar()}
+					<PinnedBar
+						message={pins.current}
+						position={pins.position}
+						count={pins.list.length}
+						collapsed={pins.collapsed}
+						busy={revealingPin}
+						error={pins.error}
+						onopen={openPinned}
+						onhide={pins.collapse}
+					/>
+				{/snippet}
 				{#if selectedChannel}
-					<ChatHeader channel={selectedChannel} />
+					<ChatHeader channel={selectedChannel} trailing={pinnedToggle} />
 				{:else if selectedFriend}
-					<DirectChatHeader friend={selectedFriend} />
+					<DirectChatHeader friend={selectedFriend} trailing={pinnedToggle} />
 				{/if}
 				<MessageList
+					bind:this={messageList}
+					top={pinnedBar}
+					pinnedIds={pins.pinnedIds}
+					onpin={canPin ? pins.toggle : undefined}
+				oncopy={copyMessage}
+				ondelete={startDelete}
+				{canDeleteOthers}
 					messages={openChat.messages}
 					selfId={data.userId}
 					hasMore={openChat.hasMore}

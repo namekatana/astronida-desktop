@@ -120,9 +120,31 @@ function inviteLinkFrom(body: unknown): InviteLink | null {
 	};
 }
 
+const prefetchIntervalMs = 60_000;
+const minRemainingMs = 60_000;
+
+const knownLinks = new Map<string, InviteLink>();
+const prefetchedAt = new Map<string, number>();
+
 export async function fetchInviteLink(serverId: string): Promise<InviteLink | null> {
 	const response = await postApi(`/servers/${serverId}/invite`, {});
-	return response?.status === 200 ? inviteLinkFrom(response.body) : null;
+	const invite = response?.status === 200 ? inviteLinkFrom(response.body) : null;
+	if (invite) knownLinks.set(serverId, invite);
+	return invite;
+}
+
+export function cachedInviteLink(serverId: string): InviteLink | null {
+	const invite = knownLinks.get(serverId);
+	if (!invite) return null;
+	if (invite.expiresAt && invite.expiresAt.getTime() - Date.now() < minRemainingMs) return null;
+	return invite;
+}
+
+export function prefetchInviteLink(serverId: string) {
+	const now = Date.now();
+	if (now - (prefetchedAt.get(serverId) ?? 0) < prefetchIntervalMs) return;
+	prefetchedAt.set(serverId, now);
+	void fetchInviteLink(serverId);
 }
 
 export async function generateInviteLink(
@@ -175,6 +197,8 @@ function storedPreviewFrom(entry: unknown): [string, InvitePreview] | null {
 }
 
 export async function restoreInvitePreviews() {
+	knownLinks.clear();
+	prefetchedAt.clear();
 	requests.clear();
 	storedPreviews.clear();
 	missingCodes.clear();
@@ -213,6 +237,18 @@ function remember(code: string, preview: InvitePreview) {
 function forget(code: string) {
 	missingCodes.add(code);
 	if (storedPreviews.delete(code)) persistPreviews();
+}
+
+export function recentInvitePreviews(limit: number): { code: string; preview: InvitePreview }[] {
+	const seenServers = new Set<string>();
+	const recent: { code: string; preview: InvitePreview }[] = [];
+	for (const [code, preview] of [...storedPreviews].reverse()) {
+		if (recent.length >= limit) break;
+		if (preview.member || seenServers.has(preview.serverId)) continue;
+		seenServers.add(preview.serverId);
+		recent.push({ code, preview });
+	}
+	return recent;
 }
 
 export function cachedPreview(code: string): PreviewResult | null {

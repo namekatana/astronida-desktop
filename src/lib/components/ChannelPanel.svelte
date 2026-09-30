@@ -20,6 +20,7 @@
 		oncreatecategory: () => void;
 		oncreatechannel: (kind: ChannelKind) => void;
 		oninvite: () => void;
+		onprefetchinvite: () => void;
 	}
 
 	let {
@@ -33,7 +34,8 @@
 		onprefetch,
 		oncreatecategory,
 		oncreatechannel,
-		oninvite
+		oninvite,
+		onprefetchinvite
 	}: Props = $props();
 
 	const uncategorized = $derived(channels.filter((channel) => channel.categoryId === null));
@@ -54,6 +56,8 @@
 			type="button"
 			aria-label="Пригласить друзей"
 			onclick={oninvite}
+			onpointerenter={onprefetchinvite}
+			onfocus={onprefetchinvite}
 			class="pressable flex h-8 w-8 items-center justify-center rounded-full text-muted duration-200 hover:bg-white/[0.06] hover:text-ink"
 		>
 			<Icon name="user-plus" size={16} />
