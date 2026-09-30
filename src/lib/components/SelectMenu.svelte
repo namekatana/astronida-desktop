@@ -2,6 +2,7 @@
 	import { on } from 'svelte/events';
 	import { fade } from 'svelte/transition';
 	import { pop } from '$lib/ui/pop';
+	import { settle } from '$lib/ui/settle';
 	import Icon from './Icon.svelte';
 
 	interface Props {
@@ -107,13 +108,6 @@
 	$effect(() => {
 		if (open) optionButtons[highlighted]?.scrollIntoView({ block: 'nearest' });
 	});
-
-	function settle(_node: Element, { duration = 150 }: { duration?: number } = {}) {
-		return {
-			duration,
-			css: (t: number) => `opacity: ${t}; filter: blur(${(1 - t) * 2}px)`
-		};
-	}
 </script>
 
 <div bind:this={root}>

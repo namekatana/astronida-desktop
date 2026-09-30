@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { prefersReducedMotion } from 'svelte/motion';
-	import { draw } from 'svelte/transition';
+	import { settle } from '$lib/ui/settle';
+	import DrawnCheck from './DrawnCheck.svelte';
 
 	interface Props {
 		title: string;
@@ -34,13 +34,6 @@
 
 	const reservesSubtitle = $derived(subtitle !== undefined);
 	const actionInactive = $derived(actionDisabled || actionBusy || actionDone);
-
-	function settle(_node: Element, { duration = 150 }: { duration?: number } = {}) {
-		return {
-			duration,
-			css: (t: number) => `opacity: ${t}; filter: blur(${(1 - t) * 2}px)`
-		};
-	}
 </script>
 
 <header class="flex h-14 items-center px-5">
@@ -107,22 +100,7 @@
 							out:settle={{ duration: 100 }}
 						>
 							{#if actionDone}
-								<svg
-									width="14"
-									height="14"
-									viewBox="0 0 16 16"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									aria-hidden="true"
-								>
-									<path
-										d="M3.25 8.5 6.5 11.75 12.75 4.75"
-										in:draw={{ duration: prefersReducedMotion.current ? 0 : 280, delay: 60 }}
-									/>
-								</svg>
+								<DrawnCheck size={14} delay={60} />
 								Готово
 							{:else}
 								{actionLabel}

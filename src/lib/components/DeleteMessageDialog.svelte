@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { settle } from '$lib/ui/settle';
 	import Dialog from './Dialog.svelte';
 
 	interface Props {
@@ -15,13 +16,6 @@
 	$effect(() => {
 		confirmButton?.focus();
 	});
-
-	function settle(_node: Element, { duration = 150 }: { duration?: number } = {}) {
-		return {
-			duration,
-			css: (t: number) => `opacity: ${t}; filter: blur(${(1 - t) * 2}px)`
-		};
-	}
 </script>
 
 <Dialog label="Удалить сообщение" alert flush locked={busy} {onclose}>

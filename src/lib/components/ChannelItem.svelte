@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { Channel } from '$lib/channels/channels';
-	import { initials } from '$lib/ui/initials';
 	import type { VoiceOccupant } from '$lib/voice/occupant';
 	import { describeStats } from '$lib/voice/quality';
+	import Avatar from './Avatar.svelte';
 	import Icon from './Icon.svelte';
 	import SignalBars from './SignalBars.svelte';
 	import StrikedIcon from './StrikedIcon.svelte';
@@ -100,13 +100,11 @@
 							? 'opacity-40'
 							: ''} {menu?.occupant.id === occupant.id ? 'bg-white/[0.05]' : ''}"
 					>
-						<span
-							class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[10px] font-medium text-ink ring-online transition-shadow duration-150 {occupant.speaking
-								? 'ring-2'
-								: 'ring-0'}"
-						>
-							{initials(occupant.name)}
-						</span>
+						<Avatar
+							name={occupant.name}
+							size={24}
+							class="ring-online transition-shadow duration-150 {occupant.speaking ? 'ring-2' : 'ring-0'}"
+						/>
 						<span class="min-w-0 flex-1 truncate text-[12px] text-ink-secondary">
 							@{occupant.username}
 						</span>

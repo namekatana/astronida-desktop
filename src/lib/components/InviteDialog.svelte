@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { draw, fade } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
 	import { normalizeUsernameQuery, type Friend } from '$lib/friends/friends';
 	import { cachedInviteLink, fetchInviteLink, type InviteLink } from '$lib/servers/invites';
-	import { initials } from '$lib/ui/initials';
+	import { settle } from '$lib/ui/settle';
+	import Avatar from './Avatar.svelte';
 	import Dialog from './Dialog.svelte';
+	import DrawnCheck from './DrawnCheck.svelte';
 	import Icon from './Icon.svelte';
 	import InviteSettingsPanel from './InviteSettingsPanel.svelte';
 	import SearchField from './SearchField.svelte';
@@ -111,13 +113,6 @@
 		settingsOpen = false;
 		setTimeout(flashLink, 120);
 	}
-
-	function settle(_node: Element, { duration = 150 }: { duration?: number } = {}) {
-		return {
-			duration,
-			css: (t: number) => `opacity: ${t}; filter: blur(${(1 - t) * 2}px)`
-		};
-	}
 </script>
 
 <Dialog label="Пригласить друзей" wide flush pinTop {onclose}>
@@ -153,11 +148,7 @@
 							? 'invite-flash'
 							: ''}"
 					>
-						<span
-							class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[11px] font-medium text-ink"
-						>
-							{initials(friend.name)}
-						</span>
+						<Avatar name={friend.name} size={32} />
 						<span class="min-w-0 flex-1 truncate text-[14px] text-ink">@{friend.username}</span>
 						<span class="grid shrink-0 justify-items-end">
 							{#key memberIds.has(friend.id) || invited.has(friend.id)}
@@ -232,22 +223,11 @@
 						? 'opacity-100'
 						: 'opacity-0'}"
 				>
-					<svg
-						width="12"
-						height="12"
-						viewBox="0 0 16 16"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						aria-hidden="true"
-						class="shrink-0"
-					>
+					<span class="flex h-3 w-3 shrink-0">
 						{#if copied}
-							<path d="M3.25 8.5 6.5 11.75 12.75 4.75" in:draw={{ duration: 280 }} />
+							<DrawnCheck size={12} />
 						{/if}
-					</svg>
+					</span>
 					Скопировано
 				</span>
 			</button>
@@ -296,23 +276,12 @@
 		<span class="flex h-7 items-center px-1 text-[12px] text-muted">На сервере</span>
 	{:else if invited.has(friend.id)}
 		<span class="flex h-7 items-center gap-1.5 px-1 text-[12px] text-muted">
-			<svg
-				width="13"
-				height="13"
-				viewBox="0 0 16 16"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				aria-hidden="true"
+			<DrawnCheck
+				size={13}
+				duration={flashing.has(friend.id) ? 320 : 0}
+				delay={120}
 				class="shrink-0"
-			>
-				<path
-					d="M3.25 8.5 6.5 11.75 12.75 4.75"
-					in:draw|global={{ duration: flashing.has(friend.id) ? 320 : 0, delay: 120 }}
-				/>
-			</svg>
+			/>
 			Отправлено
 		</span>
 	{:else}

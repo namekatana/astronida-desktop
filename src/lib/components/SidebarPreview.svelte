@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { settle } from '$lib/ui/settle';
 	import Icon from './Icon.svelte';
 	import type { PreviewItem } from './sidebar-preview';
 
@@ -9,13 +10,6 @@
 	}
 
 	let { items, context, placeholder }: Props = $props();
-
-	function settle(_node: Element, { duration = 150 }: { duration?: number } = {}) {
-		return {
-			duration,
-			css: (t: number) => `opacity: ${t}; filter: blur(${(1 - t) * 2}px)`
-		};
-	}
 </script>
 
 <div

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { Member } from '$lib/servers/members';
-	import { initials } from '$lib/ui/initials';
+	import Avatar from './Avatar.svelte';
 
 	interface Props {
 		friend: Member;
@@ -12,18 +12,7 @@
 </script>
 
 <header class="panel flex shrink-0 items-center gap-2.5 px-5 py-3.5 text-ink">
-	<span class="relative -my-1 shrink-0">
-		<span
-			class="flex h-6 w-6 items-center justify-center rounded-full bg-surface-raised text-[10px] font-medium text-ink"
-		>
-			{initials(friend.name)}
-		</span>
-		<span
-			class="absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full border-2 border-surface bg-online transition-[opacity,scale] duration-200 ease-soft {friend.online
-				? 'scale-100 opacity-100'
-				: 'scale-50 opacity-0'}"
-		></span>
-	</span>
+	<Avatar name={friend.name} size={24} online={friend.online} class="-my-1" />
 	<h1 class="min-w-0 truncate text-[15px] leading-6 font-semibold">@{friend.username}</h1>
 	{@render trailing?.()}
 </header>

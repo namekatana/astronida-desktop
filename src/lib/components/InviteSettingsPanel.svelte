@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { describeInviteSettings, generateInviteLink, type InviteLink } from '$lib/servers/invites';
+	import { settle } from '$lib/ui/settle';
 	import SelectMenu from './SelectMenu.svelte';
 
 	interface Props {
@@ -44,13 +45,6 @@
 		submitting = false;
 		if (result.ok) oncreated(result.invite);
 		else error = result.message;
-	}
-
-	function settle(_node: Element, { duration = 150 }: { duration?: number } = {}) {
-		return {
-			duration,
-			css: (t: number) => `opacity: ${t}; filter: blur(${(1 - t) * 2}px)`
-		};
 	}
 </script>
 

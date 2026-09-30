@@ -7,6 +7,7 @@
 		type Channel,
 		type ChannelKind
 	} from '$lib/channels/channels';
+	import { settle } from '$lib/ui/settle';
 	import Dialog from './Dialog.svelte';
 	import Icon from './Icon.svelte';
 	import LengthCounter from './LengthCounter.svelte';
@@ -99,13 +100,6 @@
 		}
 		done = true;
 		setTimeout(() => oncreated(result.value), closeDelayMs);
-	}
-
-	function settle(_node: Element, { duration = 150 }: { duration?: number } = {}) {
-		return {
-			duration,
-			css: (t: number) => `opacity: ${t}; filter: blur(${(1 - t) * 2}px)`
-		};
 	}
 </script>
 

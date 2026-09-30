@@ -7,10 +7,10 @@
 	import { fade, scale, type TransitionConfig } from 'svelte/transition';
 	import type { Friend, FriendActivity } from '$lib/friends/friends';
 	import type { Member } from '$lib/servers/members';
-	import { initials } from '$lib/ui/initials';
 	import { panelLimits } from '$lib/ui/panel-widths.svelte';
 	import { pop } from '$lib/ui/pop';
 	import { reveal } from '$lib/ui/reveal';
+	import Avatar from './Avatar.svelte';
 	import ConnectionTitle from './ConnectionTitle.svelte';
 	import Icon from './Icon.svelte';
 	import FriendItem from './FriendItem.svelte';
@@ -202,11 +202,7 @@
 											? 'request-fresh'
 											: ''} {answering.has(request.id) ? 'opacity-50' : ''}"
 									>
-										<span
-											class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[11px] font-medium text-ink"
-										>
-											{initials(request.name)}
-										</span>
+										<Avatar name={request.name} size={32} />
 										<span class="min-w-0 flex-1">
 											<span class="block truncate text-[13px] text-ink">@{request.username}</span>
 											<span class="block truncate text-[11px] text-muted">

@@ -6,14 +6,10 @@
 	import type { Workspace } from '$lib/cache/workspace-cache';
 	import type { Friend } from '$lib/friends/friends';
 	import { buildForwardSections, type ForwardTarget } from '$lib/messages/forward-targets';
-	import {
-		forwardMaxTargets,
-		messageMaxLength,
-		type ForwardResult,
-		type Message
-	} from '$lib/messages/messages';
+	import { forwardMaxTargets, type ForwardResult } from '$lib/messages/message-actions';
+	import { messageMaxLength, type Message } from '$lib/messages/messages';
 	import type { Server } from '$lib/servers/servers';
-	import { initials } from '$lib/ui/initials';
+	import Avatar from './Avatar.svelte';
 	import Dialog from './Dialog.svelte';
 	import Icon from './Icon.svelte';
 	import SearchField from './SearchField.svelte';
@@ -203,16 +199,13 @@
 			: 'enabled:hover:bg-white/[0.04]'} {blocked ? 'opacity-40' : ''}"
 	>
 		{#if target.kind === 'friend'}
-			<span
-				class="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[11px] font-medium text-ink"
-			>
-				{initials(target.name)}
+			<Avatar name={target.name} size={32} class="relative">
 				{#if target.online}
 					<span
 						class="absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border-2 border-surface bg-online"
 					></span>
 				{/if}
-			</span>
+			</Avatar>
 			<span class="min-w-0 flex-1 truncate text-[14px] text-ink">@{target.username}</span>
 		{:else}
 			<span

@@ -3,7 +3,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { draw, fade } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
 	import {
 		normalizeUsernameQuery,
 		usernameQueryMinLength,
@@ -11,8 +11,10 @@
 		type UserSearchResult
 	} from '$lib/friends/friends';
 	import { acceptFriendRequest, searchUsers, sendFriendRequest } from '$lib/friends/channel';
-	import { initials } from '$lib/ui/initials';
+	import { settle } from '$lib/ui/settle';
+	import Avatar from './Avatar.svelte';
 	import Dialog from './Dialog.svelte';
+	import DrawnCheck from './DrawnCheck.svelte';
 	import SearchField from './SearchField.svelte';
 	import SheetHeader from './SheetHeader.svelte';
 
@@ -128,13 +130,6 @@
 
 	const layerIn = { duration: 180, easing: cubicOut };
 	const layerOut = { duration: 120, easing: cubicOut };
-
-	function settle(_node: Element, { duration = 150 }: { duration?: number } = {}) {
-		return {
-			duration,
-			css: (t: number) => `opacity: ${t}; filter: blur(${(1 - t) * 2}px)`
-		};
-	}
 </script>
 
 <Dialog label="Добавить друга" wide flush pinTop {onclose}>
@@ -179,11 +174,7 @@
 				<li
 					class="flex h-11 items-center gap-3 rounded-[10px] px-2.5 transition-colors duration-150 [corner-shape:squircle] hover:bg-white/[0.04]"
 				>
-					<span
-						class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[11px] font-medium text-ink"
-					>
-						{initials(result.name)}
-					</span>
+					<Avatar name={result.name} size={32} />
 					<span class="min-w-0 flex-1 truncate text-[14px] text-muted">
 						@<span class="text-ink">{result.username.slice(0, searchedQuery.length)}</span
 						>{result.username.slice(searchedQuery.length)}
@@ -264,23 +255,12 @@
 		</button>
 	{:else if result.relation === 'outgoing'}
 		<span class="flex h-7 items-center gap-1.5 px-1 text-[12px] text-muted">
-			<svg
-				width="13"
-				height="13"
-				viewBox="0 0 16 16"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				aria-hidden="true"
+			<DrawnCheck
+				size={13}
+				duration={justSent.has(result.id) ? 320 : 0}
+				delay={120}
 				class="shrink-0"
-			>
-				<path
-					d="M3.25 8.5 6.5 11.75 12.75 4.75"
-					in:draw|global={{ duration: justSent.has(result.id) ? 320 : 0, delay: 120 }}
-				/>
-			</svg>
+			/>
 			Запрос отправлен
 		</span>
 	{:else}

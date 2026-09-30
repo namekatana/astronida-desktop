@@ -12,8 +12,9 @@
 		validateServerName,
 		type Server
 	} from '$lib/servers/servers';
-	import { initials } from '$lib/ui/initials';
+	import { settle } from '$lib/ui/settle';
 	import type { AddServerView } from './add-server';
+	import Avatar from './Avatar.svelte';
 	import Dialog from './Dialog.svelte';
 	import Icon from './Icon.svelte';
 	import LengthCounter from './LengthCounter.svelte';
@@ -143,13 +144,6 @@
 		event.preventDefault();
 		void (view === 'create' ? create() : join());
 	}
-
-	function settle(_node: Element, { duration = 150 }: { duration?: number } = {}) {
-		return {
-			duration,
-			css: (t: number) => `opacity: ${t}; filter: blur(${(1 - t) * 2}px)`
-		};
-	}
 </script>
 
 <Dialog label={title} wide flush pinTop locked={busy} {onclose}>
@@ -184,11 +178,7 @@
 								<Icon name="camera" size={22} />
 							</button>
 						{:else if found}
-							<span
-								class="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-surface-raised text-[22px] font-medium text-ink"
-							>
-								{initials(found.serverName)}
-							</span>
+							<Avatar name={found.serverName} size={72} />
 						{:else}
 							<span
 								class="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-white/[0.05] text-muted {lookup.checking
@@ -342,11 +332,7 @@
 								<li
 									class="-mx-1 flex h-11 items-center gap-3 rounded-[10px] px-2 [corner-shape:squircle]"
 								>
-									<span
-										class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[11px] font-medium text-ink"
-									>
-										{initials(suggestion.preview.serverName)}
-									</span>
+									<Avatar name={suggestion.preview.serverName} size={32} />
 									<span class="flex min-w-0 flex-1 flex-col">
 										<span class="truncate text-[13px] leading-4 font-semibold text-ink">
 											{suggestion.preview.serverName}

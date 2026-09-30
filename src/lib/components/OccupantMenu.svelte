@@ -2,11 +2,11 @@
 	import { fade } from 'svelte/transition';
 	import { dismissOn } from '$lib/ui/dismiss';
 	import type { IconName } from '$lib/ui/icons';
-	import { initials } from '$lib/ui/initials';
 	import { pop } from '$lib/ui/pop';
 	import type { VoiceOccupant } from '$lib/voice/occupant';
 	import { voice } from '$lib/voice/voice.svelte';
 	import { defaultVolume, maxVolume, participantAudio } from '$lib/voice/volumes.svelte';
+	import Avatar from './Avatar.svelte';
 	import Icon from './Icon.svelte';
 
 	interface Props {
@@ -83,11 +83,7 @@
 	class="panel panel-floating fixed z-50 origin-top-left p-1.5"
 >
 	<div class="flex items-center gap-2.5 px-2.5 pt-2 pb-2.5">
-		<span
-			class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[11px] font-medium text-ink"
-		>
-			{initials(occupant.name)}
-		</span>
+		<Avatar name={occupant.name} size={32} />
 		<div class="min-w-0">
 			<div class="truncate text-[13px] font-medium text-ink">{occupant.name}</div>
 			<div class="truncate text-[11px] text-muted">@{occupant.username}</div>
