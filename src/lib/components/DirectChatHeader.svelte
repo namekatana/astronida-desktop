@@ -1,12 +1,14 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import type { Member } from '$lib/servers/members';
 	import { initials } from '$lib/ui/initials';
 
 	interface Props {
 		friend: Member;
+		trailing?: Snippet;
 	}
 
-	let { friend }: Props = $props();
+	let { friend, trailing }: Props = $props();
 </script>
 
 <header class="panel flex shrink-0 items-center gap-2.5 px-5 py-3.5 text-ink">
@@ -23,4 +25,5 @@
 		></span>
 	</span>
 	<h1 class="min-w-0 truncate text-[15px] leading-6 font-semibold">@{friend.username}</h1>
+	{@render trailing?.()}
 </header>

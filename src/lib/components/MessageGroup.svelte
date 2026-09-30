@@ -137,7 +137,7 @@
 					{singleLine(reply.original.text)}
 				</span>
 			{:else}
-				<span class="truncate text-muted italic">Сообщение удалено</span>
+				<span class="shrink-0 pr-0.5 whitespace-nowrap text-muted italic">Сообщение удалено</span>
 			{/if}
 		</button>
 	</div>

@@ -684,6 +684,65 @@ pub fn history_drop_channel(history: State<History>, channel_id: String) -> Resu
 }
 
 #[tauri::command]
+pub fn history_remove_message(
+    history: State<History>,
+    channel_id: String,
+    message_id: String,
+) -> Result<(), String> {
+    let mut slot = lock(&history)?;
+    let Account {
+        connection, cipher, ..
+    } = account(&mut slot)?;
+    let transaction = connection.transaction().map_err(describe)?;
+    transaction
+        .execute(
+            "DELETE FROM messages WHERE channel_id = ?1 AND id = ?2",
+            params![channel_id, message_id],
+        )
+        .map_err(describe)?;
+    forget_reply_originals(&transaction, cipher, &channel_id, &message_id)?;
+    transaction.commit().map_err(describe)
+}
+
+fn forget_reply_originals(
+    transaction: &Transaction,
+    cipher: &Aes256Gcm,
+    channel_id: &str,
+    message_id: &str,
+) -> Result<(), String> {
+    let replies = {
+        let mut statement = transaction
+            .prepare("SELECT id, reply FROM messages WHERE channel_id = ?1 AND reply IS NOT NULL")
+            .map_err(describe)?;
+        let rows = statement
+            .query_map(params![channel_id], |row| {
+                let id: String = row.get(0)?;
+                let reply = unseal_reply(row, 1, cipher, &context(MESSAGE_REPLY, &id))?;
+                Ok((id, reply))
+            })
+            .map_err(describe)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(describe)?;
+        rows
+    };
+    let mut update = transaction
+        .prepare("UPDATE messages SET reply = ?2 WHERE id = ?1")
+        .map_err(describe)?;
+    for (id, reply) in replies {
+        let Some(mut reply) = reply else {
+            continue;
+        };
+        if reply.id != message_id || reply.original.is_none() {
+            continue;
+        }
+        reply.original = None;
+        let sealed = seal_reply(cipher, &Some(reply), &context(MESSAGE_REPLY, &id))?;
+        update.execute(params![id, sealed]).map_err(describe)?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 pub fn history_clear(history: State<History>) -> Result<(), String> {
     let account = lock(&history)?
         .take()

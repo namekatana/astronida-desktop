@@ -111,31 +111,25 @@ async function loadReplyOriginals(
 	return originals;
 }
 
-export async function loadMessages(input: {
-	channelId: string;
-	before?: string;
-	after?: string;
-}): Promise<{ messages: Message[]; hasMore: boolean } | null> {
-	let query = supabase
-		.from('messages')
-		.select(
-			'id, author_id, content, created_at, reply_to_id, forwarded_from_username, profiles (username, display_name)'
-		)
-		.eq('channel_id', input.channelId)
-		.is('deleted_at', null)
-		.order('id', { ascending: false })
-		.limit(pageSize);
-	if (input.before) query = query.lt('id', input.before);
-	if (input.after) query = query.gt('id', input.after);
+const messageColumns =
+	'id, author_id, content, created_at, reply_to_id, forwarded_from_username, profiles (username, display_name)';
 
-	const { data, error } = await retryOnFreshToken(() => query);
-	if (error || !data) return null;
+interface MessageRow {
+	id: string;
+	author_id: string;
+	content: string;
+	created_at: string;
+	reply_to_id: string | null;
+	forwarded_from_username: string | null;
+	profiles: ProfileRow;
+}
 
+async function messagesFromRows(data: MessageRow[]): Promise<Message[] | null> {
 	const replyIds = [...new Set(data.flatMap((row) => (row.reply_to_id ? [row.reply_to_id] : [])))];
 	const originals = await loadReplyOriginals(replyIds);
 	if (!originals) return null;
 
-	const messages = data.map((row) => {
+	return data.map((row) => {
 		const message: Message = {
 			id: row.id,
 			author: authorOfRow(row.author_id, row.profiles),
@@ -150,7 +144,46 @@ export async function loadMessages(input: {
 		}
 		return message;
 	});
+}
+
+export async function loadMessages(input: {
+	channelId: string;
+	before?: string;
+	after?: string;
+}): Promise<{ messages: Message[]; hasMore: boolean } | null> {
+	let query = supabase
+		.from('messages')
+		.select(messageColumns)
+		.eq('channel_id', input.channelId)
+		.is('deleted_at', null)
+		.order('id', { ascending: false })
+		.limit(pageSize);
+	if (input.before) query = query.lt('id', input.before);
+	if (input.after) query = query.gt('id', input.after);
+
+	const { data, error } = await retryOnFreshToken(() => query);
+	if (error || !data) return null;
+
+	const messages = await messagesFromRows(data);
+	if (!messages) return null;
 	return { messages: messages.reverse(), hasMore: data.length === pageSize };
+}
+
+export const pinnedMaxCount = 50;
+
+export async function loadPinnedMessages(channelId: string): Promise<Message[] | null> {
+	const { data, error } = await retryOnFreshToken(() =>
+		supabase
+			.from('messages')
+			.select(messageColumns)
+			.eq('channel_id', channelId)
+			.eq('pinned', true)
+			.is('deleted_at', null)
+			.order('id', { ascending: false })
+			.limit(pinnedMaxCount)
+	);
+	if (error || !data) return null;
+	return messagesFromRows(data);
 }
 
 interface Room {
@@ -274,6 +307,78 @@ export function forwardMessage(input: {
 	});
 }
 
+export type PinFailure = 'limit_reached' | 'rate_limited' | 'failed';
+
+export function setMessagePinned(input: {
+	channelId: string;
+	messageId: string;
+	pinned: boolean;
+}): Promise<{ ok: true } | { ok: false; reason: PinFailure }> {
+	const room = rooms.get(input.channelId);
+	if (!room || room.channel.state !== 'joined') {
+		return Promise.resolve({ ok: false, reason: 'failed' });
+	}
+
+	return new Promise((resolve) => {
+		room.channel
+			.push(input.pinned ? 'pin' : 'unpin', { message_id: input.messageId })
+			.receive('ok', () => resolve({ ok: true }))
+			.receive('error', (reply: { reason?: string }) => {
+				const reason = reply?.reason;
+				resolve({
+					ok: false,
+					reason: reason === 'limit_reached' || reason === 'rate_limited' ? reason : 'failed'
+				});
+			})
+			.receive('timeout', () => resolve({ ok: false, reason: 'failed' }));
+	});
+}
+
+export type DeleteFailure = 'forbidden' | 'rate_limited' | 'failed';
+
+export function deleteMessage(input: {
+	channelId: string;
+	messageId: string;
+}): Promise<{ ok: true } | { ok: false; reason: DeleteFailure }> {
+	const room = rooms.get(input.channelId);
+	if (!room || room.channel.state !== 'joined') {
+		return Promise.resolve({ ok: false, reason: 'failed' });
+	}
+
+	return new Promise((resolve) => {
+		room.channel
+			.push('delete', { message_id: input.messageId })
+			.receive('ok', () => resolve({ ok: true }))
+			.receive('error', (reply: { reason?: string }) => {
+				const reason = reply?.reason;
+				if (reason === 'not_found') resolve({ ok: true });
+				else if (reason === 'forbidden' || reason === 'rate_limited') resolve({ ok: false, reason });
+				else resolve({ ok: false, reason: 'failed' });
+			})
+			.receive('timeout', () => resolve({ ok: false, reason: 'failed' }));
+	});
+}
+
+export function subscribeToPins(input: {
+	channelId: string;
+	onPinned: (messageId: string, pinned: boolean) => void;
+	onReady: () => void;
+}): () => void {
+	const { room, release } = hold(input.channelId, input.onReady);
+	const { channel } = room;
+
+	const pinnedRef = channel.on('pinned', (payload: { message_id?: unknown; pinned?: unknown }) => {
+		if (typeof payload?.message_id === 'string' && typeof payload.pinned === 'boolean') {
+			input.onPinned(payload.message_id, payload.pinned);
+		}
+	});
+
+	return () => {
+		channel.off('pinned', pinnedRef);
+		release();
+	};
+}
+
 export function sendTyping(channelId: string) {
 	rooms.get(channelId)?.channel.push('typing', {});
 }
@@ -282,6 +387,7 @@ export function subscribeToChannel(input: {
 	channelId: string;
 	onMessage: (message: Message) => void;
 	onTyping: (userId: string) => void;
+	onDeleted: (messageId: string) => void;
 	onReady: () => void;
 }): () => void {
 	const { room, release } = hold(input.channelId, input.onReady);
@@ -293,10 +399,14 @@ export function subscribeToChannel(input: {
 	const typingRef = channel.on('typing', (payload: { user_id?: unknown }) => {
 		if (typeof payload?.user_id === 'string') input.onTyping(payload.user_id);
 	});
+	const deletedRef = channel.on('deleted', (payload: { message_id?: unknown }) => {
+		if (typeof payload?.message_id === 'string') input.onDeleted(payload.message_id);
+	});
 
 	return () => {
 		channel.off('message', messageRef);
 		channel.off('typing', typingRef);
+		channel.off('deleted', deletedRef);
 		release();
 	};
 }

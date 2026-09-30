@@ -14,9 +14,25 @@
 		oncancel?: () => void;
 		onreply?: () => void;
 		onforward?: () => void;
+		pinned?: boolean;
+		onpin?: () => void;
+		oncopy?: () => void;
+		ondelete?: () => void;
 	}
 
-	let { x, y, mode, onclose, oncancel, onreply, onforward }: Props = $props();
+	let {
+		x,
+		y,
+		mode,
+		onclose,
+		oncancel,
+		onreply,
+		onforward,
+		pinned = false,
+		onpin,
+		oncopy,
+		ondelete
+	}: Props = $props();
 
 	const width = 200;
 	const margin = 8;
@@ -42,12 +58,37 @@
 		onclose();
 	}
 
+	function pin() {
+		onpin?.();
+		onclose();
+	}
+
+	function copy() {
+		oncopy?.();
+		onclose();
+	}
+
+	function remove() {
+		ondelete?.();
+		onclose();
+	}
+
 	$effect(() => {
 		if (!root) return;
 		height = root.offsetHeight;
 		return dismissOn(root, onclose);
 	});
 </script>
+
+{#snippet pinItem()}
+	{#if onpin}
+		{@render item(
+			pinned ? 'pin-off' : 'pin',
+			pinned ? 'Открепить сообщение' : 'Закрепить сообщение',
+			pin
+		)}
+	{/if}
+{/snippet}
 
 {#snippet item(icon: IconName, label: string, onclick: () => void, destructive = false)}
 	<button
@@ -78,17 +119,25 @@
 		<div class="flex flex-col gap-0.5">
 			{@render item('reply', 'Ответить', reply)}
 			{@render item('forward', 'Переслать', forward)}
+			{@render pinItem()}
+			{@render item('copy', 'Скопировать', copy)}
 		</div>
+		{#if ondelete}
+			<div class="mx-1.5 my-1.5 h-px bg-surface-line"></div>
+			{@render item('trash', 'Удалить сообщение', remove, true)}
+		{/if}
 	{:else}
 		<div class="flex flex-col gap-0.5">
 			{@render item('reply', 'Ответить', reply)}
 			{@render item('forward', 'Переслать', forward)}
-			{@render item('pin', 'Закрепить сообщение', onclose)}
-			{@render item('copy', 'Скопировать', onclose)}
+			{@render pinItem()}
+			{@render item('copy', 'Скопировать', copy)}
 		</div>
 		<div class="mx-1.5 my-1.5 h-px bg-surface-line"></div>
 		<div class="flex flex-col gap-0.5">
-			{@render item('trash', 'Удалить сообщение', onclose, true)}
+			{#if ondelete}
+				{@render item('trash', 'Удалить сообщение', remove, true)}
+			{/if}
 			{@render item('flag', 'Пожаловаться', onclose, true)}
 		</div>
 	{/if}

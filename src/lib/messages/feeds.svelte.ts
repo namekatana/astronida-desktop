@@ -119,6 +119,28 @@ export function createFeeds() {
 		if (feed) feed.messages = feed.messages.filter((m) => m.id !== messageId);
 	}
 
+	function forget(channelId: string, messageId: string) {
+		const feed = feeds[channelId];
+		if (feed) {
+			feed.messages = feed.messages.filter((m) => m.id !== messageId);
+			for (const message of feed.messages) {
+				if (message.replyTo?.id === messageId && message.replyTo.original) {
+					message.replyTo = { id: messageId, original: null };
+				}
+			}
+		}
+		const removal = history.removeMessage(channelId, messageId).catch(() => {});
+		if (storedLatest[channelId]?.id !== messageId) return;
+		delete storedLatest[channelId];
+		removal
+			.then(() => history.latestMessages([channelId]))
+			.then((latest) => {
+				const message = latest[channelId];
+				if (message) rememberLatest(channelId, message);
+			})
+			.catch(() => {});
+	}
+
 	function markFailed(channelId: string, messageId: string) {
 		const pending = feeds[channelId]?.messages.find((m) => m.id === messageId);
 		if (pending) pending.status = 'failed';
@@ -235,6 +257,7 @@ export function createFeeds() {
 		loadLatest,
 		addPending,
 		removeMessage,
+		forget,
 		markFailed,
 		open,
 		sync,

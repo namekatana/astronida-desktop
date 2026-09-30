@@ -62,7 +62,8 @@ export function createIncoming(input: {
 			onSnapshot: handleSnapshot,
 			onDirectMessage: handleDirectMessage,
 			onRead: (channelId, messageId) => unread.clear(channelId, messageId),
-			onTyping: markTyping
+			onTyping: markTyping,
+			onMessageDeleted: sync.forget
 		});
 	});
 

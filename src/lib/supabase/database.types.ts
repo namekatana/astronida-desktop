@@ -209,6 +209,7 @@ export type Database = {
 					deleted_at: string | null;
 					forwarded_from_username: string | null;
 					id: string;
+					pinned: boolean;
 					reply_to_id: string | null;
 				};
 				Insert: {
@@ -219,6 +220,7 @@ export type Database = {
 					deleted_at?: string | null;
 					forwarded_from_username?: string | null;
 					id?: string;
+					pinned?: boolean;
 					reply_to_id?: string | null;
 				};
 				Update: {
@@ -229,6 +231,7 @@ export type Database = {
 					deleted_at?: string | null;
 					forwarded_from_username?: string | null;
 					id?: string;
+					pinned?: boolean;
 					reply_to_id?: string | null;
 				};
 				Relationships: [

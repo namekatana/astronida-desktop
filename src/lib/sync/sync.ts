@@ -69,5 +69,18 @@ export function createSync(feeds: Feeds) {
 		connection.setUpdating(false);
 	}
 
-	return { markWarm, warm, receive, synchronize, stop };
+	type ForgetListener = (channelId: string, messageId: string) => void;
+	const forgetListeners = new Set<ForgetListener>();
+
+	function forget(channelId: string, messageId: string) {
+		feeds.forget(channelId, messageId);
+		for (const listener of forgetListeners) listener(channelId, messageId);
+	}
+
+	function onForget(listener: ForgetListener): () => void {
+		forgetListeners.add(listener);
+		return () => forgetListeners.delete(listener);
+	}
+
+	return { markWarm, warm, receive, synchronize, stop, forget, onForget };
 }

@@ -15,6 +15,8 @@ function firstUnreadId(messages: Message[], mark: UnreadMark, hasMore: boolean):
 	return confirmed.find((message) => after === null || message.id > after)?.id ?? null;
 }
 
+const maxRevealPages = 10;
+
 export function createOpenChat(input: {
 	userId: string;
 	feeds: Feeds;
@@ -77,6 +79,9 @@ export function createOpenChat(input: {
 			onTyping: (userId) => {
 				if (!stale && userId !== input.userId) markTyping(channelId, userId);
 			},
+			onDeleted: (messageId) => {
+				if (!stale) sync.forget(channelId, messageId);
+			},
 			onReady: () => {
 				opened.then(() => {
 					if (!stale) void feeds.sync(channelId);
@@ -97,6 +102,25 @@ export function createOpenChat(input: {
 		loading = true;
 		await feeds.loadOlder(channelId, oldest.id);
 		if (input.chatId() === channelId) loading = false;
+	}
+
+	async function reveal(messageId: string): Promise<boolean> {
+		const channelId = input.chatId();
+		if (!channelId) return false;
+		let previousOldestId: string | null = null;
+		let stalls = 0;
+		for (let page = 0; page <= maxRevealPages; page += 1) {
+			if (input.chatId() !== channelId) return false;
+			const loaded = feeds.messagesOf(channelId);
+			if (loaded.some((message) => message.id === messageId)) return true;
+			const oldest = loaded[0];
+			if (page === maxRevealPages || !oldest || oldest.id < messageId) return false;
+			stalls = oldest.id === previousOldestId ? stalls + 1 : 0;
+			if (stalls > 1 || !feeds.hasMoreOf(channelId)) return false;
+			previousOldestId = oldest.id;
+			await feeds.loadOlder(channelId, oldest.id);
+		}
+		return false;
 	}
 
 	const typingSender = createTypingSender(() => {
@@ -123,6 +147,7 @@ export function createOpenChat(input: {
 			return dividerId;
 		},
 		loadOlder,
+		reveal,
 		touchTyping: typingSender.touch,
 		resetTyping: typingSender.reset
 	};

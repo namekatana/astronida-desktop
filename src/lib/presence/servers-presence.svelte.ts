@@ -26,6 +26,7 @@ export function createServersPresence(input: {
 	onCategoryCreated: (category: Category) => void;
 	onChannelCreated: (channel: Channel) => void;
 	onMemberJoined: (serverId: string, member: JoinedMember) => void;
+	onMessageDeleted: (channelId: string, messageId: string) => void;
 }) {
 	const byServer = $state<Record<string, ServerPresence>>(input.initial);
 	const subscriptions = new Map<string, () => void>();
@@ -45,7 +46,8 @@ export function createServersPresence(input: {
 				input.onChannelMessage(serverId, channelId, message),
 			onCategoryCreated: input.onCategoryCreated,
 			onChannelCreated: input.onChannelCreated,
-			onMemberJoined: (member) => input.onMemberJoined(serverId, member)
+			onMemberJoined: (member) => input.onMemberJoined(serverId, member),
+			onMessageDeleted: input.onMessageDeleted
 		});
 	}
 

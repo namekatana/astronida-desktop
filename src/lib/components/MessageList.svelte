@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { tick, type Snippet } from 'svelte';
 	import type { Message } from '$lib/messages/messages';
 	import type { Server } from '$lib/servers/servers';
 	import type { MessageMenuMode } from './message-menu';
 	import MessageGroup from './MessageGroup.svelte';
 	import MessageMenu from './MessageMenu.svelte';
 	import Scrollbar from './Scrollbar.svelte';
+	import Toast from './Toast.svelte';
 	import TypingIndicator from './TypingIndicator.svelte';
 
 	interface Props {
@@ -21,6 +22,12 @@
 		onforward?: (message: Message) => void;
 		onjoinedinvite?: (server: Server) => void;
 		onopeninvite?: (code: string) => void;
+		pinnedIds?: Set<string>;
+		onpin?: (message: Message) => void;
+		oncopy?: (message: Message) => void;
+		ondelete?: (message: Message) => void;
+		canDeleteOthers?: boolean;
+		top?: Snippet;
 	}
 
 	let {
@@ -35,7 +42,13 @@
 		onreply,
 		onforward,
 		onjoinedinvite,
-		onopeninvite
+		onopeninvite,
+		pinnedIds,
+		onpin,
+		oncopy,
+		ondelete,
+		canDeleteOthers = false,
+		top
 	}: Props = $props();
 
 	const groupGapMs = 5 * 60 * 1000;
@@ -194,7 +207,7 @@
 		return jumpableIds.has(messageId);
 	}
 
-	async function jumpTo(messageId: string) {
+	export async function jumpTo(messageId: string) {
 		const element = scroller;
 		const row = element?.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(messageId)}"]`);
 		if (!element || !row) return;
@@ -216,6 +229,7 @@
 </script>
 
 <div class="panel-deep relative flex min-h-0 flex-1 flex-col overflow-hidden">
+	{@render top?.()}
 	<div
 		bind:this={scroller}
 		role="log"
@@ -265,6 +279,7 @@
 	</div>
 	<Scrollbar target={scroller} />
 	<TypingIndicator names={typing} />
+	<Toast />
 </div>
 
 {#if menu}
@@ -277,5 +292,11 @@
 		oncancel={() => oncancel?.(message.id)}
 		onreply={() => onreply?.(message)}
 		onforward={() => onforward?.(message)}
+		pinned={pinnedIds?.has(message.id) ?? false}
+		onpin={onpin ? () => onpin(message) : undefined}
+		oncopy={() => oncopy?.(message)}
+		ondelete={ondelete && (menu.mode === 'own' || canDeleteOthers)
+			? () => ondelete(message)
+			: undefined}
 	/>
 {/if}

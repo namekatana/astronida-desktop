@@ -53,6 +53,7 @@ interface HistoryBackend {
 	newestIds(): Promise<Record<string, string>>;
 	latestMessages(channelIds: string[]): Promise<Record<string, Message>>;
 	dropChannel(channelId: string): Promise<void>;
+	removeMessage(channelId: string, messageId: string): Promise<void>;
 	clear(): Promise<void>;
 	outboxList(): Promise<OutboxRecord[]>;
 	outboxPut(record: OutboxRecord): Promise<void>;
@@ -175,6 +176,10 @@ const tauriBackend: HistoryBackend = {
 		return invoke('history_drop_channel', { channelId });
 	},
 
+	removeMessage(channelId, messageId) {
+		return invoke('history_remove_message', { channelId, messageId });
+	},
+
 	clear() {
 		return invoke('history_clear');
 	},
@@ -274,6 +279,16 @@ function createMemoryBackend(): HistoryBackend {
 				if (row.channelId === channelId) rows.delete(id);
 			}
 			reachedStart.delete(channelId);
+		},
+
+		async removeMessage(channelId, messageId) {
+			const removed = rows.get(messageId);
+			if (removed?.channelId === channelId) rows.delete(messageId);
+			for (const row of rows.values()) {
+				if (row.channelId === channelId && row.reply?.id === messageId && row.reply.original) {
+					row.reply = { id: messageId, original: null };
+				}
+			}
 		},
 
 		async clear() {

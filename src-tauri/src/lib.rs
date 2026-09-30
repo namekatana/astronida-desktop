@@ -21,6 +21,7 @@ pub fn run() {
             history::history_newest_ids,
             history::history_latest_messages,
             history::history_drop_channel,
+            history::history_remove_message,
             history::history_clear,
             history::outbox_list,
             history::outbox_put,

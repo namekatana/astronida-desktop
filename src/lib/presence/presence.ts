@@ -108,6 +108,7 @@ export function subscribeToServerPresence(input: {
 	onCategoryCreated: (category: Category) => void;
 	onChannelCreated: (channel: Channel) => void;
 	onMemberJoined: (member: JoinedMember) => void;
+	onMessageDeleted: (channelId: string, messageId: string) => void;
 }): () => void {
 	const channel = phoenixSocket().channel(`server:${input.serverId}`);
 	channels.set(input.serverId, channel);
@@ -119,6 +120,11 @@ export function subscribeToServerPresence(input: {
 	});
 	channel.on('channel_message', (payload: MessagePayload) => {
 		input.onChannelMessage(payload.channel_id, fromPayload(payload));
+	});
+	channel.on('message_deleted', (payload: { channel_id?: unknown; message_id?: unknown }) => {
+		if (typeof payload?.channel_id === 'string' && typeof payload.message_id === 'string') {
+			input.onMessageDeleted(payload.channel_id, payload.message_id);
+		}
 	});
 	channel.on('category_created', (payload: unknown) => {
 		const category = categoryFrom(payload);
