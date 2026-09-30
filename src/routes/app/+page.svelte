@@ -2,13 +2,8 @@
 	import { tick, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { signOut } from '$lib/auth/auth';
-	import { workspaceCache, type Workspace } from '$lib/cache/workspace-cache';
-	import {
-		loadChannels,
-		type Category,
-		type Channel,
-		type ChannelKind
-	} from '$lib/channels/channels';
+	import { workspaceCache } from '$lib/cache/workspace-cache';
+	import type { Category, Channel, ChannelKind } from '$lib/channels/channels';
 	import ActiveFriendsPanel from '$lib/components/ActiveFriendsPanel.svelte';
 	import AddFriendDialog from '$lib/components/AddFriendDialog.svelte';
 	import AddServerDialog from '$lib/components/AddServerDialog.svelte';
@@ -37,14 +32,7 @@
 	import { createFriendsState } from '$lib/friends/friends-state.svelte';
 	import { history } from '$lib/history/history';
 	import { createFeeds } from '$lib/messages/feeds.svelte';
-	import {
-		deleteMessage,
-		forwardMessage,
-		type DeleteFailure,
-		type ForwardResult,
-		type Message,
-		type MessageReply
-	} from '$lib/messages/messages';
+	import { createMessageMenu } from '$lib/messages/message-menu.svelte';
 	import { createOpenChat } from '$lib/messages/open-chat.svelte';
 	import { createPins } from '$lib/messages/pins.svelte';
 	import { createSending } from '$lib/messages/sending.svelte';
@@ -53,13 +41,12 @@
 	import { unread } from '$lib/notifications/unread.svelte';
 	import { createServersPresence } from '$lib/presence/servers-presence.svelte';
 	import { inviteLinkOf, joinByInvite, prefetchInviteLink } from '$lib/servers/invites';
-	import { loadMembers, type JoinedMember } from '$lib/servers/members';
 	import type { Server } from '$lib/servers/servers';
+	import { createWorkspaces } from '$lib/servers/workspaces.svelte';
 	import { createSync } from '$lib/sync/sync';
 	import { lastSelection } from '$lib/ui/last-selection.svelte';
 	import { panelLimits, panelWidths } from '$lib/ui/panel-widths.svelte';
 	import { windowTitle } from '$lib/ui/title.svelte';
-	import { toast } from '$lib/ui/toast.svelte';
 	import { createVoiceOccupants } from '$lib/voice/occupants.svelte';
 	import { voice } from '$lib/voice/voice.svelte';
 	import type { PageData } from './$types';
@@ -85,8 +72,12 @@
 	let channelDialog = $state<'category' | ChannelKind | null>(null);
 
 	// svelte-ignore state_referenced_locally
-	let workspaces = $state<Record<string, Workspace>>(data.cache.workspaces);
-	const workspace = $derived(selectedServerId ? workspaces[selectedServerId] : undefined);
+	const workspaces = createWorkspaces({
+		userId: data.userId,
+		initial: data.cache.workspaces,
+		servers: () => servers
+	});
+	const workspace = $derived(selectedServerId ? workspaces.all[selectedServerId] : undefined);
 	const categories = $derived(workspace?.categories ?? []);
 	const channels = $derived(workspace?.channels ?? []);
 	const members = $derived(workspace?.members ?? []);
@@ -129,26 +120,6 @@
 		});
 	});
 
-	const refreshedServers = new Set<string>();
-
-	async function refreshWorkspace(server: Server) {
-		const [loaded, loadedMembers] = await Promise.all([
-			loadChannels(server.id),
-			loadMembers(server.id, server.ownerId)
-		]);
-		const fresh = { categories: loaded.categories, channels: loaded.channels, members: loadedMembers };
-		workspaces[server.id] = fresh;
-		workspaceCache.saveWorkspace(data.userId, server.id, fresh);
-	}
-
-	$effect(() => {
-		for (const server of servers) {
-			if (refreshedServers.has(server.id)) continue;
-			refreshedServers.add(server.id);
-			void refreshWorkspace(server);
-		}
-	});
-
 	$effect(() => {
 		const server = selectedServer;
 		const current = workspace;
@@ -182,9 +153,9 @@
 		serverIds: () => servers.map((server) => server.id),
 		onChannelMessage: (serverId, channelId, message) =>
 			incoming.handleChannelMessage(serverId, channelId, message),
-		onCategoryCreated: addCategory,
-		onChannelCreated: addChannel,
-		onMemberJoined: addMember,
+		onCategoryCreated: workspaces.addCategory,
+		onChannelCreated: workspaces.addChannel,
+		onMemberJoined: workspaces.addMember,
 		onMessageDeleted: sync.forget
 	});
 
@@ -192,7 +163,7 @@
 	const occupants = createVoiceOccupants({
 		userId: data.userId,
 		presence,
-		membersOf: (serverId) => workspaces[serverId]?.members ?? [],
+		membersOf: (serverId) => workspaces.all[serverId]?.members ?? [],
 		selectedServerId: () => selectedServerId
 	});
 
@@ -207,46 +178,8 @@
 		selectedChannel !== null && selectedServer?.ownerId === data.userId
 	);
 
-	let deleting = $state<{
-		chatId: string;
-		message: Message;
-		busy: boolean;
-		error: string | null;
-	} | null>(null);
+	const menu = createMessageMenu({ chatId: () => openChatId, sync });
 
-	const deleteFailureText: Record<DeleteFailure, string> = {
-		forbidden: 'Нет прав удалить это сообщение',
-		rate_limited: 'Слишком часто, попробуйте через минуту',
-		failed: 'Не удалось удалить — проверьте соединение'
-	};
-
-	function startDelete(message: Message) {
-		if (openChatId) deleting = { chatId: openChatId, message, busy: false, error: null };
-	}
-
-	async function confirmDelete() {
-		const target = deleting;
-		if (!target || target.busy) return;
-		target.busy = true;
-		target.error = null;
-		const result = await deleteMessage({ channelId: target.chatId, messageId: target.message.id });
-		if (deleting !== target) return;
-		if (result.ok) {
-			sync.forget(target.chatId, target.message.id);
-			deleting = null;
-			toast.show('Сообщение удалено');
-			return;
-		}
-		target.busy = false;
-		target.error = deleteFailureText[result.reason];
-	}
-
-	function copyMessage(message: Message) {
-		navigator.clipboard
-			.writeText(message.text)
-			.then(() => toast.show('Скопировано'))
-			.catch(() => {});
-	}
 	let messageList = $state<ReturnType<typeof MessageList>>();
 	let revealingPin = $state(false);
 
@@ -268,8 +201,7 @@
 		userId: data.userId,
 		sync,
 		openChatId: () => openChatId,
-		isTextChannel: (serverId, channelId) =>
-			workspaces[serverId]?.channels.find((c) => c.id === channelId)?.kind === 'text',
+		isTextChannel: workspaces.isTextChannel,
 		requestCount: () => friends.requests.length,
 		onOpenHome: openHome
 	});
@@ -296,7 +228,7 @@
 			friends: friends.withPresence,
 			servers,
 			presenceByServer: presence.byServer,
-			workspaces
+			workspaces: workspaces.all
 		})
 	);
 
@@ -305,7 +237,7 @@
 		return new Set(
 			servers
 				.filter((server) =>
-					workspaces[server.id]?.channels.some((channel) => unreadChannels.has(channel.id))
+					workspaces.all[server.id]?.channels.some((channel) => unreadChannels.has(channel.id))
 				)
 				.map((server) => server.id)
 		);
@@ -338,8 +270,8 @@
 
 	function handleEscape(event: KeyboardEvent) {
 		if (event.key !== 'Escape' || event.defaultPrevented) return;
-		if (activeReply) {
-			replyTarget = null;
+		if (menu.reply) {
+			menu.clearReply();
 			return;
 		}
 		if (!selectedFriend) return;
@@ -388,32 +320,13 @@
 		else serverDialog = { view: 'join', value: inviteLinkOf(code) };
 	}
 
-	function addMember(serverId: string, member: JoinedMember) {
-		const target = workspaces[serverId];
-		if (!target || target.members.some((known) => known.id === member.id)) return;
-		const ownerId = servers.find((server) => server.id === serverId)?.ownerId;
-		target.members.push({ ...member, online: false, owner: member.id === ownerId });
-	}
-
-	function addCategory(category: Category) {
-		const target = workspaces[category.serverId];
-		if (!target || target.categories.some((known) => known.id === category.id)) return;
-		target.categories.push(category);
-	}
-
-	function addChannel(channel: Channel) {
-		const target = workspaces[channel.serverId];
-		if (!target || target.channels.some((known) => known.id === channel.id)) return;
-		target.channels.push(channel);
-	}
-
 	function handleCategoryCreated(category: Category) {
-		addCategory(category);
+		workspaces.addCategory(category);
 		channelDialog = null;
 	}
 
 	function handleChannelCreated(channel: Channel) {
-		addChannel(channel);
+		workspaces.addChannel(channel);
 		selectedChannelId = channel.id;
 		channelDialog = null;
 	}
@@ -438,60 +351,12 @@
 				: ''
 	);
 
-	let replyTarget = $state<{ chatId: string; reply: MessageReply } | null>(null);
-	const activeReply = $derived(
-		replyTarget && replyTarget.chatId === openChatId ? replyTarget.reply : null
-	);
-
-	$effect(() => {
-		if (replyTarget && replyTarget.chatId !== openChatId) replyTarget = null;
-	});
-
-	let forwarding = $state<{ chatId: string; message: Message } | null>(null);
-
-	function startForward(message: Message) {
-		if (openChatId) forwarding = { chatId: openChatId, message };
-	}
-
-	async function forwardTo(input: {
-		channelIds: string[];
-		comment: string;
-		clientId: string;
-	}): Promise<ForwardResult> {
-		const source = forwarding;
-		if (!source) return { ok: false, reason: 'failed' };
-		const result = await forwardMessage({
-			sourceChannelId: source.chatId,
-			messageId: source.message.id,
-			...input
-		});
-		if (result.ok) {
-			for (const { channelId, message } of result.delivered) sync.receive(channelId, message);
-		}
-		return result;
-	}
-
-	function startReply(message: Message) {
-		if (!openChatId) return;
-		replyTarget = {
-			chatId: openChatId,
-			reply: {
-				id: message.id,
-				original: {
-					author: message.author,
-					text: message.text,
-					forwardedFrom: message.forwardedFrom
-				}
-			}
-		};
-	}
-
 	function handleSend(text: string) {
 		const channelId = openChatId;
 		if (!channelId || !username) return;
 		openChat.resetTyping();
-		sending.send(channelId, text, activeReply ?? undefined);
-		replyTarget = null;
+		sending.send(channelId, text, menu.reply ?? undefined);
+		menu.clearReply();
 	}
 
 	function cancelSend(messageId: string) {
@@ -569,23 +434,23 @@
 		/>
 	{/if}
 
-	{#if deleting}
+	{#if menu.deleting}
 		<DeleteMessageDialog
-			busy={deleting.busy}
-			error={deleting.error}
-			onconfirm={confirmDelete}
-			onclose={() => (deleting = null)}
+			busy={menu.deleting.busy}
+			error={menu.deleting.error}
+			onconfirm={menu.confirmDelete}
+			onclose={menu.closeDelete}
 		/>
 	{/if}
 
-	{#if forwarding}
+	{#if menu.forwarding}
 		<ForwardDialog
-			message={forwarding.message}
+			message={menu.forwarding.message}
 			friends={friends.withPresence}
 			{servers}
-			{workspaces}
-			onforward={forwardTo}
-			onclose={() => (forwarding = null)}
+			workspaces={workspaces.all}
+			onforward={menu.forwardTo}
+			onclose={menu.closeForward}
 		/>
 	{/if}
 
@@ -691,9 +556,9 @@
 					top={pinnedBar}
 					pinnedIds={pins.pinnedIds}
 					onpin={canPin ? pins.toggle : undefined}
-				oncopy={copyMessage}
-				ondelete={startDelete}
-				{canDeleteOthers}
+					oncopy={menu.copy}
+					ondelete={menu.startDelete}
+					{canDeleteOthers}
 					messages={openChat.messages}
 					selfId={data.userId}
 					hasMore={openChat.hasMore}
@@ -702,18 +567,18 @@
 					dividerId={openChat.dividerId}
 					onloadolder={openChat.loadOlder}
 					oncancel={cancelSend}
-					onreply={startReply}
-					onforward={startForward}
+					onreply={menu.startReply}
+					onforward={menu.startForward}
 					onjoinedinvite={handleServerJoined}
 					onopeninvite={openInvite}
 				/>
 				{#key openChatId}
 					<MessageComposer
 						placeholder={composerPlaceholder}
-						reply={activeReply}
+						reply={menu.reply}
 						onsend={handleSend}
 						ontyping={openChat.touchTyping}
-						oncancelreply={() => (replyTarget = null)}
+						oncancelreply={menu.clearReply}
 					/>
 				{/key}
 			{:else if selectedServer}
