@@ -11,7 +11,7 @@ export interface MessageAuthor {
 
 export interface MessageReply {
 	id: string;
-	original: { author: MessageAuthor; text: string } | null;
+	original: { author: MessageAuthor; text: string; forwardedFrom?: { username: string } } | null;
 }
 
 export interface Message {
@@ -20,6 +20,7 @@ export interface Message {
 	text: string;
 	sentAt: Date;
 	replyTo?: MessageReply;
+	forwardedFrom?: { username: string };
 	status?: 'sending' | 'failed';
 }
 
@@ -40,7 +41,13 @@ export interface MessagePayload {
 	content: string;
 	created_at: string;
 	author: AuthorPayload;
-	reply_to?: { id: string; content: string; author: AuthorPayload } | null;
+	reply_to?: {
+		id: string;
+		content: string;
+		author: AuthorPayload;
+		forwarded_from?: { username: string } | null;
+	} | null;
+	forwarded_from?: { username: string } | null;
 }
 
 function authorFrom(payload: AuthorPayload): MessageAuthor {
@@ -55,11 +62,16 @@ export function fromPayload(payload: MessagePayload): Message {
 		sentAt: new Date(payload.created_at)
 	};
 	if (payload.reply_to) {
-		message.replyTo = {
-			id: payload.reply_to.id,
-			original: { author: authorFrom(payload.reply_to.author), text: payload.reply_to.content }
+		const original: NonNullable<MessageReply['original']> = {
+			author: authorFrom(payload.reply_to.author),
+			text: payload.reply_to.content
 		};
+		if (payload.reply_to.forwarded_from) {
+			original.forwardedFrom = { username: payload.reply_to.forwarded_from.username };
+		}
+		message.replyTo = { id: payload.reply_to.id, original };
 	}
+	if (payload.forwarded_from) message.forwardedFrom = { username: payload.forwarded_from.username };
 	return message;
 }
 
@@ -81,13 +93,20 @@ async function loadReplyOriginals(
 	const { data, error } = await retryOnFreshToken(() =>
 		supabase
 			.from('messages')
-			.select('id, author_id, content, profiles (username, display_name)')
+			.select('id, author_id, content, forwarded_from_username, profiles (username, display_name)')
 			.in('id', ids)
 			.is('deleted_at', null)
 	);
 	if (error || !data) return null;
 	for (const row of data) {
-		originals.set(row.id, { author: authorOfRow(row.author_id, row.profiles), text: row.content });
+		const original: NonNullable<MessageReply['original']> = {
+			author: authorOfRow(row.author_id, row.profiles),
+			text: row.content
+		};
+		if (row.forwarded_from_username) {
+			original.forwardedFrom = { username: row.forwarded_from_username };
+		}
+		originals.set(row.id, original);
 	}
 	return originals;
 }
@@ -99,7 +118,9 @@ export async function loadMessages(input: {
 }): Promise<{ messages: Message[]; hasMore: boolean } | null> {
 	let query = supabase
 		.from('messages')
-		.select('id, author_id, content, created_at, reply_to_id, profiles (username, display_name)')
+		.select(
+			'id, author_id, content, created_at, reply_to_id, forwarded_from_username, profiles (username, display_name)'
+		)
 		.eq('channel_id', input.channelId)
 		.is('deleted_at', null)
 		.order('id', { ascending: false })
@@ -123,6 +144,9 @@ export async function loadMessages(input: {
 		};
 		if (row.reply_to_id) {
 			message.replyTo = { id: row.reply_to_id, original: originals.get(row.reply_to_id) ?? null };
+		}
+		if (row.forwarded_from_username) {
+			message.forwardedFrom = { username: row.forwarded_from_username };
 		}
 		return message;
 	});
@@ -205,6 +229,48 @@ export function sendMessage(input: {
 				resolve({ ok: false, retry: retryableSendErrors.has(reply?.reason ?? '') })
 			)
 			.receive('timeout', () => resolve({ ok: false, retry: true }));
+	});
+}
+
+export const forwardMaxTargets = 10;
+
+export type ForwardResult =
+	| { ok: true; delivered: { channelId: string; message: Message }[] }
+	| { ok: false; reason: 'rate_limited' | 'failed' };
+
+export function forwardMessage(input: {
+	sourceChannelId: string;
+	messageId: string;
+	channelIds: string[];
+	comment: string;
+	clientId: string;
+}): Promise<ForwardResult> {
+	const room = rooms.get(input.sourceChannelId);
+	if (!room || room.channel.state !== 'joined') {
+		return Promise.resolve({ ok: false, reason: 'failed' });
+	}
+
+	return new Promise((resolve) => {
+		room.channel
+			.push('forward', {
+				message_id: input.messageId,
+				channel_ids: input.channelIds,
+				comment: input.comment.trim() || null,
+				client_id: input.clientId
+			})
+			.receive('ok', (reply: { messages: MessagePayload[] }) =>
+				resolve({
+					ok: true,
+					delivered: reply.messages.map((payload) => ({
+						channelId: payload.channel_id,
+						message: fromPayload(payload)
+					}))
+				})
+			)
+			.receive('error', (reply: { reason?: string }) =>
+				resolve({ ok: false, reason: reply?.reason === 'rate_limited' ? 'rate_limited' : 'failed' })
+			)
+			.receive('timeout', () => resolve({ ok: false, reason: 'failed' }));
 	});
 }
 

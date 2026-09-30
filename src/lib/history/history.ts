@@ -27,9 +27,15 @@ interface StoredAuthor {
 	displayName: string;
 }
 
+interface StoredReplyOriginal {
+	author: StoredAuthor;
+	content: string;
+	forwardedFrom?: string | null;
+}
+
 export interface StoredReply {
 	id: string;
-	original: { author: StoredAuthor; content: string } | null;
+	original: StoredReplyOriginal | null;
 }
 
 export interface OutboxRecord {
@@ -62,6 +68,7 @@ interface StoredMessage {
 	content: string;
 	sentAt: string;
 	reply?: StoredReply | null;
+	forwardedFrom?: string | null;
 }
 
 function toStoredAuthor(author: MessageAuthor): StoredAuthor {
@@ -72,24 +79,30 @@ function fromStoredAuthor(stored: StoredAuthor): MessageAuthor {
 	return { id: stored.id, username: stored.username, name: stored.displayName };
 }
 
+type ReplyOriginal = NonNullable<MessageReply['original']>;
+
+function toStoredOriginal(original: ReplyOriginal): StoredReplyOriginal {
+	return {
+		author: toStoredAuthor(original.author),
+		content: original.text,
+		forwardedFrom: original.forwardedFrom?.username ?? null
+	};
+}
+
+function fromStoredOriginal(stored: StoredReplyOriginal): ReplyOriginal {
+	const original: ReplyOriginal = { author: fromStoredAuthor(stored.author), text: stored.content };
+	if (stored.forwardedFrom) original.forwardedFrom = { username: stored.forwardedFrom };
+	return original;
+}
+
 export function toStoredReply(reply: MessageReply | undefined): StoredReply | null {
 	if (!reply) return null;
-	return {
-		id: reply.id,
-		original: reply.original
-			? { author: toStoredAuthor(reply.original.author), content: reply.original.text }
-			: null
-	};
+	return { id: reply.id, original: reply.original ? toStoredOriginal(reply.original) : null };
 }
 
 export function fromStoredReply(stored: StoredReply | null | undefined): MessageReply | undefined {
 	if (!stored) return undefined;
-	return {
-		id: stored.id,
-		original: stored.original
-			? { author: fromStoredAuthor(stored.original.author), text: stored.original.content }
-			: null
-	};
+	return { id: stored.id, original: stored.original ? fromStoredOriginal(stored.original) : null };
 }
 
 function toStored(channelId: string, message: Message): StoredMessage {
@@ -99,7 +112,8 @@ function toStored(channelId: string, message: Message): StoredMessage {
 		author: toStoredAuthor(message.author),
 		content: message.text,
 		sentAt: message.sentAt.toISOString(),
-		reply: toStoredReply(message.replyTo)
+		reply: toStoredReply(message.replyTo),
+		forwardedFrom: message.forwardedFrom?.username ?? null
 	};
 }
 
@@ -112,6 +126,7 @@ function fromStored(stored: StoredMessage): Message {
 	};
 	const replyTo = fromStoredReply(stored.reply);
 	if (replyTo) message.replyTo = replyTo;
+	if (stored.forwardedFrom) message.forwardedFrom = { username: stored.forwardedFrom };
 	return message;
 }
 

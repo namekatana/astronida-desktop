@@ -207,6 +207,7 @@ export type Database = {
 					content: string;
 					created_at: string;
 					deleted_at: string | null;
+					forwarded_from_username: string | null;
 					id: string;
 					reply_to_id: string | null;
 				};
@@ -216,6 +217,7 @@ export type Database = {
 					content: string;
 					created_at?: string;
 					deleted_at?: string | null;
+					forwarded_from_username?: string | null;
 					id?: string;
 					reply_to_id?: string | null;
 				};
@@ -225,6 +227,7 @@ export type Database = {
 					content?: string;
 					created_at?: string;
 					deleted_at?: string | null;
+					forwarded_from_username?: string | null;
 					id?: string;
 					reply_to_id?: string | null;
 				};

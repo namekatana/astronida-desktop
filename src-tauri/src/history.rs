@@ -29,7 +29,8 @@ const SCHEMA: &str = "
         author_id TEXT NOT NULL,
         content TEXT NOT NULL,
         sent_at TEXT NOT NULL,
-        reply BLOB
+        reply BLOB,
+        forwarded_from TEXT
     );
     CREATE INDEX IF NOT EXISTS messages_channel_id ON messages (channel_id, id);
     CREATE TABLE IF NOT EXISTS profiles (
@@ -75,6 +76,8 @@ pub struct Author {
 pub struct ReplyOriginal {
     author: Author,
     content: String,
+    #[serde(default)]
+    forwarded_from: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -94,6 +97,8 @@ pub struct HistoryMessage {
     sent_at: String,
     #[serde(default)]
     reply: Option<Reply>,
+    #[serde(default)]
+    forwarded_from: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -131,11 +136,15 @@ fn describe(error: impl ToString) -> String {
 }
 
 fn lock<'a>(history: &'a State<'a, History>) -> Result<MutexGuard<'a, Option<Account>>, String> {
-    history.0.lock().map_err(|_| "history storage is locked".to_string())
+    history
+        .0
+        .lock()
+        .map_err(|_| "history storage is locked".to_string())
 }
 
 fn account(slot: &mut Option<Account>) -> Result<&mut Account, String> {
-    slot.as_mut().ok_or_else(|| "history is not open".to_string())
+    slot.as_mut()
+        .ok_or_else(|| "history is not open".to_string())
 }
 
 fn opened(slot: &mut Option<Account>) -> Result<&mut Connection, String> {
@@ -228,8 +237,16 @@ fn insert_outbox(
     cipher: &Aes256Gcm,
     entry: &OutboxEntry,
 ) -> Result<(), String> {
-    let sealed = local_key::seal(cipher, &entry.content, &context(OUTBOX_CONTENT, &entry.client_id))?;
-    let sealed_reply = seal_reply(cipher, &entry.reply, &context(OUTBOX_REPLY, &entry.client_id))?;
+    let sealed = local_key::seal(
+        cipher,
+        &entry.content,
+        &context(OUTBOX_CONTENT, &entry.client_id),
+    )?;
+    let sealed_reply = seal_reply(
+        cipher,
+        &entry.reply,
+        &context(OUTBOX_REPLY, &entry.client_id),
+    )?;
     transaction
         .execute(
             "INSERT INTO outbox (client_id, channel_id, content, created_at, reply) VALUES (?1, ?2, ?3, ?4, ?5)
@@ -261,15 +278,22 @@ fn unseal_reply(
     let Ok(Some(sealed)) = row.get_ref(index)?.as_blob_or_null() else {
         return Ok(None);
     };
-    Ok(local_key::unseal(cipher, sealed, context)
-        .and_then(|json| serde_json::from_str(&json).ok()))
+    Ok(
+        local_key::unseal(cipher, sealed, context)
+            .and_then(|json| serde_json::from_str(&json).ok()),
+    )
 }
 
-fn ensure_reply_column(connection: &Connection, table: &str) -> Result<(), String> {
+fn ensure_column(
+    connection: &Connection,
+    table: &str,
+    column: &str,
+    column_type: &str,
+) -> Result<(), String> {
     let exists: bool = connection
         .query_row(
-            "SELECT EXISTS (SELECT 1 FROM pragma_table_info(?1) WHERE name = 'reply')",
-            params![table],
+            "SELECT EXISTS (SELECT 1 FROM pragma_table_info(?1) WHERE name = ?2)",
+            params![table, column],
             |row| row.get(0),
         )
         .map_err(describe)?;
@@ -277,7 +301,9 @@ fn ensure_reply_column(connection: &Connection, table: &str) -> Result<(), Strin
         return Ok(());
     }
     connection
-        .execute_batch(&format!("ALTER TABLE {table} ADD COLUMN reply BLOB;"))
+        .execute_batch(&format!(
+            "ALTER TABLE {table} ADD COLUMN {column} {column_type};"
+        ))
         .map_err(describe)
 }
 
@@ -329,17 +355,26 @@ fn message_from_row(row: &Row, cipher: &Aes256Gcm) -> rusqlite::Result<Option<Hi
         channel_id: row.get(1)?,
         author: Author {
             id: row.get(2)?,
-            username: row.get::<_, Option<String>>(5)?.unwrap_or_else(|| "unknown".into()),
-            display_name: row.get::<_, Option<String>>(6)?.unwrap_or_else(|| "?".into()),
+            username: row
+                .get::<_, Option<String>>(5)?
+                .unwrap_or_else(|| "unknown".into()),
+            display_name: row
+                .get::<_, Option<String>>(6)?
+                .unwrap_or_else(|| "?".into()),
         },
         content,
         sent_at: row.get(4)?,
         reply,
+        forwarded_from: row.get(8)?,
     }))
 }
 
 #[tauri::command]
-pub fn history_open(app: AppHandle, history: State<History>, user_id: String) -> Result<(), String> {
+pub fn history_open(
+    app: AppHandle,
+    history: State<History>,
+    user_id: String,
+) -> Result<(), String> {
     if !valid_user_id(&user_id) {
         return Err("invalid user id".to_string());
     }
@@ -353,8 +388,9 @@ pub fn history_open(app: AppHandle, history: State<History>, user_id: String) ->
     let key = local_key::load_or_create(&dir)?;
     let mut connection = Connection::open(dir.join("history.sqlite")).map_err(describe)?;
     connection.execute_batch(SCHEMA).map_err(describe)?;
-    ensure_reply_column(&connection, "messages")?;
-    ensure_reply_column(&connection, "outbox")?;
+    ensure_column(&connection, "messages", "reply", "BLOB")?;
+    ensure_column(&connection, "messages", "forwarded_from", "TEXT")?;
+    ensure_column(&connection, "outbox", "reply", "BLOB")?;
     migrate(&mut connection, &key.cipher, key.fresh)?;
     *lock(&history)? = Some(Account {
         connection,
@@ -376,7 +412,7 @@ pub fn history_page(
     } = account(&mut slot)?;
     let mut statement = connection
         .prepare(
-            "SELECT m.id, m.channel_id, m.author_id, m.content, m.sent_at, p.username, p.display_name, m.reply
+            "SELECT m.id, m.channel_id, m.author_id, m.content, m.sent_at, p.username, p.display_name, m.reply, m.forwarded_from
              FROM messages m LEFT JOIN profiles p ON p.id = m.author_id
              WHERE m.channel_id = ?1 AND (?2 IS NULL OR m.id < ?2)
              ORDER BY m.id DESC LIMIT ?3",
@@ -405,7 +441,10 @@ pub fn history_page(
         .unwrap_or(0)
         != 0;
 
-    Ok(HistoryPage { messages, reached_start })
+    Ok(HistoryPage {
+        messages,
+        reached_start,
+    })
 }
 
 #[tauri::command]
@@ -450,15 +489,19 @@ fn upsert_messages(
         .map_err(describe)?;
     let mut message = transaction
         .prepare_cached(
-            "INSERT INTO messages (id, channel_id, author_id, content, sent_at, reply) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-             ON CONFLICT (id) DO UPDATE SET content = excluded.content, sent_at = excluded.sent_at, reply = excluded.reply",
+            "INSERT INTO messages (id, channel_id, author_id, content, sent_at, reply, forwarded_from) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+             ON CONFLICT (id) DO UPDATE SET content = excluded.content, sent_at = excluded.sent_at, reply = excluded.reply, forwarded_from = excluded.forwarded_from",
         )
         .map_err(describe)?;
     for item in messages {
         let sealed = local_key::seal(cipher, &item.content, &context(MESSAGE_CONTENT, &item.id))?;
         let sealed_reply = seal_reply(cipher, &item.reply, &context(MESSAGE_REPLY, &item.id))?;
         profile
-            .execute(params![item.author.id, item.author.username, item.author.display_name])
+            .execute(params![
+                item.author.id,
+                item.author.username,
+                item.author.display_name
+            ])
             .map_err(describe)?;
         message
             .execute(params![
@@ -467,7 +510,8 @@ fn upsert_messages(
                 item.author.id,
                 sealed,
                 item.sent_at,
-                sealed_reply
+                sealed_reply,
+                item.forwarded_from
             ])
             .map_err(describe)?;
     }
@@ -508,7 +552,9 @@ pub fn history_newest_ids(history: State<History>) -> Result<HashMap<String, Str
         .prepare("SELECT channel_id, MAX(id) FROM messages GROUP BY channel_id")
         .map_err(describe)?;
     let rows = statement
-        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
         .map_err(describe)?;
     rows.collect::<Result<HashMap<_, _>, _>>().map_err(describe)
 }
@@ -524,7 +570,7 @@ pub fn history_latest_messages(
     } = account(&mut slot)?;
     let mut statement = connection
         .prepare(
-            "SELECT m.id, m.channel_id, m.author_id, m.content, m.sent_at, p.username, p.display_name, m.reply
+            "SELECT m.id, m.channel_id, m.author_id, m.content, m.sent_at, p.username, p.display_name, m.reply, m.forwarded_from
              FROM messages m LEFT JOIN profiles p ON p.id = m.author_id
              WHERE m.channel_id = ?1
              ORDER BY m.id DESC LIMIT 1",
@@ -566,7 +612,10 @@ pub fn outbox_put(history: State<History>, entry: OutboxEntry) -> Result<(), Str
 pub fn outbox_remove(history: State<History>, client_id: String) -> Result<(), String> {
     let mut slot = lock(&history)?;
     opened(&mut slot)?
-        .execute("DELETE FROM outbox WHERE client_id = ?1", params![client_id])
+        .execute(
+            "DELETE FROM outbox WHERE client_id = ?1",
+            params![client_id],
+        )
         .map_err(describe)?;
     Ok(())
 }
@@ -593,7 +642,8 @@ pub fn cache_get(history: State<History>, section: String) -> Result<Option<Stri
         )
         .optional()
         .map_err(describe)?;
-    Ok(sealed.and_then(|sealed| local_key::unseal(cipher, &sealed, &context(CACHE_VALUE, &section))))
+    Ok(sealed
+        .and_then(|sealed| local_key::unseal(cipher, &sealed, &context(CACHE_VALUE, &section))))
 }
 
 #[tauri::command]
@@ -619,10 +669,16 @@ pub fn history_drop_channel(history: State<History>, channel_id: String) -> Resu
     let mut slot = lock(&history)?;
     let transaction = opened(&mut slot)?.transaction().map_err(describe)?;
     transaction
-        .execute("DELETE FROM messages WHERE channel_id = ?1", params![channel_id])
+        .execute(
+            "DELETE FROM messages WHERE channel_id = ?1",
+            params![channel_id],
+        )
         .map_err(describe)?;
     transaction
-        .execute("DELETE FROM channel_sync WHERE channel_id = ?1", params![channel_id])
+        .execute(
+            "DELETE FROM channel_sync WHERE channel_id = ?1",
+            params![channel_id],
+        )
         .map_err(describe)?;
     transaction.commit().map_err(describe)
 }
@@ -632,6 +688,9 @@ pub fn history_clear(history: State<History>) -> Result<(), String> {
     let account = lock(&history)?
         .take()
         .ok_or_else(|| "history is not open".to_string())?;
-    account.connection.close().map_err(|(_, error)| describe(error))?;
+    account
+        .connection
+        .close()
+        .map_err(|(_, error)| describe(error))?;
     std::fs::remove_dir_all(&account.dir).map_err(describe)
 }
