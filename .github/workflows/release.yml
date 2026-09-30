@@ -31,7 +31,7 @@ jobs:
         with:
           toolchain: stable
 
-      - run: npm ci
+      - run: npm ci --ignore-scripts
 
       - run: npm audit --omit=dev --audit-level=high
 
@@ -40,17 +40,39 @@ jobs:
       - run: cargo audit
         working-directory: src-tauri
 
+      - name: Check release variables
+        shell: pwsh
+        env:
+          PUBLIC_SUPABASE_URL: ${{ vars.PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          PUBLIC_PHOENIX_URL: ${{ vars.PUBLIC_PHOENIX_URL }}
+        run: |
+          $missing = 'PUBLIC_SUPABASE_URL', 'PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'PUBLIC_PHOENIX_URL' |
+            Where-Object { -not [Environment]::GetEnvironmentVariable($_) }
+          if ($missing) {
+            Write-Error "Missing release variables: $($missing -join ', ')"
+            exit 1
+          }
+
+      - name: Build frontend
+        run: npm run build
+        env:
+          PUBLIC_SUPABASE_URL: ${{ vars.PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          PUBLIC_PHOENIX_URL: ${{ vars.PUBLIC_PHOENIX_URL }}
+          PUBLIC_VOICE_TRANSPORT: ${{ vars.PUBLIC_VOICE_TRANSPORT }}
+
+      - name: Compile without signing secrets
+        run: npx tauri build --no-bundle --config src-tauri/tauri.release.conf.json
+
       - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          PUBLIC_SUPABASE_URL: ${{ vars.PUBLIC_SUPABASE_URL }}
-          PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
-          PUBLIC_PHOENIX_URL: ${{ vars.PUBLIC_PHOENIX_URL }}
-          PUBLIC_VOICE_TRANSPORT: ${{ vars.PUBLIC_VOICE_TRANSPORT }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: Astronida ${{ github.ref_name }}
           releaseDraft: true
           updaterJsonPreferNsis: true
+          args: --config src-tauri/tauri.release.conf.json
