@@ -1,13 +1,9 @@
 import { untrack } from 'svelte';
 import type { Sync } from '$lib/sync/sync';
 import { cachedPinned, storePinned } from './pins-cache';
-import {
-	loadPinnedMessages,
-	setMessagePinned,
-	subscribeToPins,
-	type Message,
-	type PinFailure
-} from './messages';
+import { setMessagePinned, type PinFailure } from './message-actions';
+import { compareIds, loadPinnedMessages, type Message } from './messages';
+import { subscribeToPins } from './rooms';
 
 const hiddenStorageKey = 'astronida.pins.hidden';
 const errorVisibleMs = 3000;
@@ -30,7 +26,7 @@ function writeHidden(hidden: Record<string, string[]>) {
 }
 
 function newestFirst(messages: Message[]): Message[] {
-	return [...messages].sort((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
+	return [...messages].sort((a, b) => compareIds(b, a));
 }
 
 const failureText: Record<PinFailure, string> = {

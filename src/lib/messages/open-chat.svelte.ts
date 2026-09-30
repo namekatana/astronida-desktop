@@ -2,7 +2,8 @@ import { untrack } from 'svelte';
 import { unread, type UnreadMark } from '$lib/notifications/unread.svelte';
 import type { Sync } from '$lib/sync/sync';
 import type { Feeds } from './feeds.svelte';
-import { sendTyping, subscribeToChannel, type Message } from './messages';
+import type { Message } from './messages';
+import { sendTyping, subscribeToChannel } from './rooms';
 import { clearTyping, createTypingSender, markTyping } from './typing.svelte';
 
 function firstUnreadId(messages: Message[], mark: UnreadMark, hasMore: boolean): string | null {

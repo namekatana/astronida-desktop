@@ -1,5 +1,5 @@
 import { history, type HistoryCoverage } from '$lib/history/history';
-import { loadMessages, pageSize, type Message } from './messages';
+import { compareIds, loadMessages, pageSize, type Message } from './messages';
 
 interface Feed {
 	messages: Message[];
@@ -61,10 +61,6 @@ export function createFeeds() {
 		return true;
 	}
 
-	function sortMessages(feed: Feed) {
-		feed.messages.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-	}
-
 	function mergeMessages(channelId: string, incoming: Message[], coverage?: HistoryCoverage) {
 		const feed = feedFor(channelId);
 		if (coverage) dropMissing(feed, incoming, coverage);
@@ -75,7 +71,7 @@ export function createFeeds() {
 		const appendsInOrder =
 			fresh.every((m, i) => i === 0 || fresh[i - 1].id < m.id) && (!last || last.id < fresh[0].id);
 		feed.messages.push(...fresh);
-		if (!appendsInOrder) sortMessages(feed);
+		if (!appendsInOrder) feed.messages.sort(compareIds);
 	}
 
 	function absorb(
@@ -146,18 +142,24 @@ export function createFeeds() {
 		if (pending) pending.status = 'failed';
 	}
 
-	async function open(channelId: string) {
+	async function readDisk(channelId: string, before?: string): Promise<boolean> {
 		const feed = feedFor(channelId);
-		if (isLoaded(channelId)) return;
 		try {
-			const page = await history.page(channelId);
+			const page = await history.page(channelId, before);
 			mergeMessages(channelId, page.messages);
 			feed.localExhausted = page.messages.length < pageSize;
 			feed.hasMore = !feed.localExhausted || !page.reachedStart;
+			return true;
 		} catch {
 			feed.localExhausted = true;
-			feed.hasMore = true;
+			return false;
 		}
+	}
+
+	async function open(channelId: string) {
+		const feed = feedFor(channelId);
+		if (isLoaded(channelId)) return;
+		if (!(await readDisk(channelId))) feed.hasMore = true;
 	}
 
 	function newestConfirmedId(feed: Feed): string | undefined {
@@ -215,18 +217,6 @@ export function createFeeds() {
 		feed.hasMore = latest.hasMore;
 	}
 
-	async function loadOlderFromDisk(channelId: string, before: string) {
-		const feed = feedFor(channelId);
-		try {
-			const page = await history.page(channelId, before);
-			mergeMessages(channelId, page.messages);
-			feed.localExhausted = page.messages.length < pageSize;
-			feed.hasMore = !feed.localExhausted || !page.reachedStart;
-		} catch {
-			feed.localExhausted = true;
-		}
-	}
-
 	async function loadOlderFromServer(channelId: string, before: string) {
 		const loaded = await loadMessages({ channelId, before });
 		if (!loaded) return;
@@ -241,7 +231,7 @@ export function createFeeds() {
 		if (feedFor(channelId).localExhausted) {
 			await loadOlderFromServer(channelId, before);
 		} else {
-			await loadOlderFromDisk(channelId, before);
+			await readDisk(channelId, before);
 		}
 	}
 

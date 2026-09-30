@@ -1,5 +1,7 @@
 import { fromStoredReply, history, toStoredReply, type OutboxRecord } from '$lib/history/history';
-import { holdRoom, sendMessage, type Message, type MessageReply } from './messages';
+import { sendMessage, type SendResult } from './message-actions';
+import type { Message, MessageReply } from './messages';
+import { holdRoom } from './rooms';
 
 export interface OutboxEntry {
 	clientId: string;
@@ -105,7 +107,7 @@ export function createOutbox(handlers: OutboxHandlers) {
 		);
 	}
 
-	function settle(entry: OutboxEntry, result: Awaited<ReturnType<typeof sendMessage>>) {
+	function settle(entry: OutboxEntry, result: SendResult) {
 		void history.outboxRemove(entry.clientId).catch(() => {});
 		const wasCancelled = cancelled.delete(entry.clientId);
 		if (result.ok) handlers.onSent(entry, result.message);

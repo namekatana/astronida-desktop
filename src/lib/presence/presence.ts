@@ -1,6 +1,7 @@
 import { Presence, type Channel as PhoenixChannel } from 'phoenix';
 import { categoryFrom, channelFrom, type Category, type Channel } from '$lib/channels/channels';
 import { fromPayload, type Message, type MessagePayload } from '$lib/messages/messages';
+import { pushTo } from '$lib/realtime/push';
 import { phoenixSocket } from '$lib/realtime/socket';
 import { joinedMemberFrom, type JoinedMember } from '$lib/servers/members';
 
@@ -72,30 +73,31 @@ function collect(presence: Presence): ServerPresence {
 	return { online, voice };
 }
 
-function pushJoin(
+const offlineMessage = 'Нет соединения с сервером';
+
+async function pushJoin(
 	channel: PhoenixChannel,
 	announcement: VoiceAnnouncement
 ): Promise<VoiceJoinResult> {
-	return new Promise((resolve) => {
-		channel
-			.push('voice:join', {
-				channel_id: announcement.channelId,
-				mic_muted: announcement.micMuted,
-				deafened: announcement.deafened
-			})
-			.receive('ok', (reply: JoinReply) =>
-				resolve({
-					ok: true,
-					value: {
-						url: reply.url,
-						token: reply.token,
-						e2ee: { key: reply.e2ee_key, version: reply.e2ee_version }
-					}
-				})
-			)
-			.receive('error', () => resolve({ ok: false, message: 'Не удалось подключиться к голосу' }))
-			.receive('timeout', () => resolve({ ok: false, message: 'Нет соединения с сервером' }));
+	const outcome = await pushTo<JoinReply>(channel, 'voice:join', {
+		channel_id: announcement.channelId,
+		mic_muted: announcement.micMuted,
+		deafened: announcement.deafened
 	});
+	if (!outcome.ok) {
+		const message =
+			outcome.reason === 'timeout' ? offlineMessage : 'Не удалось подключиться к голосу';
+		return { ok: false, message };
+	}
+	const reply = outcome.reply;
+	return {
+		ok: true,
+		value: {
+			url: reply.url,
+			token: reply.token,
+			e2ee: { key: reply.e2ee_key, version: reply.e2ee_version }
+		}
+	};
 }
 
 export function subscribeToServerPresence(input: {
@@ -163,7 +165,7 @@ export function joinVoice(
 	announcement: VoiceAnnouncement
 ): Promise<VoiceJoinResult> {
 	const channel = channels.get(serverId);
-	if (!channel) return Promise.resolve({ ok: false, message: 'Нет соединения с сервером' });
+	if (!channel) return Promise.resolve({ ok: false, message: offlineMessage });
 	return pushJoin(channel, announcement);
 }
 
@@ -178,15 +180,12 @@ export function leaveVoice(serverId: string) {
 	channels.get(serverId)?.push('voice:leave', {});
 }
 
-export function requestVoiceKey(serverId: string, channelId: string): Promise<VoiceKey | null> {
+export async function requestVoiceKey(
+	serverId: string,
+	channelId: string
+): Promise<VoiceKey | null> {
 	const channel = channels.get(serverId);
-	if (!channel) return Promise.resolve(null);
-
-	return new Promise((resolve) => {
-		channel
-			.push('voice_key', { channel_id: channelId })
-			.receive('ok', (payload: VoiceKey) => resolve(payload))
-			.receive('error', () => resolve(null))
-			.receive('timeout', () => resolve(null));
-	});
+	if (!channel) return null;
+	const outcome = await pushTo<VoiceKey>(channel, 'voice_key', { channel_id: channelId });
+	return outcome.ok ? outcome.reply : null;
 }

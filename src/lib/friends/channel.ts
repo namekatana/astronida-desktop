@@ -1,4 +1,5 @@
 import type { Channel } from 'phoenix';
+import { pushTo, type PushOutcome } from '$lib/realtime/push';
 import { phoenixSocket } from '$lib/realtime/socket';
 import type { Friend, FriendRelation, UserSearchResult } from './friends';
 
@@ -22,8 +23,6 @@ interface JoinReply {
 	online: string[];
 	incoming: ProfilePayload[];
 }
-
-type PushOutcome<T> = { ok: true; reply: T } | { ok: false; reason: string };
 
 export type SearchOutcome =
 	{ ok: true; results: UserSearchResult[] } | { ok: false; reason: 'rate_limited' | 'failed' };
@@ -97,16 +96,7 @@ export function subscribeToFriends(input: {
 function push<T>(event: string, payload: object): Promise<PushOutcome<T>> {
 	const channel = session?.channel;
 	if (!channel) return Promise.resolve({ ok: false, reason: 'offline' });
-
-	return new Promise((resolve) => {
-		channel
-			.push(event, payload)
-			.receive('ok', (reply: T) => resolve({ ok: true, reply }))
-			.receive('error', (reply: { reason?: string }) =>
-				resolve({ ok: false, reason: reply?.reason ?? 'failed' })
-			)
-			.receive('timeout', () => resolve({ ok: false, reason: 'timeout' }));
-	});
+	return pushTo<T>(channel, event, payload);
 }
 
 export async function searchUsers(query: string): Promise<SearchOutcome> {

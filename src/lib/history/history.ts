@@ -1,9 +1,11 @@
 import { invoke } from '@tauri-apps/api/core';
 import {
+	compareIds,
 	pageSize,
 	type Message,
 	type MessageAuthor,
-	type MessageReply
+	type MessageReply,
+	type ReplyOriginal
 } from '$lib/messages/messages';
 
 export interface HistoryPage {
@@ -79,8 +81,6 @@ function toStoredAuthor(author: MessageAuthor): StoredAuthor {
 function fromStoredAuthor(stored: StoredAuthor): MessageAuthor {
 	return { id: stored.id, username: stored.username, name: stored.displayName };
 }
-
-type ReplyOriginal = NonNullable<MessageReply['original']>;
 
 function toStoredOriginal(original: ReplyOriginal): StoredReplyOriginal {
 	return {
@@ -226,7 +226,7 @@ function createMemoryBackend(): HistoryBackend {
 		async page(channelId, before) {
 			const messages = [...rows.values()]
 				.filter((row) => row.channelId === channelId && (before === undefined || row.id < before))
-				.sort((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0))
+				.sort((a, b) => compareIds(b, a))
 				.slice(0, pageSize)
 				.reverse()
 				.map(fromStored);
