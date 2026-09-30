@@ -209,7 +209,6 @@ export type Database = {
 					deleted_at: string | null;
 					id: string;
 					reply_to_id: string | null;
-					search: unknown;
 				};
 				Insert: {
 					author_id: string;
@@ -219,7 +218,6 @@ export type Database = {
 					deleted_at?: string | null;
 					id?: string;
 					reply_to_id?: string | null;
-					search?: unknown;
 				};
 				Update: {
 					author_id?: string;
@@ -229,7 +227,6 @@ export type Database = {
 					deleted_at?: string | null;
 					id?: string;
 					reply_to_id?: string | null;
-					search?: unknown;
 				};
 				Relationships: [
 					{
