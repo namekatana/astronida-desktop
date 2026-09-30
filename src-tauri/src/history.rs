@@ -9,8 +9,15 @@ use tauri::{AppHandle, Manager, State};
 use crate::local_key;
 
 const PAGE_SIZE: i64 = 50;
-const SCHEMA_VERSION: i64 = 1;
+const SCHEMA_VERSION: i64 = 2;
 const MAX_CACHE_SECTION_LENGTH: usize = 64;
+
+const MESSAGE_CONTENT: &str = "messages.content";
+const MESSAGE_REPLY: &str = "messages.reply";
+const OUTBOX_CONTENT: &str = "outbox.content";
+const OUTBOX_REPLY: &str = "outbox.reply";
+const CACHE_VALUE: &str = "cache.value";
+const LEGACY_CONTEXT: &str = "";
 
 const SCHEMA: &str = "
     PRAGMA journal_mode = WAL;
@@ -161,13 +168,68 @@ fn plain_outbox(connection: &Connection) -> Result<Vec<OutboxEntry>, String> {
     Ok(entries.into_iter().flatten().collect())
 }
 
+fn context(field: &str, key: &str) -> String {
+    format!("{field}:{key}")
+}
+
+fn outbox_context(field: &str, client_id: &str, legacy: bool) -> String {
+    if legacy {
+        LEGACY_CONTEXT.to_string()
+    } else {
+        context(field, client_id)
+    }
+}
+
+fn read_outbox(
+    connection: &Connection,
+    cipher: &Aes256Gcm,
+    legacy: bool,
+) -> Result<Vec<OutboxEntry>, String> {
+    let mut statement = connection
+        .prepare(
+            "SELECT client_id, channel_id, content, created_at, reply FROM outbox ORDER BY created_at, client_id",
+        )
+        .map_err(describe)?;
+    let entries = statement
+        .query_map([], |row| outbox_from_row(row, cipher, legacy))
+        .map_err(describe)?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(describe)?;
+    Ok(entries.into_iter().flatten().collect())
+}
+
+fn outbox_from_row(
+    row: &Row,
+    cipher: &Aes256Gcm,
+    legacy: bool,
+) -> rusqlite::Result<Option<OutboxEntry>> {
+    let client_id: String = row.get(0)?;
+    let content_context = outbox_context(OUTBOX_CONTENT, &client_id, legacy);
+    let reply_context = outbox_context(OUTBOX_REPLY, &client_id, legacy);
+    let content = row
+        .get_ref(2)?
+        .as_blob()
+        .ok()
+        .and_then(|sealed| local_key::unseal(cipher, sealed, &content_context));
+    let Some(content) = content else {
+        return Ok(None);
+    };
+    Ok(Some(OutboxEntry {
+        channel_id: row.get(1)?,
+        content,
+        created_at: row.get(3)?,
+        reply: unseal_reply(row, 4, cipher, &reply_context)?,
+        client_id,
+    }))
+}
+
 fn insert_outbox(
     transaction: &Transaction,
     cipher: &Aes256Gcm,
     entry: &OutboxEntry,
 ) -> Result<(), String> {
-    let sealed = local_key::seal(cipher, &entry.content)?;
-    let sealed_reply = seal_reply(cipher, &entry.reply)?;
+    let sealed = local_key::seal(cipher, &entry.content, &context(OUTBOX_CONTENT, &entry.client_id))?;
+    let sealed_reply = seal_reply(cipher, &entry.reply, &context(OUTBOX_REPLY, &entry.client_id))?;
     transaction
         .execute(
             "INSERT INTO outbox (client_id, channel_id, content, created_at, reply) VALUES (?1, ?2, ?3, ?4, ?5)
@@ -178,19 +240,29 @@ fn insert_outbox(
     Ok(())
 }
 
-fn seal_reply(cipher: &Aes256Gcm, reply: &Option<Reply>) -> Result<Option<Vec<u8>>, String> {
+fn seal_reply(
+    cipher: &Aes256Gcm,
+    reply: &Option<Reply>,
+    context: &str,
+) -> Result<Option<Vec<u8>>, String> {
     let Some(reply) = reply else {
         return Ok(None);
     };
     let json = serde_json::to_string(reply).map_err(describe)?;
-    local_key::seal(cipher, &json).map(Some)
+    local_key::seal(cipher, &json, context).map(Some)
 }
 
-fn unseal_reply(row: &Row, index: usize, cipher: &Aes256Gcm) -> rusqlite::Result<Option<Reply>> {
+fn unseal_reply(
+    row: &Row,
+    index: usize,
+    cipher: &Aes256Gcm,
+    context: &str,
+) -> rusqlite::Result<Option<Reply>> {
     let Ok(Some(sealed)) = row.get_ref(index)?.as_blob_or_null() else {
         return Ok(None);
     };
-    Ok(local_key::unseal(cipher, sealed).and_then(|json| serde_json::from_str(&json).ok()))
+    Ok(local_key::unseal(cipher, sealed, context)
+        .and_then(|json| serde_json::from_str(&json).ok()))
 }
 
 fn ensure_reply_column(connection: &Connection, table: &str) -> Result<(), String> {
@@ -216,10 +288,10 @@ fn migrate(connection: &mut Connection, cipher: &Aes256Gcm, fresh_key: bool) -> 
     if version >= SCHEMA_VERSION && !fresh_key {
         return Ok(());
     }
-    let readable_outbox = if version < SCHEMA_VERSION {
-        plain_outbox(connection)?
-    } else {
-        Vec::new()
+    let readable_outbox = match version {
+        0 => plain_outbox(connection)?,
+        1 if !fresh_key => read_outbox(connection, cipher, true)?,
+        _ => Vec::new(),
     };
     let transaction = connection.transaction().map_err(describe)?;
     transaction
@@ -244,14 +316,16 @@ fn migrate(connection: &mut Connection, cipher: &Aes256Gcm, fresh_key: bool) -> 
 }
 
 fn message_from_row(row: &Row, cipher: &Aes256Gcm) -> rusqlite::Result<Option<HistoryMessage>> {
+    let id: String = row.get(0)?;
     let Ok(sealed) = row.get_ref(3)?.as_blob() else {
         return Ok(None);
     };
-    let Some(content) = local_key::unseal(cipher, sealed) else {
+    let Some(content) = local_key::unseal(cipher, sealed, &context(MESSAGE_CONTENT, &id)) else {
         return Ok(None);
     };
+    let reply = unseal_reply(row, 7, cipher, &context(MESSAGE_REPLY, &id))?;
     Ok(Some(HistoryMessage {
-        id: row.get(0)?,
+        id,
         channel_id: row.get(1)?,
         author: Author {
             id: row.get(2)?,
@@ -260,7 +334,7 @@ fn message_from_row(row: &Row, cipher: &Aes256Gcm) -> rusqlite::Result<Option<Hi
         },
         content,
         sent_at: row.get(4)?,
-        reply: unseal_reply(row, 7, cipher)?,
+        reply,
     }))
 }
 
@@ -381,8 +455,8 @@ fn upsert_messages(
         )
         .map_err(describe)?;
     for item in messages {
-        let sealed = local_key::seal(cipher, &item.content)?;
-        let sealed_reply = seal_reply(cipher, &item.reply)?;
+        let sealed = local_key::seal(cipher, &item.content, &context(MESSAGE_CONTENT, &item.id))?;
+        let sealed_reply = seal_reply(cipher, &item.reply, &context(MESSAGE_REPLY, &item.id))?;
         profile
             .execute(params![item.author.id, item.author.username, item.author.display_name])
             .map_err(describe)?;
@@ -474,33 +548,7 @@ pub fn outbox_list(history: State<History>) -> Result<Vec<OutboxEntry>, String> 
     let Account {
         connection, cipher, ..
     } = account(&mut slot)?;
-    let mut statement = connection
-        .prepare(
-            "SELECT client_id, channel_id, content, created_at, reply FROM outbox ORDER BY created_at, client_id",
-        )
-        .map_err(describe)?;
-    let entries = statement
-        .query_map([], |row| {
-            let content = row
-                .get_ref(2)?
-                .as_blob()
-                .ok()
-                .and_then(|sealed| local_key::unseal(cipher, sealed));
-            Ok(match content {
-                Some(content) => Some(OutboxEntry {
-                    client_id: row.get(0)?,
-                    channel_id: row.get(1)?,
-                    content,
-                    created_at: row.get(3)?,
-                    reply: unseal_reply(row, 4, cipher)?,
-                }),
-                None => None,
-            })
-        })
-        .map_err(describe)?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(describe)?;
-    Ok(entries.into_iter().flatten().collect())
+    read_outbox(connection, cipher, false)
 }
 
 #[tauri::command]
@@ -545,7 +593,7 @@ pub fn cache_get(history: State<History>, section: String) -> Result<Option<Stri
         )
         .optional()
         .map_err(describe)?;
-    Ok(sealed.and_then(|sealed| local_key::unseal(cipher, &sealed)))
+    Ok(sealed.and_then(|sealed| local_key::unseal(cipher, &sealed, &context(CACHE_VALUE, &section))))
 }
 
 #[tauri::command]
@@ -555,7 +603,7 @@ pub fn cache_put(history: State<History>, section: String, value: String) -> Res
     let Account {
         connection, cipher, ..
     } = account(&mut slot)?;
-    let sealed = local_key::seal(cipher, &value)?;
+    let sealed = local_key::seal(cipher, &value, &context(CACHE_VALUE, &section))?;
     connection
         .execute(
             "INSERT INTO cache (section, value) VALUES (?1, ?2)

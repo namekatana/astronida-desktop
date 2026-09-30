@@ -1,4 +1,4 @@
-use aes_gcm::aead::{Aead, AeadCore, KeyInit, OsRng};
+use aes_gcm::aead::{Aead, AeadCore, KeyInit, OsRng, Payload};
 use aes_gcm::{Aes256Gcm, Key, Nonce};
 use std::fs;
 use std::path::Path;
@@ -46,21 +46,29 @@ pub fn load_or_create(dir: &Path) -> Result<LocalKey, String> {
     })
 }
 
-pub fn seal(cipher: &Aes256Gcm, plain: &str) -> Result<Vec<u8>, String> {
+pub fn seal(cipher: &Aes256Gcm, plain: &str, context: &str) -> Result<Vec<u8>, String> {
     let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+    let payload = Payload {
+        msg: plain.as_bytes(),
+        aad: context.as_bytes(),
+    };
     let body = cipher
-        .encrypt(&nonce, plain.as_bytes())
+        .encrypt(&nonce, payload)
         .map_err(|_| "encryption failed".to_string())?;
     let mut sealed = nonce.to_vec();
     sealed.extend(body);
     Ok(sealed)
 }
 
-pub fn unseal(cipher: &Aes256Gcm, sealed: &[u8]) -> Option<String> {
+pub fn unseal(cipher: &Aes256Gcm, sealed: &[u8], context: &str) -> Option<String> {
     if sealed.len() < NONCE_LENGTH {
         return None;
     }
     let (nonce, body) = sealed.split_at(NONCE_LENGTH);
-    let plain = cipher.decrypt(Nonce::from_slice(nonce), body).ok()?;
+    let payload = Payload {
+        msg: body,
+        aad: context.as_bytes(),
+    };
+    let plain = cipher.decrypt(Nonce::from_slice(nonce), payload).ok()?;
     String::from_utf8(plain).ok()
 }
