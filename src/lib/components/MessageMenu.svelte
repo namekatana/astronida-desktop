@@ -13,9 +13,10 @@
 		onclose: () => void;
 		oncancel?: () => void;
 		onreply?: () => void;
+		onforward?: () => void;
 	}
 
-	let { x, y, mode, onclose, oncancel, onreply }: Props = $props();
+	let { x, y, mode, onclose, oncancel, onreply, onforward }: Props = $props();
 
 	const width = 200;
 	const margin = 8;
@@ -33,6 +34,11 @@
 
 	function reply() {
 		onreply?.();
+		onclose();
+	}
+
+	function forward() {
+		onforward?.();
 		onclose();
 	}
 
@@ -69,11 +75,14 @@
 	{#if mode === 'pending'}
 		{@render item('close', 'Отменить отправку', cancelSending, true)}
 	{:else if mode === 'own'}
-		{@render item('reply', 'Ответить', reply)}
+		<div class="flex flex-col gap-0.5">
+			{@render item('reply', 'Ответить', reply)}
+			{@render item('forward', 'Переслать', forward)}
+		</div>
 	{:else}
 		<div class="flex flex-col gap-0.5">
 			{@render item('reply', 'Ответить', reply)}
-			{@render item('forward', 'Переслать', onclose)}
+			{@render item('forward', 'Переслать', forward)}
 			{@render item('pin', 'Закрепить сообщение', onclose)}
 			{@render item('copy', 'Скопировать', onclose)}
 		</div>

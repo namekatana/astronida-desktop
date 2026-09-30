@@ -18,6 +18,7 @@
 	import CreateCategoryDialog from '$lib/components/CreateCategoryDialog.svelte';
 	import CreateChannelDialog from '$lib/components/CreateChannelDialog.svelte';
 	import DirectChatHeader from '$lib/components/DirectChatHeader.svelte';
+	import ForwardDialog from '$lib/components/ForwardDialog.svelte';
 	import FriendProfile from '$lib/components/FriendProfile.svelte';
 	import FriendsPanel from '$lib/components/FriendsPanel.svelte';
 	import HomeEmptyState from '$lib/components/HomeEmptyState.svelte';
@@ -33,7 +34,12 @@
 	import { createFriendsState } from '$lib/friends/friends-state.svelte';
 	import { history } from '$lib/history/history';
 	import { createFeeds } from '$lib/messages/feeds.svelte';
-	import type { Message, MessageReply } from '$lib/messages/messages';
+	import {
+		forwardMessage,
+		type ForwardResult,
+		type Message,
+		type MessageReply
+	} from '$lib/messages/messages';
 	import { createOpenChat } from '$lib/messages/open-chat.svelte';
 	import { createSending } from '$lib/messages/sending.svelte';
 	import { typingIn } from '$lib/messages/typing.svelte';
@@ -369,11 +375,42 @@
 		if (replyTarget && replyTarget.chatId !== openChatId) replyTarget = null;
 	});
 
+	let forwarding = $state<{ chatId: string; message: Message } | null>(null);
+
+	function startForward(message: Message) {
+		if (openChatId) forwarding = { chatId: openChatId, message };
+	}
+
+	async function forwardTo(input: {
+		channelIds: string[];
+		comment: string;
+		clientId: string;
+	}): Promise<ForwardResult> {
+		const source = forwarding;
+		if (!source) return { ok: false, reason: 'failed' };
+		const result = await forwardMessage({
+			sourceChannelId: source.chatId,
+			messageId: source.message.id,
+			...input
+		});
+		if (result.ok) {
+			for (const { channelId, message } of result.delivered) sync.receive(channelId, message);
+		}
+		return result;
+	}
+
 	function startReply(message: Message) {
 		if (!openChatId) return;
 		replyTarget = {
 			chatId: openChatId,
-			reply: { id: message.id, original: { author: message.author, text: message.text } }
+			reply: {
+				id: message.id,
+				original: {
+					author: message.author,
+					text: message.text,
+					forwardedFrom: message.forwardedFrom
+				}
+			}
 		};
 	}
 
@@ -460,6 +497,17 @@
 		/>
 	{/if}
 
+	{#if forwarding}
+		<ForwardDialog
+			message={forwarding.message}
+			friends={friends.withPresence}
+			{servers}
+			{workspaces}
+			onforward={forwardTo}
+			onclose={() => (forwarding = null)}
+		/>
+	{/if}
+
 	{#if selectedServerId}
 		{#if channelDialog === 'category'}
 			<CreateCategoryDialog
@@ -542,6 +590,7 @@
 					onloadolder={openChat.loadOlder}
 					oncancel={cancelSend}
 					onreply={startReply}
+					onforward={startForward}
 					onjoinedinvite={handleServerJoined}
 					onopeninvite={openInvite}
 				/>

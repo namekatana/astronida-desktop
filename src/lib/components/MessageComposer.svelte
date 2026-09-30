@@ -81,15 +81,24 @@
 				<div class="flex h-10 items-center gap-3 pl-4">
 					<span class="h-8 w-0.5 shrink-0 rounded-full bg-ink"></span>
 					<div class="min-w-0 flex-1 text-[12px] leading-4">
-						<p class="truncate">
-							<span class="text-muted">В ответ</span>
-							<span class="font-semibold text-ink">
-								{shownReply.original ? `@${shownReply.original.author.username}` : ''}
-							</span>
-						</p>
-						<p dir="auto" class="truncate text-ink-secondary [unicode-bidi:plaintext]">
-							{shownReply.original?.text.replace(/\s+/g, ' ') ?? ''}
-						</p>
+						{#if shownReply.original?.forwardedFrom}
+							<p class="truncate text-muted">В ответ на пересланное сообщение</p>
+							<p class="truncate text-ink-secondary">
+								от <span class="font-semibold text-ink"
+									>@{shownReply.original.forwardedFrom.username}</span
+								>
+							</p>
+						{:else}
+							<p class="truncate">
+								<span class="text-muted">В ответ</span>
+								<span class="font-semibold text-ink">
+									{shownReply.original ? `@${shownReply.original.author.username}` : ''}
+								</span>
+							</p>
+							<p dir="auto" class="truncate text-ink-secondary [unicode-bidi:plaintext]">
+								{shownReply.original?.text.replace(/\s+/g, ' ') ?? ''}
+							</p>
+						{/if}
 					</div>
 					<button
 						type="button"

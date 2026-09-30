@@ -18,6 +18,7 @@
 		onloadolder?: () => void;
 		oncancel?: (messageId: string) => void;
 		onreply?: (message: Message) => void;
+		onforward?: (message: Message) => void;
 		onjoinedinvite?: (server: Server) => void;
 		onopeninvite?: (code: string) => void;
 	}
@@ -32,6 +33,7 @@
 		onloadolder,
 		oncancel,
 		onreply,
+		onforward,
 		onjoinedinvite,
 		onopeninvite
 	}: Props = $props();
@@ -77,6 +79,7 @@
 			const unreadStart = message.id === dividerId;
 			const continues =
 				!unreadStart &&
+				!message.replyTo &&
 				last &&
 				last.author.id === message.author.id &&
 				message.sentAt.getTime() - last.sentAt.getTime() <= groupGapMs;
@@ -273,5 +276,6 @@
 		onclose={() => (menu = null)}
 		oncancel={() => oncancel?.(message.id)}
 		onreply={() => onreply?.(message)}
+		onforward={() => onforward?.(message)}
 	/>
 {/if}
