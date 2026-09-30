@@ -1,6 +1,7 @@
 import { failureMessage, postApi } from '$lib/realtime/api-request';
 import { supabase } from '$lib/supabase/client';
 import { retryOnFreshToken } from '$lib/supabase/retry';
+import { asRecord } from '$lib/ui/record';
 import { hasInvisibleCharacters, invisibleNameMessage } from '$lib/ui/visible-text';
 
 export interface Server {
@@ -34,26 +35,17 @@ export async function loadServers(): Promise<Server[]> {
 	}));
 }
 
-interface ServerRow {
-	id: string;
-	name: string;
-	owner_id: string;
-}
-
-function isServerRow(body: unknown): body is ServerRow {
-	if (typeof body !== 'object' || body === null) return false;
-	const row = body as Record<string, unknown>;
-	return (
-		typeof row.id === 'string' && typeof row.name === 'string' && typeof row.owner_id === 'string'
-	);
+export function serverFrom(body: unknown): Server | null {
+	const row = asRecord(body);
+	if (typeof row?.id !== 'string' || typeof row.name !== 'string') return null;
+	if (typeof row.owner_id !== 'string') return null;
+	return { id: row.id, name: row.name, ownerId: row.owner_id };
 }
 
 export async function createServer(name: string): Promise<CreateServerResult> {
 	const response = await postApi('/servers', { name: name.trim() });
-	if (response?.status === 201 && isServerRow(response.body)) {
-		const row = response.body;
-		return { ok: true, server: { id: row.id, name: row.name, ownerId: row.owner_id } };
-	}
+	const server = response?.status === 201 ? serverFrom(response.body) : null;
+	if (server) return { ok: true, server };
 	return {
 		ok: false,
 		message: failureMessage(response, {

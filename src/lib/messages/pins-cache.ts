@@ -1,9 +1,8 @@
-import { history } from '$lib/history/history';
+import { createCachedSection } from '$lib/cache/cached-section';
+import { asRecord } from '$lib/ui/record';
 import type { Message, MessageAuthor } from './messages';
 
-const cacheSection = 'pins';
 const maxStoredChats = 100;
-const persistDelayMs = 300;
 
 interface StoredPin {
 	id: string;
@@ -13,29 +12,26 @@ interface StoredPin {
 	forwardedFrom?: { username: string };
 }
 
+const section = createCachedSection('pins');
 const storedChats = new Map<string, Message[]>();
-let persistTimer: ReturnType<typeof setTimeout> | null = null;
 
-function isAuthor(value: unknown): value is MessageAuthor {
-	if (!value || typeof value !== 'object') return false;
-	const author = value as Record<string, unknown>;
-	return (
-		typeof author.id === 'string' &&
-		typeof author.name === 'string' &&
-		typeof author.username === 'string'
-	);
+function authorFrom(value: unknown): MessageAuthor | null {
+	const author = asRecord(value);
+	if (typeof author?.id !== 'string' || typeof author.name !== 'string') return null;
+	if (typeof author.username !== 'string') return null;
+	return { id: author.id, name: author.name, username: author.username };
 }
 
 function pinFrom(value: unknown): Message | null {
-	if (!value || typeof value !== 'object') return null;
-	const pin = value as Record<string, unknown>;
-	if (typeof pin.id !== 'string' || typeof pin.text !== 'string') return null;
-	if (typeof pin.sentAt !== 'string' || !isAuthor(pin.author)) return null;
+	const pin = asRecord(value);
+	if (typeof pin?.id !== 'string' || typeof pin.text !== 'string') return null;
+	const author = authorFrom(pin.author);
+	if (typeof pin.sentAt !== 'string' || !author) return null;
 	const sentAt = new Date(pin.sentAt);
 	if (Number.isNaN(sentAt.getTime())) return null;
-	const message: Message = { id: pin.id, author: pin.author, text: pin.text, sentAt };
-	const forwardedFrom = pin.forwardedFrom as Record<string, unknown> | undefined;
-	if (forwardedFrom && typeof forwardedFrom.username === 'string') {
+	const message: Message = { id: pin.id, author, text: pin.text, sentAt };
+	const forwardedFrom = asRecord(pin.forwardedFrom);
+	if (typeof forwardedFrom?.username === 'string') {
 		message.forwardedFrom = { username: forwardedFrom.username };
 	}
 	return message;
@@ -54,34 +50,24 @@ function storedPinOf(message: Message): StoredPin {
 
 export async function restorePinned() {
 	storedChats.clear();
-	const raw = await history.cacheGet(cacheSection).catch(() => null);
-	if (!raw) return;
-	try {
-		const entries: unknown = JSON.parse(raw);
-		if (!Array.isArray(entries)) return;
-		for (const entry of entries) {
-			if (!entry || typeof entry !== 'object') continue;
-			const { channelId, pins } = entry as Record<string, unknown>;
-			if (typeof channelId !== 'string' || !Array.isArray(pins)) continue;
-			storedChats.set(
-				channelId,
-				pins.map(pinFrom).filter((pin): pin is Message => pin !== null)
-			);
-		}
-	} catch {
-		return;
+	const entries = await section.read();
+	if (!Array.isArray(entries)) return;
+	for (const entry of entries) {
+		const row = asRecord(entry);
+		if (typeof row?.channelId !== 'string' || !Array.isArray(row.pins)) continue;
+		storedChats.set(
+			row.channelId,
+			row.pins.map(pinFrom).filter((pin): pin is Message => pin !== null)
+		);
 	}
 }
 
 function persist() {
-	if (persistTimer) clearTimeout(persistTimer);
-	persistTimer = setTimeout(() => {
-		persistTimer = null;
-		const entries = [...storedChats]
+	section.persist(() =>
+		[...storedChats]
 			.slice(-maxStoredChats)
-			.map(([channelId, pins]) => ({ channelId, pins: pins.map(storedPinOf) }));
-		void history.cachePut(cacheSection, JSON.stringify(entries)).catch(() => {});
-	}, persistDelayMs);
+			.map(([channelId, pins]) => ({ channelId, pins: pins.map(storedPinOf) }))
+	);
 }
 
 export function cachedPinned(channelId: string): Message[] | undefined {

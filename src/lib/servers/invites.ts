@@ -1,6 +1,7 @@
-import { history } from '$lib/history/history';
+import { createCachedSection } from '$lib/cache/cached-section';
 import { failureMessage, getApi, postApi } from '$lib/realtime/api-request';
-import type { Server } from './servers';
+import { asRecord } from '$lib/ui/record';
+import { serverFrom, type Server } from './servers';
 
 export interface InviteLink {
 	link: string;
@@ -33,14 +34,12 @@ const codePattern = /^[A-Za-z0-9]{10}$/;
 const linkPattern = /^(?:astronida:\/\/invite\/|https:\/\/[^\s/]+\/invite\/)([A-Za-z0-9]{10})\/?$/;
 const messageLinkPattern = /astronida:\/\/invite\/([A-Za-z0-9]{10})(?![A-Za-z0-9])/;
 
-const cacheSection = 'invites';
 const maxStoredPreviews = 200;
-const persistDelayMs = 300;
 
+const section = createCachedSection('invites');
 const requests = new Map<string, Promise<PreviewResult>>();
 const storedPreviews = new Map<string, InvitePreview>();
 const missingCodes = new Set<string>();
-let persistTimer: ReturnType<typeof setTimeout> | null = null;
 
 const memberPlurals = new Intl.PluralRules('ru-RU');
 const memberWords: Record<string, string> = {
@@ -102,12 +101,8 @@ export function inviteCodeInMessage(text: string): string | null {
 	return text.match(messageLinkPattern)?.[1] ?? null;
 }
 
-function record(body: unknown): Record<string, unknown> | null {
-	return typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : null;
-}
-
 function inviteLinkFrom(body: unknown): InviteLink | null {
-	const row = record(body);
+	const row = asRecord(body);
 	if (typeof row?.code !== 'string' || !codePattern.test(row.code)) return null;
 	if (row.expires_at !== null && typeof row.expires_at !== 'string') return null;
 	if (row.max_uses !== null && typeof row.max_uses !== 'number') return null;
@@ -167,8 +162,8 @@ export async function generateInviteLink(
 }
 
 function previewFrom(body: unknown): InvitePreview | null {
-	const row = record(body);
-	const server = record(row?.server);
+	const row = asRecord(body);
+	const server = asRecord(row?.server);
 	if (typeof server?.id !== 'string' || typeof server.name !== 'string') return null;
 	if (typeof row?.member_count !== 'number' || typeof row.member !== 'boolean') return null;
 	return {
@@ -180,8 +175,8 @@ function previewFrom(body: unknown): InvitePreview | null {
 }
 
 function storedPreviewFrom(entry: unknown): [string, InvitePreview] | null {
-	const row = record(entry);
-	const preview = record(row?.preview);
+	const row = asRecord(entry);
+	const preview = asRecord(row?.preview);
 	if (typeof row?.code !== 'string' || !codePattern.test(row.code) || !preview) return null;
 	if (typeof preview.serverId !== 'string' || typeof preview.serverName !== 'string') return null;
 	if (typeof preview.memberCount !== 'number' || typeof preview.member !== 'boolean') return null;
@@ -202,29 +197,18 @@ export async function restoreInvitePreviews() {
 	requests.clear();
 	storedPreviews.clear();
 	missingCodes.clear();
-	const raw = await history.cacheGet(cacheSection).catch(() => null);
-	if (!raw) return;
-	try {
-		const entries: unknown = JSON.parse(raw);
-		if (!Array.isArray(entries)) return;
-		for (const entry of entries) {
-			const restored = storedPreviewFrom(entry);
-			if (restored) storedPreviews.set(...restored);
-		}
-	} catch {
-		return;
+	const entries = await section.read();
+	if (!Array.isArray(entries)) return;
+	for (const entry of entries) {
+		const restored = storedPreviewFrom(entry);
+		if (restored) storedPreviews.set(...restored);
 	}
 }
 
 function persistPreviews() {
-	if (persistTimer) clearTimeout(persistTimer);
-	persistTimer = setTimeout(() => {
-		persistTimer = null;
-		const entries = [...storedPreviews]
-			.slice(-maxStoredPreviews)
-			.map(([code, preview]) => ({ code, preview }));
-		void history.cachePut(cacheSection, JSON.stringify(entries)).catch(() => {});
-	}, persistDelayMs);
+	section.persist(() =>
+		[...storedPreviews].slice(-maxStoredPreviews).map(([code, preview]) => ({ code, preview }))
+	);
 }
 
 function remember(code: string, preview: InvitePreview) {
@@ -286,13 +270,6 @@ function rememberMembership(code: string) {
 	const joined = { ...known, member: true, memberCount: known.memberCount + 1 };
 	remember(code, joined);
 	requests.set(code, Promise.resolve({ ok: true, preview: joined }));
-}
-
-function serverFrom(body: unknown): Server | null {
-	const row = record(body);
-	if (typeof row?.id !== 'string' || typeof row.name !== 'string') return null;
-	if (typeof row.owner_id !== 'string') return null;
-	return { id: row.id, name: row.name, ownerId: row.owner_id };
 }
 
 export async function joinByInvite(code: string): Promise<JoinResult> {

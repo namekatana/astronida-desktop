@@ -4,6 +4,7 @@ import type { Friend } from '$lib/friends/friends';
 import type { ServerPresence, VoiceMember } from '$lib/presence/presence';
 import type { Member } from '$lib/servers/members';
 import type { Server } from '$lib/servers/servers';
+import { createCachedSection } from './cached-section';
 
 export interface CachedAccount {
 	username: string | null;
@@ -39,8 +40,10 @@ export interface WorkspaceCache {
 type Section = keyof StoredCache;
 
 const keyPrefix = 'astronida.cache.';
-const sections: Section[] = ['account', 'workspaces', 'presence', 'friendsOnline'];
-const writeDelayMs = 300;
+const sectionNames: Section[] = ['account', 'workspaces', 'presence', 'friendsOnline'];
+const sections = Object.fromEntries(
+	sectionNames.map((name) => [name, createCachedSection(name)])
+) as Record<Section, ReturnType<typeof createCachedSection>>;
 
 const empty = (): StoredCache => ({
 	account: null,
@@ -51,14 +54,12 @@ const empty = (): StoredCache => ({
 
 let stored: StoredCache = empty();
 let storedFor: string | null = null;
-let writeTimer: ReturnType<typeof setTimeout> | null = null;
-const dirty = new Set<Section>();
 
 function keyFor(userId: string, section: Section) {
 	return `${keyPrefix}${userId}.${section}`;
 }
 
-function takeLegacySection(userId: string, section: Section): string | null {
+function takeLegacySection(userId: string, section: Section): unknown {
 	try {
 		const legacy = localStorage.getItem(keyFor(userId, section));
 		if (legacy === null) return null;
@@ -66,7 +67,7 @@ function takeLegacySection(userId: string, section: Section): string | null {
 			.cachePut(section, legacy)
 			.then(() => localStorage.removeItem(keyFor(userId, section)))
 			.catch(() => {});
-		return legacy;
+		return JSON.parse(legacy) as unknown;
 	} catch {
 		return null;
 	}
@@ -77,14 +78,8 @@ async function readSection<K extends Section>(
 	section: K,
 	fallback: StoredCache[K]
 ): Promise<StoredCache[K]> {
-	const raw =
-		(await history.cacheGet(section).catch(() => null)) ?? takeLegacySection(userId, section);
-	if (!raw) return fallback;
-	try {
-		return JSON.parse(raw) as StoredCache[K];
-	} catch {
-		return fallback;
-	}
+	const value = (await sections[section].read()) ?? takeLegacySection(userId, section);
+	return (value ?? fallback) as StoredCache[K];
 }
 
 async function load(userId: string): Promise<StoredCache> {
@@ -109,15 +104,7 @@ function current(userId: string): StoredCache {
 }
 
 function scheduleWrite(section: Section) {
-	dirty.add(section);
-	if (writeTimer) clearTimeout(writeTimer);
-	writeTimer = setTimeout(() => {
-		writeTimer = null;
-		for (const changed of dirty) {
-			void history.cachePut(changed, JSON.stringify(stored[changed])).catch(() => {});
-		}
-		dirty.clear();
-	}, writeDelayMs);
+	sections[section].persist(() => stored[section]);
 }
 
 export const workspaceCache = {
@@ -157,14 +144,12 @@ export const workspaceCache = {
 	},
 
 	clear(userId: string) {
-		if (writeTimer) clearTimeout(writeTimer);
-		writeTimer = null;
-		dirty.clear();
+		for (const name of sectionNames) sections[name].cancel();
 		stored = empty();
 		storedFor = null;
 		try {
 			localStorage.removeItem(keyPrefix + userId);
-			for (const section of sections) localStorage.removeItem(keyFor(userId, section));
+			for (const name of sectionNames) localStorage.removeItem(keyFor(userId, name));
 		} catch {
 		}
 	}

@@ -1,6 +1,7 @@
 import { failureMessage, postApi } from '$lib/realtime/api-request';
 import { supabase } from '$lib/supabase/client';
 import { retryOnFreshToken } from '$lib/supabase/retry';
+import { asRecord } from '$lib/ui/record';
 import { hasInvisibleCharacters, invisibleNameMessage } from '$lib/ui/visible-text';
 
 export type ChannelKind = 'text' | 'voice';
@@ -77,12 +78,8 @@ export async function loadChannels(
 	};
 }
 
-function fieldsOf(body: unknown): Record<string, unknown> | null {
-	return typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : null;
-}
-
 export function categoryFrom(body: unknown): Category | null {
-	const row = fieldsOf(body);
+	const row = asRecord(body);
 	if (
 		!row ||
 		typeof row.id !== 'string' ||
@@ -96,7 +93,7 @@ export function categoryFrom(body: unknown): Category | null {
 }
 
 export function channelFrom(body: unknown): Channel | null {
-	const row = fieldsOf(body);
+	const row = asRecord(body);
 	if (
 		!row ||
 		typeof row.id !== 'string' ||

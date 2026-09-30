@@ -1,5 +1,6 @@
 import { supabase } from '$lib/supabase/client';
 import { retryOnFreshToken } from '$lib/supabase/retry';
+import { asRecord } from '$lib/ui/record';
 
 export interface Member {
 	id: string;
@@ -16,11 +17,8 @@ export interface JoinedMember {
 }
 
 export function joinedMemberFrom(payload: unknown): JoinedMember | null {
-	if (typeof payload !== 'object' || payload === null || !('user' in payload)) return null;
-	const user = payload.user;
-	if (typeof user !== 'object' || user === null) return null;
-	const row = user as Record<string, unknown>;
-	if (typeof row.id !== 'string' || typeof row.username !== 'string') return null;
+	const row = asRecord(asRecord(payload)?.user);
+	if (typeof row?.id !== 'string' || typeof row.username !== 'string') return null;
 	if (typeof row.display_name !== 'string') return null;
 	return { id: row.id, username: row.username, name: row.display_name };
 }
