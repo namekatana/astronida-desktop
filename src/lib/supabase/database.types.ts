@@ -43,6 +43,39 @@ export type Database = {
 					}
 				];
 			};
+			channel_reads: {
+				Row: {
+					channel_id: string;
+					last_read_id: string;
+					user_id: string;
+				};
+				Insert: {
+					channel_id: string;
+					last_read_id: string;
+					user_id: string;
+				};
+				Update: {
+					channel_id?: string;
+					last_read_id?: string;
+					user_id?: string;
+				};
+				Relationships: [
+					{
+						foreignKeyName: 'channel_reads_channel_id_fkey';
+						columns: ['channel_id'];
+						isOneToOne: false;
+						referencedRelation: 'channels';
+						referencedColumns: ['id'];
+					},
+					{
+						foreignKeyName: 'channel_reads_user_id_fkey';
+						columns: ['user_id'];
+						isOneToOne: false;
+						referencedRelation: 'profiles';
+						referencedColumns: ['id'];
+					}
+				];
+			};
 			channels: {
 				Row: {
 					category_id: string | null;
@@ -206,7 +239,6 @@ export type Database = {
 					channel_id: string;
 					content: string;
 					created_at: string;
-					deleted_at: string | null;
 					forwarded_from_username: string | null;
 					id: string;
 					pinned: boolean;
@@ -217,7 +249,6 @@ export type Database = {
 					channel_id: string;
 					content: string;
 					created_at?: string;
-					deleted_at?: string | null;
 					forwarded_from_username?: string | null;
 					id?: string;
 					pinned?: boolean;
@@ -228,7 +259,6 @@ export type Database = {
 					channel_id?: string;
 					content?: string;
 					created_at?: string;
-					deleted_at?: string | null;
 					forwarded_from_username?: string | null;
 					id?: string;
 					pinned?: boolean;
