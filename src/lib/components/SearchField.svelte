@@ -5,9 +5,10 @@
 		value: string;
 		placeholder?: string;
 		transform?: (raw: string) => string;
+		prefix?: string;
 	}
 
-	let { value = $bindable(), placeholder = 'Поиск', transform }: Props = $props();
+	let { value = $bindable(), placeholder = 'Поиск', transform, prefix }: Props = $props();
 
 	let input = $state<HTMLInputElement>();
 
@@ -26,7 +27,11 @@
 <label
 	class="flex h-9 items-center gap-2 rounded-full bg-white/[0.06] pr-1.5 pl-3.5 text-muted transition-colors duration-150 focus-within:bg-white/[0.08]"
 >
-	<Icon name="search" size={15} class="shrink-0" />
+	{#if prefix}
+		<span class="w-[15px] shrink-0 text-center text-[14px] {value ? 'text-ink' : ''}">{prefix}</span>
+	{:else}
+		<Icon name="search" size={15} class="shrink-0" />
+	{/if}
 	<input
 		bind:this={input}
 		{value}

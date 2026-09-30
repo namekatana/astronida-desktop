@@ -146,7 +146,7 @@
 		<button
 			type="button"
 			onclick={onaddfriend}
-			class="pressable mb-3 flex h-10 w-full items-center justify-center gap-2 rounded-full border border-dashed border-line text-[13px] text-muted duration-200 hover:border-line-strong hover:text-ink"
+			class="pressable mb-3 flex h-10 w-full items-center justify-center gap-2 rounded-full border border-dashed border-line text-[13px] text-muted will-change-transform duration-200 hover:border-line-strong hover:text-ink"
 		>
 			<Icon name="plus" size={14} />
 			Добавить друга

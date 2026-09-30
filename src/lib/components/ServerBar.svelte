@@ -227,7 +227,7 @@
 					type="button"
 					aria-label="Создать сервер"
 					onclick={oncreate}
-					class="pressable ml-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-line text-muted duration-200 hover:border-line-strong hover:text-ink"
+					class="pressable ml-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-line text-muted will-change-transform duration-200 hover:border-line-strong hover:text-ink"
 				>
 					<Icon name="plus" size={14} />
 				</button>

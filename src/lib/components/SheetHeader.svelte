@@ -44,7 +44,7 @@
 </script>
 
 <header class="flex h-14 items-center px-5">
-	<div class="grid w-full grid-cols-[1fr_minmax(0,220px)_1fr] items-center gap-x-3">
+	<div class="grid w-full grid-cols-[minmax(0,1fr)_minmax(0,220px)_minmax(0,1fr)] items-center gap-x-3">
 		<div class="col-start-1 row-start-1 flex h-5 items-center justify-start">
 			{#if cancelLabel}
 				<button
@@ -58,11 +58,17 @@
 			{/if}
 		</div>
 
-		<h2
-			class="col-start-2 row-start-1 truncate text-center text-[15px] leading-5 font-semibold text-ink"
-		>
-			{title}
-		</h2>
+		<div class="col-start-2 row-start-1 grid min-w-0">
+			{#key title}
+				<h2
+					class="col-start-1 row-start-1 truncate text-center text-[15px] leading-5 font-semibold text-ink"
+					in:settle
+					out:settle={{ duration: 100 }}
+				>
+					{title}
+				</h2>
+			{/key}
+		</div>
 
 		{#if reservesSubtitle}
 			<div class="col-start-2 row-start-2 grid h-4 min-w-0 grid-cols-1 justify-items-center">
@@ -94,9 +100,9 @@
 						? 'text-muted'
 						: 'text-ink'} {actionBusy ? 'opacity-50' : ''}"
 				>
-					{#key actionDone}
+					{#key actionDone ? 'done' : actionLabel}
 						<span
-							class="col-start-1 row-start-1 flex h-5 items-center justify-end gap-1.5"
+							class="col-start-1 row-start-1 flex h-5 items-center justify-end gap-1.5 whitespace-nowrap"
 							in:settle
 							out:settle={{ duration: 100 }}
 						>

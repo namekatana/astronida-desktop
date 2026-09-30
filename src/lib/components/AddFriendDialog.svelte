@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { cubicOut } from 'svelte/easing';
+	import { prefersReducedMotion } from 'svelte/motion';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { fade } from 'svelte/transition';
+	import { draw, fade } from 'svelte/transition';
 	import {
 		normalizeUsernameQuery,
 		usernameQueryMinLength,
@@ -12,9 +13,8 @@
 	import { acceptFriendRequest, searchUsers, sendFriendRequest } from '$lib/friends/channel';
 	import { initials } from '$lib/ui/initials';
 	import Dialog from './Dialog.svelte';
-	import FriendSearchIllustration from './FriendSearchIllustration.svelte';
-	import Icon from './Icon.svelte';
-	import PillInput from './PillInput.svelte';
+	import SearchField from './SearchField.svelte';
+	import SheetHeader from './SheetHeader.svelte';
 
 	interface Props {
 		friendIds: ReadonlySet<string>;
@@ -24,6 +24,7 @@
 	let { friendIds, onclose }: Props = $props();
 
 	type SearchStatus = 'idle' | 'loading' | 'done' | 'rate_limited' | 'failed';
+	type SearchView = 'idle' | 'skeleton' | 'results' | 'empty' | 'rate_limited' | 'failed';
 
 	const searchDebounceMs = 200;
 
@@ -33,15 +34,18 @@
 	let status = $state<SearchStatus>('idle');
 	let actionError = $state('');
 	const pending = new SvelteSet<string>();
+	const justSent = new SvelteSet<string>();
 
 	let searchSequence = 0;
 
-	type SearchView = 'idle' | 'skeleton' | 'results' | 'empty' | 'rate_limited' | 'failed';
-
 	const skeletonRows = [
-		{ opacity: 1, nameWidth: 52, usernameWidth: 34 },
-		{ opacity: 0.7, nameWidth: 40, usernameWidth: 28 },
-		{ opacity: 0.4, nameWidth: 58, usernameWidth: 38 }
+		{ opacity: 1, width: 44 },
+		{ opacity: 0.85, width: 32 },
+		{ opacity: 0.7, width: 52 },
+		{ opacity: 0.55, width: 38 },
+		{ opacity: 0.42, width: 48 },
+		{ opacity: 0.28, width: 30 },
+		{ opacity: 0.15, width: 42 }
 	];
 
 	const view = $derived.by((): SearchView => {
@@ -106,8 +110,12 @@
 		actionError = '';
 		const relation = await action();
 		pending.delete(userId);
-		if (relation) setRelation(userId, relation);
-		else actionError = 'Не получилось — попробуйте ещё раз чуть позже';
+		if (!relation) {
+			actionError = 'Не получилось — попробуйте ещё раз';
+			return;
+		}
+		if (relation === 'outgoing' && !prefersReducedMotion.current) justSent.add(userId);
+		setRelation(userId, relation);
 	}
 
 	function handleAdd(userId: string) {
@@ -129,40 +137,27 @@
 	}
 </script>
 
-<Dialog label="Добавить друга" wide {onclose}>
-	<h2 class="text-center text-[15px] font-semibold text-ink">Добавить друга</h2>
-	<p class="mx-auto mt-1 max-w-[300px] text-center text-[13px] leading-5 text-ink-secondary">
-		Найдите человека по имени пользователя — он получит запрос и сможет его принять
-	</p>
+<Dialog label="Добавить друга" wide flush pinTop {onclose}>
+	<SheetHeader
+		title="Добавить друга"
+		subtitle={notice || 'По имени пользователя'}
+		subtitleDanger={notice !== ''}
+		actionLabel="Готово"
+		onaction={onclose}
+	/>
 
-	<div class="mt-6">
-		<PillInput
-			label="Имя пользователя"
-			prefix="@"
+	<div class="px-4">
+		<SearchField
 			bind:value={query}
+			placeholder="Имя пользователя"
+			prefix="@"
 			transform={normalizeUsernameQuery}
-		>
-			{#snippet trailing()}
-				<span class="flex text-muted"><Icon name="search" size={16} /></span>
-			{/snippet}
-		</PillInput>
+		/>
 	</div>
 
-	<p
-		class="flex h-8 items-center justify-center text-center text-[12px] text-danger transition-opacity duration-200 {notice
-			? 'opacity-100'
-			: 'opacity-0'}"
-	>
-		{notice}
-	</p>
-
-	<div class="-mx-2 grid h-[264px]">
+	<div class="mt-1 grid h-[356px]">
 		{#key layer}
-			<div
-				class="col-start-1 row-start-1 min-h-0"
-				in:fade={layerIn}
-				out:fade={layerOut}
-			>
+			<div class="col-start-1 row-start-1 min-h-0" in:fade={layerIn} out:fade={layerOut}>
 				{#if layer === 'results'}
 					{@render resultList()}
 				{:else if layer === 'skeleton'}
@@ -173,37 +168,26 @@
 			</div>
 		{/key}
 	</div>
-
-	<div class="flex justify-center pt-4">
-		<button
-			type="button"
-			onclick={onclose}
-			class="link-underline text-[13px] text-muted transition-colors duration-200 hover:text-ink"
-		>
-			Закрыть
-		</button>
-	</div>
 </Dialog>
 
 {#snippet resultList()}
-	<div class="scrollbar-none h-full overflow-y-auto">
+	<div
+		class="scrollbar-none h-full overflow-y-auto px-2 py-2 [mask-image:linear-gradient(to_bottom,transparent,black_10px,black_calc(100%-10px),transparent)]"
+	>
 		<ul class="flex flex-col gap-0.5">
 			{#each shownResults as result (result.id)}
-				<li class="flex h-12 items-center gap-3 rounded-lg px-2.5">
+				<li
+					class="flex h-11 items-center gap-3 rounded-[10px] px-2.5 transition-colors duration-150 [corner-shape:squircle] hover:bg-white/[0.04]"
+				>
 					<span
 						class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[11px] font-medium text-ink"
 					>
 						{initials(result.name)}
 					</span>
-
-					<span class="min-w-0 flex-1">
-						<span class="block truncate text-[13px] text-ink">{result.name}</span>
-						<span class="block truncate text-[12px] text-muted">
-							@<span class="text-ink-secondary">{result.username.slice(0, searchedQuery.length)}</span
-							>{result.username.slice(searchedQuery.length)}
-						</span>
+					<span class="min-w-0 flex-1 truncate text-[14px] text-muted">
+						@<span class="text-ink">{result.username.slice(0, searchedQuery.length)}</span
+						>{result.username.slice(searchedQuery.length)}
 					</span>
-
 					<span class="grid shrink-0 justify-items-end">
 						{#key result.relation}
 							<span class="col-start-1 row-start-1 flex" in:settle out:settle={{ duration: 100 }}>
@@ -218,50 +202,44 @@
 {/snippet}
 
 {#snippet skeleton()}
-	<ul class="flex flex-col gap-0.5" aria-label="Ищем">
+	<ul class="flex flex-col gap-0.5 px-2 py-2" aria-label="Ищем">
 		{#each skeletonRows as row, index (index)}
-			<li class="flex h-12 items-center gap-3 px-2.5" style="opacity: {row.opacity}">
+			<li class="flex h-11 items-center gap-3 px-2.5" style="opacity: {row.opacity}">
 				<span class="skeleton h-8 w-8 shrink-0 rounded-full"></span>
-				<span class="flex min-w-0 flex-1 flex-col gap-2">
-					<span class="skeleton h-2.5 rounded-full" style="width: {row.nameWidth}%"></span>
-					<span class="skeleton h-2 rounded-full" style="width: {row.usernameWidth}%"></span>
+				<span class="min-w-0 flex-1">
+					<span class="skeleton h-2.5 rounded-full" style="width: {row.width}%"></span>
 				</span>
-				<span class="skeleton h-8 w-[92px] shrink-0 rounded-full"></span>
+				<span class="skeleton h-7 w-[84px] shrink-0 rounded-full"></span>
 			</li>
 		{/each}
 	</ul>
 {/snippet}
 
 {#snippet message()}
-	<div class="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
-		<FriendSearchIllustration />
-		<div class="grid">
-			{#key view}
-				<div
-					class="col-start-1 row-start-1 flex flex-col gap-1"
-					in:fade={layerIn}
-					out:fade={layerOut}
-				>
-					{#if view === 'empty'}
-						<p class="text-[13px] text-ink">Никого с именем @{searchedQuery}…</p>
-						<p class="text-[12px] leading-5 text-muted">
-							Проверьте написание — точное имя пользователя можно спросить у друга
-						</p>
-					{:else if view === 'rate_limited'}
-						<p class="text-[13px] text-ink">Слишком быстро</p>
-						<p class="text-[12px] leading-5 text-muted">Подождите пару секунд и продолжайте</p>
-					{:else if view === 'failed'}
-						<p class="text-[13px] text-ink">Нет связи с сервером</p>
-						<p class="text-[12px] leading-5 text-muted">
-							Поиск заработает, как только соединение вернётся
-						</p>
-					{:else}
-						<p class="text-[13px] text-ink">Кого ищем?</p>
-						<p class="text-[12px] leading-5 text-muted">Начните вводить имя пользователя</p>
-					{/if}
-				</div>
-			{/key}
-		</div>
+	<div class="grid h-full place-items-center px-6 text-center">
+		{#key view}
+			<div
+				class="col-start-1 row-start-1 flex flex-col gap-1"
+				in:fade={layerIn}
+				out:fade={layerOut}
+			>
+				{#if view === 'empty'}
+					<p class="text-[13px] text-ink">Никого с именем @{searchedQuery}</p>
+					<p class="text-[12px] leading-5 text-muted">Проверьте написание</p>
+				{:else if view === 'rate_limited'}
+					<p class="text-[13px] text-ink">Слишком быстро</p>
+					<p class="text-[12px] leading-5 text-muted">Подождите пару секунд и продолжайте</p>
+				{:else if view === 'failed'}
+					<p class="text-[13px] text-ink">Нет связи с сервером</p>
+					<p class="text-[12px] leading-5 text-muted">
+						Поиск заработает, когда соединение вернётся
+					</p>
+				{:else}
+					<p class="text-[13px] text-ink">Кого ищем?</p>
+					<p class="text-[12px] leading-5 text-muted">Начните вводить имя пользователя</p>
+				{/if}
+			</div>
+		{/key}
 	</div>
 {/snippet}
 
@@ -271,9 +249,8 @@
 			type="button"
 			disabled={pending.has(result.id)}
 			onclick={() => handleAdd(result.id)}
-			class="pressable flex h-8 items-center gap-1.5 rounded-full border border-line px-3 text-[12px] text-ink duration-150 hover:border-line-strong disabled:opacity-50"
+			class="pressable flex h-7 items-center rounded-full bg-white/[0.08] px-3 text-[12px] font-semibold text-ink duration-150 hover:bg-white/[0.12] disabled:opacity-50"
 		>
-			<Icon name="user-plus" size={14} />
 			Добавить
 		</button>
 	{:else if result.relation === 'incoming'}
@@ -281,21 +258,33 @@
 			type="button"
 			disabled={pending.has(result.id)}
 			onclick={() => handleAccept(result.id)}
-			class="pressable flex h-8 items-center gap-1.5 rounded-full bg-ink px-3 text-[12px] font-medium text-bg duration-150 hover:bg-ink-hover disabled:opacity-50"
+			class="pressable flex h-7 items-center rounded-full bg-ink px-3 text-[12px] font-semibold text-bg duration-150 hover:bg-ink-hover disabled:opacity-50"
 		>
-			<Icon name="check" size={14} />
 			Принять
 		</button>
 	{:else if result.relation === 'outgoing'}
-		<span class="flex h-8 items-center gap-1.5 px-1 text-[12px] text-muted">
-			<Icon name="clock" size={14} />
+		<span class="flex h-7 items-center gap-1.5 px-1 text-[12px] text-muted">
+			<svg
+				width="13"
+				height="13"
+				viewBox="0 0 16 16"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				aria-hidden="true"
+				class="shrink-0"
+			>
+				<path
+					d="M3.25 8.5 6.5 11.75 12.75 4.75"
+					in:draw|global={{ duration: justSent.has(result.id) ? 320 : 0, delay: 120 }}
+				/>
+			</svg>
 			Запрос отправлен
 		</span>
 	{:else}
-		<span class="flex h-8 items-center gap-1.5 px-1 text-[12px] text-muted">
-			<Icon name="user-check" size={14} />
-			В друзьях
-		</span>
+		<span class="flex h-7 items-center px-1 text-[12px] text-muted">В друзьях</span>
 	{/if}
 {/snippet}
 

@@ -23,7 +23,7 @@ export interface Channel {
 
 export type Result<T> = { ok: true; value: T } | { ok: false; message: string };
 
-export const nameMaxLength = 40;
+export const nameMaxLength = 32;
 
 export function validateName(name: string): string {
 	const trimmed = name.trim();

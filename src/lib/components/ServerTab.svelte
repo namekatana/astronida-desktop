@@ -20,6 +20,7 @@
 	bind:this={element}
 	type="button"
 	aria-pressed={active}
+	title={name}
 	{onclick}
 	class="group relative flex h-10 shrink-0 items-center gap-2.5 rounded-full py-1 pr-4 pl-1 text-[13px] font-medium whitespace-nowrap"
 >
@@ -36,7 +37,7 @@
 		{/if}
 	</span>
 	<span
-		class="mix-blend-difference transition-colors duration-200 ease-soft {active
+		class="max-w-[160px] truncate mix-blend-difference transition-colors duration-200 ease-soft {active
 			? 'text-white'
 			: 'text-white/55 group-hover:text-white'}"
 	>

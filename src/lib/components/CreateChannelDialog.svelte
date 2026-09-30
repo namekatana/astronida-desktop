@@ -1,6 +1,7 @@
 <script lang="ts">
 	import {
 		createChannel,
+		nameMaxLength,
 		validateName,
 		type Category,
 		type Channel,
@@ -8,18 +9,30 @@
 	} from '$lib/channels/channels';
 	import Dialog from './Dialog.svelte';
 	import Icon from './Icon.svelte';
-	import PillButton from './PillButton.svelte';
-	import PillInput from './PillInput.svelte';
+	import LengthCounter from './LengthCounter.svelte';
+	import SegmentedControl from './SegmentedControl.svelte';
+	import SelectMenu from './SelectMenu.svelte';
+	import SheetHeader from './SheetHeader.svelte';
+	import SidebarPreview from './SidebarPreview.svelte';
+	import type { PreviewItem } from './sidebar-preview';
 
 	interface Props {
 		serverId: string;
+		serverName: string;
 		initialKind: ChannelKind;
 		categories: Category[];
+		channels: Channel[];
 		oncreated: (channel: Channel) => void;
 		onclose: () => void;
 	}
 
-	let { serverId, initialKind, categories, oncreated, onclose }: Props = $props();
+	let { serverId, serverName, initialKind, categories, channels, oncreated, onclose }: Props =
+		$props();
+
+	const previewSiblings = 3;
+
+	const formId = 'create-channel-form';
+	const closeDelayMs = 450;
 
 	// svelte-ignore state_referenced_locally
 	let kind = $state<ChannelKind>(initialKind);
@@ -27,20 +40,55 @@
 	let categoryId = $state<string | null>(null);
 	let submitted = $state(false);
 	let submitting = $state(false);
+	let done = $state(false);
 	let serverError = $state('');
 
 	const validationError = $derived(submitted ? validateName(name) : '');
 	const error = $derived(validationError || serverError);
+	const busy = $derived(submitting || done);
 
-	const kinds: { kind: ChannelKind; label: string }[] = [
-		{ kind: 'text', label: 'Текстовый' },
-		{ kind: 'voice', label: 'Голосовой' }
+	const kinds: { value: ChannelKind; label: string }[] = [
+		{ value: 'text', label: 'Текстовый' },
+		{ value: 'voice', label: 'Голосовой' }
 	];
+
+	const kindNotes: Record<ChannelKind, string> = {
+		text: 'Переписка для всех участников сервера',
+		voice: 'Разговор голосом — войти можно в один клик'
+	};
+
+	const categoryOptions = $derived([
+		{ value: null, label: 'Без категории' },
+		...categories.map((category): { value: string | null; label: string } => ({
+			value: category.id,
+			label: category.name
+		}))
+	]);
+
+	const previewItems = $derived.by((): PreviewItem[] => {
+		const category = categories.find((known) => known.id === categoryId);
+		const siblings = channels
+			.filter((channel) => channel.categoryId === categoryId)
+			.sort((a, b) => a.position - b.position)
+			.slice(-previewSiblings);
+		return [
+			...(category
+				? [{ key: `heading:${category.id}`, type: 'heading' as const, label: category.name }]
+				: []),
+			...siblings.map((channel) => ({
+				key: channel.id,
+				type: 'channel' as const,
+				kind: channel.kind,
+				label: channel.name
+			})),
+			{ key: 'fresh', type: 'channel', kind, label: name.trim(), fresh: true }
+		];
+	});
 
 	async function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
 		submitted = true;
-		if (validateName(name) || submitting) return;
+		if (validateName(name) || busy) return;
 		submitting = true;
 		serverError = '';
 		const result = await createChannel({ serverId, categoryId, name, kind });
@@ -49,86 +97,89 @@
 			serverError = result.message;
 			return;
 		}
-		oncreated(result.value);
+		done = true;
+		setTimeout(() => oncreated(result.value), closeDelayMs);
+	}
+
+	function settle(_node: Element, { duration = 150 }: { duration?: number } = {}) {
+		return {
+			duration,
+			css: (t: number) => `opacity: ${t}; filter: blur(${(1 - t) * 2}px)`
+		};
 	}
 </script>
 
-<Dialog label="Новый канал" locked={submitting} {onclose}>
-	<form onsubmit={handleSubmit}>
-		<h2 class="text-center text-[15px] font-semibold text-ink">Новый канал</h2>
-		<p class="mt-1 text-center text-[13px] text-ink-secondary">Как назовём канал?</p>
+<Dialog label="Новый канал" wide flush pinTop locked={busy} {onclose}>
+	<SheetHeader
+		title="Новый канал"
+		subtitle={error || `«${serverName}»`}
+		subtitleDanger={error !== ''}
+		cancelLabel="Отмена"
+		cancelDisabled={busy}
+		oncancel={onclose}
+		actionLabel="Создать"
+		actionForm={formId}
+		actionDisabled={name.trim() === ''}
+		actionBusy={submitting}
+		actionDone={done}
+	/>
 
-		<div class="relative mt-7 grid h-10 grid-cols-2 rounded-full border border-line p-1">
-			<span
-				aria-hidden="true"
-				class="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-full bg-ink transition-transform duration-200 ease-move {kind ===
-				'voice'
-					? 'translate-x-full'
-					: ''}"
-			></span>
-			{#each kinds as option (option.kind)}
-				{@const active = kind === option.kind}
-				<button
-					type="button"
-					aria-pressed={active}
-					onclick={() => (kind = option.kind)}
-					class="relative flex items-center justify-center gap-2 rounded-full text-[13px] font-medium transition-colors duration-200 ease-move {active
-						? 'text-bg'
-						: 'text-ink-secondary hover:text-ink'}"
-				>
-					<Icon name={option.kind} />
-					{option.label}
-				</button>
-			{/each}
-		</div>
+	<form id={formId} class="flex h-[396px] flex-col px-4 pt-1 pb-4" onsubmit={handleSubmit}>
+		<SegmentedControl label="Тип канала" options={kinds} bind:value={kind} disabled={busy} />
 
-		<div class="mt-6">
-			<div class="px-1 text-[13px] font-semibold text-muted">Категория</div>
-			<div class="mt-2.5 flex flex-wrap gap-2">
-				{#snippet option(id: string | null, label: string)}
-					{@const active = categoryId === id}
-					<button
-						type="button"
-						aria-pressed={active}
-						onclick={() => (categoryId = id)}
-						class="h-8 max-w-full truncate rounded-full border px-3 text-[13px] transition-colors duration-200 {active
-							? 'border-ink bg-ink text-bg'
-							: 'border-line text-ink-secondary hover:border-line-strong hover:text-ink'}"
-					>
-						{label}
-					</button>
-				{/snippet}
-
-				{@render option(null, 'Без категории')}
-				{#each categories as category (category.id)}
-					{@render option(category.id, category.name)}
-				{/each}
-			</div>
-		</div>
-
-		<div class="mt-6">
-			<PillInput label="Название" bind:value={name} invalid={error !== ''} />
-		</div>
-
-		<p
-			class="flex h-9 items-center justify-center text-center text-[13px] leading-5 text-danger transition-opacity duration-200 {error
-				? 'opacity-100'
-				: 'opacity-0'}"
+		<div
+			class="mt-3 overflow-hidden rounded-[14px] bg-white/[0.05] transition-colors duration-150 [corner-shape:squircle] has-[input:focus]:bg-white/[0.07]"
 		>
-			{error}
-		</p>
-
-		<PillButton type="submit" loading={submitting}>Создать канал</PillButton>
-
-		<div class="flex justify-center pt-4">
-			<button
-				type="button"
-				disabled={submitting}
-				onclick={onclose}
-				class="link-underline text-[13px] text-muted transition-colors duration-200 hover:text-ink disabled:opacity-60"
-			>
-				Отмена
-			</button>
+			<label class="flex h-12 items-center gap-3 pl-4">
+				<span class="grid shrink-0 text-muted">
+					{#key kind}
+						<span class="col-start-1 row-start-1" in:settle out:settle={{ duration: 100 }}>
+							<Icon name={kind} size={16} />
+						</span>
+					{/key}
+				</span>
+				<input
+					bind:value={name}
+					type="text"
+					maxlength={nameMaxLength}
+					placeholder="Название канала"
+					aria-label="Название канала"
+					aria-invalid={error !== ''}
+					spellcheck="false"
+					autocomplete="off"
+					disabled={busy}
+					class="h-full min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-muted"
+				/>
+				<span class="pr-4">
+					<LengthCounter value={name} max={nameMaxLength} />
+				</span>
+			</label>
+			<div class="mx-4 h-px bg-surface-line"></div>
+			<SelectMenu
+				label="Категория"
+				options={categoryOptions}
+				bind:value={categoryId}
+				disabled={busy}
+			/>
 		</div>
+
+		<div class="mt-2 grid h-4 grid-cols-1 px-4">
+			{#key kind}
+				<p
+					class="col-start-1 row-start-1 truncate text-[12px] leading-4 text-muted"
+					in:settle
+					out:settle={{ duration: 100 }}
+				>
+					{kindNotes[kind]}
+				</p>
+			{/key}
+		</div>
+
+		<h3 class="mt-5 px-1 pb-1.5 text-[12px] font-semibold text-muted">Предпросмотр</h3>
+		<SidebarPreview
+			items={previewItems}
+			context={categoryId ?? 'none'}
+			placeholder="новый канал"
+		/>
 	</form>
 </Dialog>

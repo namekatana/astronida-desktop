@@ -15,7 +15,7 @@
 	} as const;
 </script>
 
-<h2 class="grid min-w-0 text-[20px] leading-6 font-bold tracking-[-0.01em] text-ink {className}">
+<h2 class="grid min-w-0 grid-cols-1 text-[20px] leading-6 font-bold tracking-[-0.01em] text-ink {className}">
 	{#key shownStatus.value}
 		<span
 			class="col-start-1 row-start-1 flex min-w-0 items-center gap-1.5"

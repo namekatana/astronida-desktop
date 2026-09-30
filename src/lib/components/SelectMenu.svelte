@@ -15,6 +15,7 @@
 
 	const menuWidth = 208;
 	const rowHeight = 36;
+	const maxVisibleRows = 8;
 	const menuPadding = 8;
 	const gap = 6;
 	const edge = 8;
@@ -23,6 +24,10 @@
 	let highlighted = $state(0);
 	let root = $state<HTMLDivElement | null>(null);
 	let trigger = $state<HTMLButtonElement | null>(null);
+	let list = $state<HTMLDivElement | null>(null);
+	let optionButtons = $state<HTMLButtonElement[]>([]);
+
+	const menuHeight = $derived(Math.min(options.length, maxVisibleRows) * rowHeight + menuPadding * 2);
 	let position = $state({ left: 0, top: 0, above: false });
 
 	const selectedIndex = $derived(options.findIndex((option) => Object.is(option.value, value)));
@@ -31,7 +36,7 @@
 	function place() {
 		if (!trigger) return;
 		const rect = trigger.getBoundingClientRect();
-		const height = options.length * rowHeight + menuPadding * 2;
+		const height = menuHeight;
 		const fitsBelow = window.innerHeight - rect.bottom >= height + gap + edge;
 		const above = !fitsBelow && rect.top >= height + gap + edge;
 		const left = Math.min(
@@ -83,13 +88,24 @@
 			if (!root?.contains(event.target as Node)) close();
 		});
 		const offResize = on(window, 'resize', close);
-		const offScroll = on(window, 'scroll', close, { capture: true });
+		const offScroll = on(
+			window,
+			'scroll',
+			(event) => {
+				if (!list?.contains(event.target as Node)) close();
+			},
+			{ capture: true }
+		);
 		return () => {
 			offKey();
 			offPointer();
 			offResize();
 			offScroll();
 		};
+	});
+
+	$effect(() => {
+		if (open) optionButtons[highlighted]?.scrollIntoView({ block: 'nearest' });
 	});
 
 	function settle(_node: Element, { duration = 150 }: { duration?: number } = {}) {
@@ -113,10 +129,10 @@
 			: ''}"
 	>
 		<span class="min-w-0 flex-1 truncate text-[13px] text-ink">{label}</span>
-		<span class="grid shrink-0 justify-items-end">
+		<span class="grid max-w-[55%] min-w-0 shrink-0 justify-items-end">
 			{#key selectedLabel}
 				<span
-					class="col-start-1 row-start-1 text-[13px] text-ink-secondary tabular-nums"
+					class="col-start-1 row-start-1 max-w-full truncate text-[13px] text-ink-secondary tabular-nums"
 					in:settle
 					out:settle={{ duration: 100 }}
 				>
@@ -133,17 +149,19 @@
 
 	{#if open}
 		<div
+			bind:this={list}
 			role="listbox"
 			aria-label={label}
 			in:pop={{ y: position.above ? 6 : -6, duration: 200 }}
 			out:fade={{ duration: 100 }}
-			class="panel panel-floating fixed z-50 p-2 {position.above
+			class="panel panel-floating scrollbar-none fixed z-50 overflow-y-auto p-2 {position.above
 				? 'origin-bottom-right'
 				: 'origin-top-right'}"
-			style="left: {position.left}px; top: {position.top}px; width: {menuWidth}px"
+			style="left: {position.left}px; top: {position.top}px; width: {menuWidth}px; max-height: {menuHeight}px"
 		>
-			{#each options as option, index (option.label)}
+			{#each options as option, index (index)}
 				<button
+					bind:this={optionButtons[index]}
 					type="button"
 					role="option"
 					aria-selected={index === selectedIndex}
@@ -154,7 +172,7 @@
 						? 'bg-white/[0.06] text-ink'
 						: 'text-ink-secondary'}"
 				>
-					<span class="flex-1 tabular-nums">{option.label}</span>
+					<span class="min-w-0 flex-1 truncate tabular-nums">{option.label}</span>
 					{#if index === selectedIndex}
 						<Icon name="check" size={14} class="text-ink" />
 					{/if}
