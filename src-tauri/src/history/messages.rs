@@ -27,6 +27,8 @@ pub struct Attachment {
     width: u32,
     height: u32,
     thumb_hash: String,
+    #[serde(default)]
+    spoiler: bool,
 }
 
 #[derive(Serialize, Deserialize)]

@@ -1,5 +1,6 @@
 import type { CompressedImage } from '$lib/media/compress';
 import { adoptSentImage } from '$lib/media/images';
+import { spoilers } from '$lib/media/spoilers.svelte';
 import { hasVisibleContent, withoutBidiControls } from '$lib/ui/visible-text';
 import type { Feeds } from './feeds.svelte';
 import type { Message, MessageAttachment, MessageAuthor, MessageReply } from './messages';
@@ -38,6 +39,7 @@ export function createSending(input: { feeds: Feeds; author: () => MessageAuthor
 			width: image.width,
 			height: image.height,
 			thumbHash: image.thumbHash,
+			spoiler: entry.spoiler,
 			localUrl: urls[index]
 		}));
 	}
@@ -67,6 +69,7 @@ export function createSending(input: { feeds: Feeds; author: () => MessageAuthor
 	function handleSent(entry: OutboxEntry, message: Message) {
 		adoptImages(entry, message);
 		const pendingId = pendingIdOf(entry);
+		spoilers.carryOver(pendingId, message.id);
 		feeds.removeMessage(entry.channelId, pendingId);
 		if (feeds.has(entry.channelId)) {
 			feeds.absorb(entry.channelId, [{ ...message, localKey: pendingId }]);
@@ -98,12 +101,13 @@ export function createSending(input: { feeds: Feeds; author: () => MessageAuthor
 		channelId: string,
 		text: string,
 		replyTo?: MessageReply,
-		images: CompressedImage[] = []
+		images: CompressedImage[] = [],
+		spoiler = false
 	) {
 		const visibleText = withoutBidiControls(text).trim();
 		const hasText = hasVisibleContent(visibleText);
 		if (!hasText && images.length === 0) return;
-		const entry = createEntry(channelId, hasText ? visibleText : '', replyTo, images);
+		const entry = createEntry(channelId, hasText ? visibleText : '', replyTo, images, spoiler);
 		feeds.addPending(channelId, pendingMessageOf(entry));
 		outbox.enqueue(entry);
 	}

@@ -18,6 +18,9 @@
 		onpin?: () => void;
 		oncopy?: () => void;
 		ondelete?: () => void;
+		photoCount?: number;
+		onsavephoto?: () => void;
+		onsaveallphotos?: () => void;
 	}
 
 	let {
@@ -31,7 +34,10 @@
 		pinned = false,
 		onpin,
 		oncopy,
-		ondelete
+		ondelete,
+		photoCount = 0,
+		onsavephoto,
+		onsaveallphotos
 	}: Props = $props();
 
 	const width = 200;
@@ -68,6 +74,16 @@
 		onclose();
 	}
 
+	function savePhoto() {
+		onsavephoto?.();
+		onclose();
+	}
+
+	function saveAllPhotos() {
+		onsaveallphotos?.();
+		onclose();
+	}
+
 	function remove() {
 		ondelete?.();
 		onclose();
@@ -101,6 +117,21 @@
 	{/if}
 {/snippet}
 
+{#snippet photoItems()}
+	{@const canSaveAll = onsaveallphotos && photoCount > 1}
+	{#if onsavephoto || canSaveAll}
+		<div class="mx-1.5 my-1.5 h-px bg-surface-line"></div>
+		<div class="flex flex-col gap-0.5">
+			{#if onsavephoto}
+				{@render item('download', 'Скачать', savePhoto)}
+			{/if}
+			{#if canSaveAll}
+				{@render item('download', `Скачать все (${photoCount})`, saveAllPhotos)}
+			{/if}
+		</div>
+	{/if}
+{/snippet}
+
 {#snippet item(icon: IconName, label: string, onclick: () => void, destructive = false)}
 	<MenuItem {icon} {label} {onclick} {destructive} />
 {/snippet}
@@ -120,6 +151,7 @@
 		<div class="flex flex-col gap-0.5">
 			{@render commonItems()}
 		</div>
+		{@render photoItems()}
 		{#if ondelete}
 			<div class="mx-1.5 my-1.5 h-px bg-surface-line"></div>
 			{@render item('trash', 'Удалить сообщение', remove, true)}
@@ -128,6 +160,7 @@
 		<div class="flex flex-col gap-0.5">
 			{@render commonItems()}
 		</div>
+		{@render photoItems()}
 		<div class="mx-1.5 my-1.5 h-px bg-surface-line"></div>
 		<div class="flex flex-col gap-0.5">
 			{#if ondelete}

@@ -1,25 +1,39 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { cubicOut } from 'svelte/easing';
+	import { prefersReducedMotion } from 'svelte/motion';
 	import { fade } from 'svelte/transition';
 	import { cachedImage, isStoredLocally, loadImage } from '$lib/media/images';
+	import { spoilers, type ScreenPoint } from '$lib/media/spoilers.svelte';
 	import { thumbHashImage } from '$lib/media/thumbhash-image';
 	import type { MessageAttachment } from '$lib/messages/messages';
 	import Icon from './Icon.svelte';
+	import SpoilerCover from './SpoilerCover.svelte';
+	import Orbit from './Orbit.svelte';
 
 	interface Props {
 		attachment: MessageAttachment;
 		label: string;
+		spoilerKey: string;
 		progress?: number | null;
 		waiting?: boolean;
 		onopen?: (element: HTMLElement) => void;
+		onreveal?: (origin: ScreenPoint | null) => void;
 	}
 
-	let { attachment, label, progress = null, waiting = false, onopen }: Props = $props();
+	let {
+		attachment,
+		label,
+		spoilerKey,
+		progress = null,
+		waiting = false,
+		onopen,
+		onreveal
+	}: Props = $props();
 
+	const coverFadeMs = 450;
+	const reducedCoverFadeMs = 200;
 	const blurDelayMs = 150;
-	const ringRadius = 15;
-	const ringLength = 2 * Math.PI * ringRadius;
-	const ringMinimum = 0.06;
 
 	const instantUrl = $derived(attachment.localUrl ?? cachedImage(attachment, 'feed'));
 	let loadedUrl = $state<string | null>(null);
@@ -47,41 +61,93 @@
 			window.removeEventListener('online', attempt);
 		};
 	});
+
+	const covered = $derived(attachment.spoiler && !spoilers.isRevealed(spoilerKey));
+	const revealable = $derived(Boolean(instantUrl || loadedUrl) && progress === null && !waiting);
+	let focusing = $state(false);
+	let wasCovered = untrack(() => covered);
+
+	$effect(() => {
+		const nowCovered = covered;
+		if (wasCovered && !nowCovered) focusing = true;
+		wasCovered = nowCovered;
+	});
+
+	function revealState() {
+		return spoilers.isRevealed(spoilerKey) ? { origin: spoilers.originOf(spoilerKey) } : null;
+	}
+
+	function handleClick(event: MouseEvent & { currentTarget: HTMLButtonElement }) {
+		if (!covered) {
+			onopen?.(event.currentTarget);
+			return;
+		}
+		if (!revealable) return;
+		const fromKeyboard = event.detail === 0;
+		onreveal?.(fromKeyboard ? null : { x: event.clientX, y: event.clientY });
+	}
 </script>
 
 <button
 	type="button"
-	aria-label={label}
+	aria-label={covered ? 'Показать фото под спойлером' : label}
 	data-attachment-id={attachment.id}
-	disabled={!onopen}
-	onclick={(event) => onopen?.(event.currentTarget)}
-	class="relative block h-full w-full cursor-zoom-in overflow-hidden bg-white/[0.04] disabled:cursor-default"
+	disabled={covered ? !onreveal : !onopen}
+	onclick={handleClick}
+	class="group relative block h-full w-full overflow-hidden disabled:cursor-default {instantUrl ||
+	loadedUrl
+		? ''
+		: 'bg-white/[0.04]'} {covered
+		? revealable
+			? 'cursor-pointer'
+			: 'cursor-default'
+		: 'cursor-zoom-in'}"
 >
-	{#if placeholder}
-		<img
-			src={placeholder}
-			alt=""
-			aria-hidden="true"
-			draggable="false"
-			class="absolute inset-0 h-full w-full object-cover"
-		/>
-	{/if}
-	{#if instantUrl}
-		<img
-			src={instantUrl}
-			alt=""
-			draggable="false"
-			decoding="sync"
-			class="absolute inset-0 h-full w-full object-cover"
-		/>
-	{:else if loadedUrl}
-		<img
-			src={loadedUrl}
-			alt=""
-			draggable="false"
-			in:fade={{ duration: blurShown ? 220 : 0, easing: cubicOut }}
-			class="absolute inset-0 h-full w-full object-cover"
-		/>
+	<span
+		class="absolute inset-0 block {focusing ? 'spoiler-focus' : ''}"
+		onanimationend={() => (focusing = false)}
+	>
+		{#if placeholder}
+			<img
+				src={placeholder}
+				alt=""
+				aria-hidden="true"
+				draggable="false"
+				class="absolute inset-0 h-full w-full object-cover"
+			/>
+		{/if}
+		{#if instantUrl}
+			<img
+				src={instantUrl}
+				alt=""
+				draggable="false"
+				decoding="sync"
+				class="absolute inset-0 h-full w-full object-cover"
+			/>
+		{:else if loadedUrl}
+			<img
+				src={loadedUrl}
+				alt=""
+				draggable="false"
+				in:fade={{ duration: blurShown ? 220 : 0, easing: cubicOut }}
+				class="absolute inset-0 h-full w-full object-cover"
+			/>
+		{/if}
+	</span>
+	{#if covered}
+		<span
+			out:fade={{
+				duration: prefersReducedMotion.current ? reducedCoverFadeMs : coverFadeMs,
+				easing: cubicOut
+			}}
+			class="absolute inset-0 block"
+		>
+			<SpoilerCover
+				thumbHash={attachment.thumbHash}
+				showLabel={revealable}
+				revealed={revealState}
+			/>
+		</span>
 	{/if}
 	{#if waiting}
 		<span
@@ -97,22 +163,7 @@
 			transition:fade={{ duration: 150 }}
 			class="absolute inset-0 flex items-center justify-center bg-black/30"
 		>
-			<svg width="36" height="36" viewBox="0 0 36 36" class="animate-spin [animation-duration:1.4s]">
-				<circle cx="18" cy="18" r={ringRadius} fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="2.5" />
-				<circle
-					cx="18"
-					cy="18"
-					r={ringRadius}
-					fill="none"
-					stroke="white"
-					stroke-width="2.5"
-					stroke-linecap="round"
-					stroke-dasharray={ringLength}
-					stroke-dashoffset={ringLength * (1 - Math.max(ringMinimum, progress))}
-					transform="rotate(-90 18 18)"
-					class="transition-[stroke-dashoffset] duration-200 ease-soft"
-				/>
-			</svg>
+			<Orbit {progress} label="Загрузка фото" class="text-white" />
 		</span>
 	{/if}
 </button>

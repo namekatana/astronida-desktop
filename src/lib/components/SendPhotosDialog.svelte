@@ -10,12 +10,15 @@
 	import Dialog from './Dialog.svelte';
 	import Icon from './Icon.svelte';
 	import MenuItem from './MenuItem.svelte';
+	import Orbit from './Orbit.svelte';
 	import SheetHeader from './SheetHeader.svelte';
+	import SmoothScroll from './SmoothScroll.svelte';
+	import SpoilerCover from './SpoilerCover.svelte';
 
 	interface Props {
 		files: File[];
 		caption: string;
-		onsend: (text: string, images: CompressedImage[]) => void;
+		onsend: (text: string, images: CompressedImage[], spoiler: boolean) => void;
 		onclose: (caption: string) => void;
 		onclosed: () => void;
 	}
@@ -48,7 +51,13 @@
 	const title = $derived(count > 1 ? `Отправить ${count} фото` : 'Отправить фото');
 	const subtitle = $derived(
 		notice ??
-			`${count} из ${attachmentMaxCount}${drafts.highQuality ? ' · высокое качество' : ''}`
+			[
+				`${count} из ${attachmentMaxCount}`,
+				drafts.highQuality ? 'высокое качество' : null,
+				drafts.spoiler ? 'под спойлером' : null
+			]
+				.filter((part) => part !== null)
+				.join(' · ')
 	);
 	const canSend = $derived(drafts.ready && !sendRequested);
 	const shown = $derived(opened && !closing);
@@ -109,13 +118,18 @@
 		drafts.afterCompression(() => {
 			if (closing) return;
 			closing = true;
-			onsend(caption.trim(), drafts.images());
+			onsend(caption.trim(), drafts.images(), drafts.spoiler);
 		});
 	}
 
 	function toggleQuality() {
 		optionsOpen = false;
 		drafts.setHighQuality(!drafts.highQuality);
+	}
+
+	function toggleSpoiler() {
+		optionsOpen = false;
+		drafts.spoiler = !drafts.spoiler;
 	}
 
 	function pickMore() {
@@ -213,9 +227,7 @@
 					</p>
 				</div>
 			{/if}
-			<div
-				class="scrollbar-none max-h-[min(420px,calc(100vh-280px))] overflow-y-auto rounded-[12px]"
-			>
+			<SmoothScroll class="max-h-[min(420px,calc(100vh-280px))]" viewportClass="rounded-[12px]">
 				{#if tiles.length === 1}
 					{@const size = singleSize(tiles[0], previewWidth)}
 					<div class="flex justify-center">
@@ -231,7 +243,7 @@
 						{#each albumRows(tiles, previewWidth) as row, rowIndex (rowIndex)}
 							<div class="flex gap-0.5" style="height: {row.height}px">
 								{#each row.tiles as entry (entry.attachment.key)}
-									<div class="min-w-0" style="flex: {entry.aspect} 1 0%">
+									<div class="min-w-0" style="flex: {entry.share} 1 0%">
 										{@render tile(entry.attachment)}
 									</div>
 								{/each}
@@ -239,7 +251,7 @@
 						{/each}
 					</div>
 				{/if}
-			</div>
+			</SmoothScroll>
 		</div>
 
 		<div class="px-4 pt-3 pb-4">
@@ -262,11 +274,24 @@
 					aria-busy={sendRequested}
 					disabled={!canSend}
 					onclick={send}
-					class="pressable flex h-8 w-8 shrink-0 items-center justify-center rounded-full duration-200 ease-soft {drafts.ready
+					class="pressable grid h-8 w-8 shrink-0 place-items-center rounded-full duration-200 ease-soft {drafts.ready ||
+					sendRequested
 						? 'bg-ink text-bg hover:bg-ink-hover active:bg-ink-pressed'
-						: 'bg-white/[0.06] text-muted'} {sendRequested ? 'opacity-60' : ''}"
+						: 'bg-white/[0.06] text-muted'}"
 				>
-					<Icon name="arrow-up" />
+					<span
+						class="col-start-1 row-start-1 transition-opacity duration-150 {sendRequested
+							? 'opacity-0'
+							: 'opacity-100'}"
+					>
+						<Icon name="arrow-up" />
+					</span>
+					<Orbit
+						size={16}
+						class="col-start-1 row-start-1 transition-opacity duration-150 {sendRequested
+							? 'opacity-100'
+							: 'opacity-0'}"
+					/>
 				</button>
 			</div>
 		</div>
@@ -305,9 +330,8 @@
 					<MenuItem
 						icon="eye-off"
 						label="Скрыть под спойлер"
-						hint="скоро"
-						disabled
-						onclick={() => {}}
+						checked={drafts.spoiler}
+						onclick={toggleSpoiler}
 					/>
 				</div>
 				<div class="mx-1.5 my-1.5 h-px bg-surface-line"></div>
@@ -335,6 +359,11 @@
 			/>
 		{:else}
 			<span class="absolute inset-0 animate-pulse bg-white/[0.04]"></span>
+		{/if}
+		{#if drafts.spoiler && draft.image}
+			<span transition:fade={{ duration: 200 }} class="absolute inset-0 block">
+				<SpoilerCover thumbHash={draft.image.thumbHash} showLabel={false} />
+			</span>
 		{/if}
 		<button
 			type="button"

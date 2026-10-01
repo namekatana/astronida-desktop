@@ -39,6 +39,7 @@ function measure(file: File): Promise<ImageSize> {
 export function createPhotoDrafts(onnotice: (text: string) => void) {
 	let drafts = $state.raw<PhotoDraft[]>([]);
 	let highQuality = $state(false);
+	let spoiler = $state(false);
 	let nextKey = 0;
 	let whenFresh: (() => void) | null = null;
 
@@ -145,6 +146,12 @@ export function createPhotoDrafts(onnotice: (text: string) => void) {
 		},
 		get highQuality() {
 			return highQuality;
+		},
+		get spoiler() {
+			return spoiler;
+		},
+		set spoiler(value: boolean) {
+			spoiler = value;
 		},
 		get ready() {
 			return drafts.length > 0 && drafts.every((draft) => draft.image !== null);

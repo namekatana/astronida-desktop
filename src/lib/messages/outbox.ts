@@ -20,6 +20,7 @@ export interface OutboxEntry {
 	createdAt: Date;
 	replyTo?: MessageReply;
 	images: CompressedImage[];
+	spoiler: boolean;
 }
 
 interface OutboxHandlers {
@@ -38,9 +39,18 @@ export function createEntry(
 	channelId: string,
 	text: string,
 	replyTo: MessageReply | undefined,
-	images: CompressedImage[]
+	images: CompressedImage[],
+	spoiler: boolean
 ): OutboxEntry {
-	return { clientId: crypto.randomUUID(), channelId, text, createdAt: new Date(), replyTo, images };
+	return {
+		clientId: crypto.randomUUID(),
+		channelId,
+		text,
+		createdAt: new Date(),
+		replyTo,
+		images,
+		spoiler: spoiler && images.length > 0
+	};
 }
 
 export function pendingIdOf(entry: OutboxEntry): string {
@@ -56,8 +66,8 @@ function mediaKey(clientId: string, index: number, variant: 'feed' | 'full'): st
 	return `${clientId}-${index}-${variant}`;
 }
 
-function toStoredImage(image: CompressedImage): StoredImage {
-	return { width: image.width, height: image.height, thumbHash: image.thumbHash };
+function toStoredImage(image: CompressedImage, spoiler: boolean): StoredImage {
+	return { width: image.width, height: image.height, thumbHash: image.thumbHash, spoiler };
 }
 
 function toRecord(entry: OutboxEntry): OutboxRecord {
@@ -67,7 +77,7 @@ function toRecord(entry: OutboxEntry): OutboxRecord {
 		content: entry.text,
 		createdAt: entry.createdAt.toISOString(),
 		reply: toStoredReply(entry.replyTo),
-		attachments: entry.images.map(toStoredImage)
+		attachments: entry.images.map((image) => toStoredImage(image, entry.spoiler))
 	};
 }
 
@@ -88,7 +98,13 @@ async function restoreImages(record: OutboxRecord): Promise<CompressedImage[] | 
 			mediaStore.read('outbox', mediaKey(record.clientId, index, 'full'))
 		]);
 		if (!feed || !full) return null;
-		images.push({ ...stored, feed, full });
+		images.push({
+			width: stored.width,
+			height: stored.height,
+			thumbHash: stored.thumbHash,
+			feed,
+			full
+		});
 	}
 	return images;
 }
@@ -110,7 +126,8 @@ async function fromRecord(record: OutboxRecord): Promise<OutboxEntry | null> {
 		text: record.content,
 		createdAt: new Date(record.createdAt),
 		replyTo: fromStoredReply(record.reply),
-		images
+		images,
+		spoiler: record.attachments?.some((stored) => stored.spoiler === true) ?? false
 	};
 }
 
@@ -205,7 +222,7 @@ export function createOutbox(handlers: OutboxHandlers) {
 		if (previous && Date.now() - previous.at < uploadReuseMs)
 			return { ok: true, ids: previous.ids };
 
-		const result = await uploadImages(entry.channelId, entry.images, (fraction) => {
+		const result = await uploadImages(entry.channelId, entry.images, entry.spoiler, (fraction) => {
 			if (cancelled.has(entry.clientId)) return;
 			waitingForNetwork.delete(entry.clientId);
 			uploadProgress.set(entry.clientId, fraction);

@@ -5,7 +5,7 @@ type Sized = Pick<MessageAttachment, 'width' | 'height'>;
 export type AlbumTile<T extends Sized = MessageAttachment> = {
 	attachment: T;
 	index: number;
-	aspect: number;
+	share: number;
 };
 export type AlbumRow<T extends Sized = MessageAttachment> = {
 	height: number;
@@ -55,13 +55,14 @@ export function albumRows<T extends Sized>(attachments: T[], width = albumWidth)
 	const rows: AlbumRow<T>[] = [];
 	let offset = 0;
 	for (const count of split) {
-		const tiles = attachments.slice(offset, offset + count).map((attachment, position) => ({
-			attachment,
+		const aspects = attachments.slice(offset, offset + count).map(aspectOf);
+		const totalAspect = aspects.reduce((sum, aspect) => sum + aspect, 0);
+		const tiles = aspects.map((aspect, position) => ({
+			attachment: attachments[offset + position],
 			index: offset + position,
-			aspect: aspectOf(attachment)
+			share: aspect / totalAspect
 		}));
 		offset += count;
-		const totalAspect = tiles.reduce((sum, tile) => sum + tile.aspect, 0);
 		const fitted = (width - tileGap * (tiles.length - 1)) / totalAspect;
 		rows.push({
 			height: Math.round(Math.min(rowMaxHeight, Math.max(rowMinHeight, fitted))),

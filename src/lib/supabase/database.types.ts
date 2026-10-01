@@ -15,6 +15,7 @@ export type Database = {
 					id: string;
 					message_id: string | null;
 					position: number | null;
+					spoiler: boolean;
 					thumbhash: string;
 					uploader_id: string;
 					width: number;
@@ -25,6 +26,7 @@ export type Database = {
 					id: string;
 					message_id?: string | null;
 					position?: number | null;
+					spoiler?: boolean;
 					thumbhash: string;
 					uploader_id: string;
 					width: number;
@@ -35,6 +37,7 @@ export type Database = {
 					id?: string;
 					message_id?: string | null;
 					position?: number | null;
+					spoiler?: boolean;
 					thumbhash?: string;
 					uploader_id?: string;
 					width?: number;

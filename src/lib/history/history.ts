@@ -45,6 +45,7 @@ export interface StoredImage {
 	width: number;
 	height: number;
 	thumbHash: string;
+	spoiler?: boolean;
 }
 
 interface StoredAttachment extends StoredImage {
@@ -92,7 +93,8 @@ function toStoredAttachment(attachment: MessageAttachment): StoredAttachment {
 		id: attachment.id,
 		width: attachment.width,
 		height: attachment.height,
-		thumbHash: attachment.thumbHash
+		thumbHash: attachment.thumbHash,
+		spoiler: attachment.spoiler
 	};
 }
 
@@ -102,7 +104,8 @@ function fromStoredAttachment(channelId: string, stored: StoredAttachment): Mess
 		channelId,
 		width: stored.width,
 		height: stored.height,
-		thumbHash: stored.thumbHash
+		thumbHash: stored.thumbHash,
+		spoiler: stored.spoiler === true
 	};
 }
 

@@ -1,3 +1,4 @@
+import { photoFileName, savePhoto as saveToDownloads } from '$lib/media/photo-actions';
 import type { Sync } from '$lib/sync/sync';
 import { toast } from '$lib/ui/toast.svelte';
 import {
@@ -25,6 +26,7 @@ export function createMessageMenu(input: { chatId: () => string | null; sync: Sy
 	let replyTarget = $state<{ chatId: string; reply: MessageReply } | null>(null);
 	let forwarding = $state<{ chatId: string; message: Message } | null>(null);
 	let deleting = $state<Deleting | null>(null);
+	let savingPhotos = false;
 
 	const reply = $derived(
 		replyTarget && replyTarget.chatId === input.chatId() ? replyTarget.reply : null
@@ -102,6 +104,40 @@ export function createMessageMenu(input: { chatId: () => string | null; sync: Sy
 			.catch(() => {});
 	}
 
+	async function savePhotos(message: Message, indices: number[]): Promise<number> {
+		const attachments = message.attachments ?? [];
+		let saved = 0;
+		for (const index of indices) {
+			const name = photoFileName(message.sentAt, index, attachments.length);
+			const result = await saveToDownloads(attachments[index], name);
+			if (result.ok) saved += 1;
+		}
+		return saved;
+	}
+
+	async function savePhoto(message: Message, index: number) {
+		if (savingPhotos || !message.attachments?.[index]) return;
+		savingPhotos = true;
+		const saved = await savePhotos(message, [index]);
+		savingPhotos = false;
+		if (saved === 1) toast.show('Фото сохранено в «Загрузки»');
+		else toast.show('Не удалось сохранить фото', { failed: true });
+	}
+
+	async function saveAllPhotos(message: Message) {
+		const total = message.attachments?.length ?? 0;
+		if (savingPhotos || total === 0) return;
+		savingPhotos = true;
+		const saved = await savePhotos(
+			message,
+			Array.from({ length: total }, (_, index) => index)
+		);
+		savingPhotos = false;
+		if (saved === total) toast.show(`${total} фото сохранено в «Загрузки»`);
+		else if (saved === 0) toast.show('Не удалось сохранить фото', { failed: true });
+		else toast.show(`Сохранено ${saved} из ${total} фото`, { failed: true });
+	}
+
 	return {
 		get reply() {
 			return reply;
@@ -120,6 +156,8 @@ export function createMessageMenu(input: { chatId: () => string | null; sync: Sy
 		startDelete,
 		confirmDelete,
 		closeDelete: () => (deleting = null),
-		copy
+		copy,
+		savePhoto,
+		saveAllPhotos
 	};
 }

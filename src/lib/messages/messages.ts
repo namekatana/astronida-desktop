@@ -24,6 +24,7 @@ export interface MessageAttachment {
 	width: number;
 	height: number;
 	thumbHash: string;
+	spoiler: boolean;
 	localUrl?: string;
 }
 
@@ -65,6 +66,7 @@ interface AttachmentPayload {
 	width: number;
 	height: number;
 	thumbhash: string;
+	spoiler?: boolean;
 }
 
 export interface MessagePayload {
@@ -101,7 +103,8 @@ function attachmentsFrom(
 		channelId,
 		width: payload.width,
 		height: payload.height,
-		thumbHash: payload.thumbhash
+		thumbHash: payload.thumbhash,
+		spoiler: payload.spoiler === true
 	}));
 }
 
@@ -173,7 +176,7 @@ async function loadReplyOriginals(ids: string[]): Promise<Map<string, ReplyOrigi
 }
 
 const messageColumns =
-	'id, channel_id, author_id, content, created_at, reply_to_id, forwarded_from_username, profiles (username, display_name), attachments (id, position, width, height, thumbhash)';
+	'id, channel_id, author_id, content, created_at, reply_to_id, forwarded_from_username, profiles (username, display_name), attachments (id, position, width, height, thumbhash, spoiler)';
 
 interface AttachmentRow extends AttachmentPayload {
 	position: number | null;

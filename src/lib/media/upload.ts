@@ -77,13 +77,15 @@ async function putAll(
 export async function uploadImages(
 	channelId: string,
 	images: CompressedImage[],
+	spoiler: boolean,
 	onProgress: (fraction: number) => void
 ): Promise<UploadResult> {
 	const response = await postApi(`/channels/${channelId}/attachments`, {
 		images: images.map((image) => ({
 			width: image.width,
 			height: image.height,
-			thumbhash: image.thumbHash
+			thumbhash: image.thumbHash,
+			spoiler
 		}))
 	});
 	if (!response) return { ok: false, retry: true };
