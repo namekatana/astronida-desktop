@@ -47,9 +47,17 @@ pub fn load_or_create(dir: &Path) -> Result<LocalKey, String> {
 }
 
 pub fn seal(cipher: &Aes256Gcm, plain: &str, context: &str) -> Result<Vec<u8>, String> {
+    seal_bytes(cipher, plain.as_bytes(), context)
+}
+
+pub fn unseal(cipher: &Aes256Gcm, sealed: &[u8], context: &str) -> Option<String> {
+    String::from_utf8(unseal_bytes(cipher, sealed, context)?).ok()
+}
+
+pub fn seal_bytes(cipher: &Aes256Gcm, plain: &[u8], context: &str) -> Result<Vec<u8>, String> {
     let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
     let payload = Payload {
-        msg: plain.as_bytes(),
+        msg: plain,
         aad: context.as_bytes(),
     };
     let body = cipher
@@ -60,7 +68,7 @@ pub fn seal(cipher: &Aes256Gcm, plain: &str, context: &str) -> Result<Vec<u8>, S
     Ok(sealed)
 }
 
-pub fn unseal(cipher: &Aes256Gcm, sealed: &[u8], context: &str) -> Option<String> {
+pub fn unseal_bytes(cipher: &Aes256Gcm, sealed: &[u8], context: &str) -> Option<Vec<u8>> {
     if sealed.len() < NONCE_LENGTH {
         return None;
     }
@@ -69,6 +77,5 @@ pub fn unseal(cipher: &Aes256Gcm, sealed: &[u8], context: &str) -> Option<String
         msg: body,
         aad: context.as_bytes(),
     };
-    let plain = cipher.decrypt(Nonce::from_slice(nonce), payload).ok()?;
-    String::from_utf8(plain).ok()
+    cipher.decrypt(Nonce::from_slice(nonce), payload).ok()
 }

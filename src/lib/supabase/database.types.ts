@@ -8,6 +8,61 @@ export type Database = {
 	};
 	public: {
 		Tables: {
+			attachments: {
+				Row: {
+					channel_id: string;
+					height: number;
+					id: string;
+					message_id: string | null;
+					position: number | null;
+					thumbhash: string;
+					uploader_id: string;
+					width: number;
+				};
+				Insert: {
+					channel_id: string;
+					height: number;
+					id: string;
+					message_id?: string | null;
+					position?: number | null;
+					thumbhash: string;
+					uploader_id: string;
+					width: number;
+				};
+				Update: {
+					channel_id?: string;
+					height?: number;
+					id?: string;
+					message_id?: string | null;
+					position?: number | null;
+					thumbhash?: string;
+					uploader_id?: string;
+					width?: number;
+				};
+				Relationships: [
+					{
+						foreignKeyName: 'attachments_channel_id_fkey';
+						columns: ['channel_id'];
+						isOneToOne: false;
+						referencedRelation: 'channels';
+						referencedColumns: ['id'];
+					},
+					{
+						foreignKeyName: 'attachments_message_id_fkey';
+						columns: ['message_id'];
+						isOneToOne: false;
+						referencedRelation: 'messages';
+						referencedColumns: ['id'];
+					},
+					{
+						foreignKeyName: 'attachments_uploader_id_fkey';
+						columns: ['uploader_id'];
+						isOneToOne: false;
+						referencedRelation: 'profiles';
+						referencedColumns: ['id'];
+					}
+				];
+			};
 			categories: {
 				Row: {
 					created_at: string;

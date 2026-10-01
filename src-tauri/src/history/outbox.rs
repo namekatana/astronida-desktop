@@ -4,9 +4,20 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use super::messages::Reply;
-use super::seal::{context, seal_reply, unseal_reply, LEGACY_CONTEXT, OUTBOX_CONTENT, OUTBOX_REPLY};
+use super::seal::{
+    context, seal_list, seal_reply, unseal_list, unseal_reply, LEGACY_CONTEXT,
+    OUTBOX_ATTACHMENTS, OUTBOX_CONTENT, OUTBOX_REPLY,
+};
 use super::{collect_readable, describe, with_account, Account, History};
 use crate::local_key;
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OutboxAttachment {
+    width: u32,
+    height: u32,
+    thumb_hash: String,
+}
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -17,6 +28,8 @@ pub struct OutboxEntry {
     pub(super) created_at: String,
     #[serde(default)]
     pub(super) reply: Option<Reply>,
+    #[serde(default)]
+    pub(super) attachments: Vec<OutboxAttachment>,
 }
 
 fn outbox_context(field: &str, client_id: &str, legacy: bool) -> String {
@@ -35,6 +48,7 @@ fn outbox_from_row(
     let client_id: String = row.get(0)?;
     let content_context = outbox_context(OUTBOX_CONTENT, &client_id, legacy);
     let reply_context = outbox_context(OUTBOX_REPLY, &client_id, legacy);
+    let attachments_context = outbox_context(OUTBOX_ATTACHMENTS, &client_id, legacy);
     let content = row
         .get_ref(2)?
         .as_blob()
@@ -48,6 +62,7 @@ fn outbox_from_row(
         content,
         created_at: row.get(3)?,
         reply: unseal_reply(row, 4, cipher, &reply_context)?,
+        attachments: unseal_list(row, 5, cipher, &attachments_context)?,
         client_id,
     }))
 }
@@ -59,7 +74,7 @@ pub(super) fn read_outbox(
 ) -> Result<Vec<OutboxEntry>, String> {
     let mut statement = connection
         .prepare(
-            "SELECT client_id, channel_id, content, created_at, reply FROM outbox ORDER BY created_at, client_id",
+            "SELECT client_id, channel_id, content, created_at, reply, attachments FROM outbox ORDER BY created_at, client_id",
         )
         .map_err(describe)?;
     let rows = statement
@@ -83,11 +98,23 @@ pub(super) fn insert_outbox(
         &entry.reply,
         &context(OUTBOX_REPLY, &entry.client_id),
     )?;
+    let sealed_attachments = seal_list(
+        cipher,
+        &entry.attachments,
+        &context(OUTBOX_ATTACHMENTS, &entry.client_id),
+    )?;
     transaction
         .execute(
-            "INSERT INTO outbox (client_id, channel_id, content, created_at, reply) VALUES (?1, ?2, ?3, ?4, ?5)
+            "INSERT INTO outbox (client_id, channel_id, content, created_at, reply, attachments) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
              ON CONFLICT (client_id) DO NOTHING",
-            params![entry.client_id, entry.channel_id, sealed, entry.created_at, sealed_reply],
+            params![
+                entry.client_id,
+                entry.channel_id,
+                sealed,
+                entry.created_at,
+                sealed_reply,
+                sealed_attachments
+            ],
         )
         .map_err(describe)?;
     Ok(())

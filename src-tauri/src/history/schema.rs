@@ -17,7 +17,8 @@ const SCHEMA: &str = "
         content TEXT NOT NULL,
         sent_at TEXT NOT NULL,
         reply BLOB,
-        forwarded_from TEXT
+        forwarded_from TEXT,
+        attachments BLOB
     );
     CREATE INDEX IF NOT EXISTS messages_channel_id ON messages (channel_id, id);
     CREATE TABLE IF NOT EXISTS profiles (
@@ -34,7 +35,8 @@ const SCHEMA: &str = "
         channel_id TEXT NOT NULL,
         content TEXT NOT NULL,
         created_at TEXT NOT NULL,
-        reply BLOB
+        reply BLOB,
+        attachments BLOB
     );
     CREATE TABLE IF NOT EXISTS cache (
         section TEXT PRIMARY KEY,
@@ -50,7 +52,9 @@ pub(super) fn prepare(
     connection.execute_batch(SCHEMA).map_err(describe)?;
     ensure_column(connection, "messages", "reply", "BLOB")?;
     ensure_column(connection, "messages", "forwarded_from", "TEXT")?;
+    ensure_column(connection, "messages", "attachments", "BLOB")?;
     ensure_column(connection, "outbox", "reply", "BLOB")?;
+    ensure_column(connection, "outbox", "attachments", "BLOB")?;
     migrate(connection, cipher, fresh_key)
 }
 
@@ -89,6 +93,7 @@ fn plain_outbox(connection: &Connection) -> Result<Vec<OutboxEntry>, String> {
                 content,
                 created_at: row.get(3).unwrap_or_default(),
                 reply: None,
+                attachments: Vec::new(),
             }))
         })
         .map_err(describe)?;

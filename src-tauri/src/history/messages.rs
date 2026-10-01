@@ -4,7 +4,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tauri::State;
 
-use super::seal::{context, seal_reply, unseal_reply, MESSAGE_CONTENT, MESSAGE_REPLY};
+use super::seal::{
+    context, seal_list, seal_reply, unseal_list, unseal_reply, MESSAGE_ATTACHMENTS,
+    MESSAGE_CONTENT, MESSAGE_REPLY,
+};
 use super::{collect_readable, describe, with_account, Account, History};
 use crate::local_key;
 
@@ -12,9 +15,18 @@ const PAGE_SIZE: i64 = 50;
 
 macro_rules! select_messages {
     () => {
-        "SELECT m.id, m.channel_id, m.author_id, m.content, m.sent_at, p.username, p.display_name, m.reply, m.forwarded_from
+        "SELECT m.id, m.channel_id, m.author_id, m.content, m.sent_at, p.username, p.display_name, m.reply, m.forwarded_from, m.attachments
          FROM messages m LEFT JOIN profiles p ON p.id = m.author_id"
     };
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Attachment {
+    id: String,
+    width: u32,
+    height: u32,
+    thumb_hash: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -53,6 +65,8 @@ pub struct HistoryMessage {
     reply: Option<Reply>,
     #[serde(default)]
     forwarded_from: Option<String>,
+    #[serde(default)]
+    attachments: Vec<Attachment>,
 }
 
 #[derive(Deserialize)]
@@ -78,6 +92,7 @@ fn message_from_row(row: &Row, cipher: &Aes256Gcm) -> rusqlite::Result<Option<Hi
         return Ok(None);
     };
     let reply = unseal_reply(row, 7, cipher, &context(MESSAGE_REPLY, &id))?;
+    let attachments = unseal_list(row, 9, cipher, &context(MESSAGE_ATTACHMENTS, &id))?;
     Ok(Some(HistoryMessage {
         id,
         channel_id: row.get(1)?,
@@ -94,6 +109,7 @@ fn message_from_row(row: &Row, cipher: &Aes256Gcm) -> rusqlite::Result<Option<Hi
         sent_at: row.get(4)?,
         reply,
         forwarded_from: row.get(8)?,
+        attachments,
     }))
 }
 
@@ -182,13 +198,18 @@ fn upsert_messages(
         .map_err(describe)?;
     let mut message = transaction
         .prepare_cached(
-            "INSERT INTO messages (id, channel_id, author_id, content, sent_at, reply, forwarded_from) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
-             ON CONFLICT (id) DO UPDATE SET content = excluded.content, sent_at = excluded.sent_at, reply = excluded.reply, forwarded_from = excluded.forwarded_from",
+            "INSERT INTO messages (id, channel_id, author_id, content, sent_at, reply, forwarded_from, attachments) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+             ON CONFLICT (id) DO UPDATE SET content = excluded.content, sent_at = excluded.sent_at, reply = excluded.reply, forwarded_from = excluded.forwarded_from, attachments = excluded.attachments",
         )
         .map_err(describe)?;
     for item in messages {
         let sealed = local_key::seal(cipher, &item.content, &context(MESSAGE_CONTENT, &item.id))?;
         let sealed_reply = seal_reply(cipher, &item.reply, &context(MESSAGE_REPLY, &item.id))?;
+        let sealed_attachments = seal_list(
+            cipher,
+            &item.attachments,
+            &context(MESSAGE_ATTACHMENTS, &item.id),
+        )?;
         profile
             .execute(params![
                 item.author.id,
@@ -204,7 +225,8 @@ fn upsert_messages(
                 sealed,
                 item.sent_at,
                 sealed_reply,
-                item.forwarded_from
+                item.forwarded_from,
+                sealed_attachments
             ])
             .map_err(describe)?;
     }

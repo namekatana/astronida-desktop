@@ -3,6 +3,7 @@ import {
 	compareIds,
 	pageSize,
 	type Message,
+	type MessageAttachment,
 	type MessageAuthor,
 	type MessageReply,
 	type ReplyOriginal
@@ -40,12 +41,23 @@ export interface StoredReply {
 	original: StoredReplyOriginal | null;
 }
 
+export interface StoredImage {
+	width: number;
+	height: number;
+	thumbHash: string;
+}
+
+interface StoredAttachment extends StoredImage {
+	id: string;
+}
+
 export interface OutboxRecord {
 	clientId: string;
 	channelId: string;
 	content: string;
 	createdAt: string;
 	reply: StoredReply | null;
+	attachments?: StoredImage[];
 }
 
 interface HistoryBackend {
@@ -72,6 +84,26 @@ interface StoredMessage {
 	sentAt: string;
 	reply?: StoredReply | null;
 	forwardedFrom?: string | null;
+	attachments?: StoredAttachment[];
+}
+
+function toStoredAttachment(attachment: MessageAttachment): StoredAttachment {
+	return {
+		id: attachment.id,
+		width: attachment.width,
+		height: attachment.height,
+		thumbHash: attachment.thumbHash
+	};
+}
+
+function fromStoredAttachment(channelId: string, stored: StoredAttachment): MessageAttachment {
+	return {
+		id: stored.id,
+		channelId,
+		width: stored.width,
+		height: stored.height,
+		thumbHash: stored.thumbHash
+	};
 }
 
 function toStoredAuthor(author: MessageAuthor): StoredAuthor {
@@ -114,7 +146,8 @@ function toStored(channelId: string, message: Message): StoredMessage {
 		content: message.text,
 		sentAt: message.sentAt.toISOString(),
 		reply: toStoredReply(message.replyTo),
-		forwardedFrom: message.forwardedFrom?.username ?? null
+		forwardedFrom: message.forwardedFrom?.username ?? null,
+		attachments: message.attachments?.map(toStoredAttachment) ?? []
 	};
 }
 
@@ -128,6 +161,11 @@ function fromStored(stored: StoredMessage): Message {
 	const replyTo = fromStoredReply(stored.reply);
 	if (replyTo) message.replyTo = replyTo;
 	if (stored.forwardedFrom) message.forwardedFrom = { username: stored.forwardedFrom };
+	if (stored.attachments && stored.attachments.length > 0) {
+		message.attachments = stored.attachments.map((attachment) =>
+			fromStoredAttachment(stored.channelId, attachment)
+		);
+	}
 	return message;
 }
 

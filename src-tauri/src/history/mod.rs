@@ -1,4 +1,5 @@
 pub mod cache;
+pub mod media;
 pub mod messages;
 pub mod outbox;
 mod schema;
