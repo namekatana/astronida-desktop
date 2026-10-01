@@ -1,39 +1,40 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { on } from 'svelte/events';
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
 	import { fade, scale } from 'svelte/transition';
 	import type { Server } from '$lib/servers/servers';
+	import type { SmoothScrollController } from '$lib/ui/smooth-scroll';
 	import Icon from './Icon.svelte';
-	import ProfileMenu from './ProfileMenu.svelte';
+	import ProfileButton from './ProfileButton.svelte';
 	import ServerTab from './ServerTab.svelte';
+	import SmoothScroll from './SmoothScroll.svelte';
 	import UpdateButton from './UpdateButton.svelte';
 
 	interface Props {
 		servers: Server[];
 		selectedId: string | null;
 		username: string | null;
-		signingOut?: boolean;
 		unreadServerIds: ReadonlySet<string>;
 		homeUnread: boolean;
 		onselect: (id: string) => void;
 		onhome: () => void;
 		oncreate: () => void;
-		onsignout: () => void;
+		onsettings: () => void;
+		onprofile: (source: HTMLElement | null) => void;
 	}
 
 	let {
 		servers,
 		selectedId,
 		username,
-		signingOut = false,
 		unreadServerIds,
 		homeUnread,
 		onselect,
 		onhome,
 		oncreate,
-		onsignout
+		onsettings,
+		onprofile
 	}: Props = $props();
 
 	const isHome = $derived(selectedId === null);
@@ -79,7 +80,8 @@
 		placeIndicator();
 	});
 
-	let scrollElement = $state<HTMLDivElement | null>(null);
+	let scrollElement = $state<HTMLDivElement>();
+	let scrollController = $state<SmoothScrollController>();
 	let hiddenLeft = $state(false);
 	let hiddenRight = $state(false);
 
@@ -90,52 +92,20 @@
 		hiddenRight = scrollLeft + clientWidth < scrollWidth - 1;
 	}
 
-	let scrollTarget = 0;
-	let scrollFrame = 0;
-
-	function maxScroll() {
-		return scrollElement ? scrollElement.scrollWidth - scrollElement.clientWidth : 0;
-	}
-
-	function animateScroll() {
-		if (!scrollElement) return;
-		const current = scrollElement.scrollLeft;
-		const remaining = scrollTarget - current;
-		if (Math.abs(remaining) <= 1) {
-			scrollElement.scrollLeft = scrollTarget;
-			scrollFrame = 0;
-			return;
-		}
-		const step = remaining * 0.18;
-		scrollElement.scrollLeft = current + (Math.abs(step) < 1 ? Math.sign(remaining) : step);
-		scrollFrame = requestAnimationFrame(animateScroll);
-	}
-
-	function scrollSmoothlyTo(left: number) {
-		if (!scrollElement) return;
-		scrollTarget = Math.min(maxScroll(), Math.max(0, left));
-		if (scrollFrame === 0) scrollFrame = requestAnimationFrame(animateScroll);
-	}
-
-	function handleWheel(event: WheelEvent) {
-		if (!scrollElement || event.deltaY === 0 || event.deltaX !== 0) return;
-		if (maxScroll() <= 0) return;
-		event.preventDefault();
-		const base = scrollFrame === 0 ? scrollElement.scrollLeft : scrollTarget;
-		scrollSmoothlyTo(base + event.deltaY);
-	}
-
 	const edgeFade = 40;
 
 	function revealSelectedTab() {
 		const tab = selectedId ? tabElements[selectedId] : undefined;
-		if (!scrollElement || !tab) return;
+		if (!scrollElement || !scrollController || !tab) return;
 		const margin = edgeFade;
-		const { scrollLeft, clientWidth } = scrollElement;
+		const scrollLeft = scrollController.position;
+		const { clientWidth } = scrollElement;
 		const tabLeft = tab.offsetLeft;
 		const tabRight = tabLeft + tab.offsetWidth;
-		if (tabLeft < scrollLeft + margin) scrollSmoothlyTo(tabLeft - margin);
-		else if (tabRight > scrollLeft + clientWidth - margin) scrollSmoothlyTo(tabRight + margin - clientWidth);
+		if (tabLeft < scrollLeft + margin) scrollController.scrollTo(tabLeft - margin);
+		else if (tabRight > scrollLeft + clientWidth - margin) {
+			scrollController.scrollTo(tabRight + margin - clientWidth);
+		}
 	}
 
 	$effect(() => {
@@ -151,12 +121,7 @@
 		});
 		observer.observe(scrollElement);
 		observer.observe(rowElement);
-		const offWheel = on(scrollElement, 'wheel', handleWheel, { passive: false });
-		return () => {
-			observer.disconnect();
-			offWheel();
-			cancelAnimationFrame(scrollFrame);
-		};
+		return () => observer.disconnect();
 	});
 
 	const edgeMask = $derived.by(() => {
@@ -198,11 +163,14 @@
 
 		<div class="my-auto h-5 w-px bg-surface-line"></div>
 
-		<div
-			bind:this={scrollElement}
+		<SmoothScroll
+			axis="x"
+			bind:viewport={scrollElement}
+			bind:controller={scrollController}
 			onscroll={updateEdges}
 			style={edgeMask}
-			class="scrollbar-none min-w-0 flex-1 overflow-x-auto"
+			class="min-w-0 flex-1"
+			contentClass="w-max"
 		>
 			<div bind:this={rowElement} class="relative flex h-14 w-max items-center gap-1 px-2">
 				<span
@@ -242,17 +210,18 @@
 					</div>
 				{/if}
 			</div>
-		</div>
+		</SmoothScroll>
 
 		<div class="my-auto h-5 w-px bg-surface-line"></div>
 
 		<div class="flex shrink-0 items-center gap-1 pr-2 pl-2">
-			<ProfileMenu {username} {signingOut} {onsignout} />
+			<ProfileButton {username} {onprofile} />
 			<UpdateButton />
 
 			<button
 				type="button"
 				aria-label="Настройки"
+				onclick={onsettings}
 				class="pressable flex h-10 w-10 items-center justify-center rounded-full text-muted duration-200 hover:bg-white/[0.06] hover:text-ink"
 			>
 				<Icon name="gear" size={18} />

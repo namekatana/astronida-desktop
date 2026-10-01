@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
-	import { fade } from 'svelte/transition';
+	import { fade, type TransitionConfig } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import { signOut } from '$lib/auth/auth';
+	import { auth } from '$lib/auth/session.svelte';
 	import { workspaceCache } from '$lib/cache/workspace-cache';
 	import type { Category, Channel, ChannelKind } from '$lib/channels/channels';
 	import ActiveFriendsPanel from '$lib/components/ActiveFriendsPanel.svelte';
@@ -16,7 +17,6 @@
 	import DeleteMessageDialog from '$lib/components/DeleteMessageDialog.svelte';
 	import DirectChatHeader from '$lib/components/DirectChatHeader.svelte';
 	import ForwardDialog from '$lib/components/ForwardDialog.svelte';
-	import FriendProfile from '$lib/components/FriendProfile.svelte';
 	import FriendsPanel from '$lib/components/FriendsPanel.svelte';
 	import HomeEmptyState from '$lib/components/HomeEmptyState.svelte';
 	import InviteDialog from '$lib/components/InviteDialog.svelte';
@@ -28,8 +28,11 @@
 	import PhotoViewer from '$lib/components/PhotoViewer.svelte';
 	import PinnedBar from '$lib/components/PinnedBar.svelte';
 	import PinnedToggle from '$lib/components/PinnedToggle.svelte';
+	import ProfileDialog from '$lib/components/ProfileDialog.svelte';
+	import ProfilePanel from '$lib/components/ProfilePanel.svelte';
 	import ResizeHandle from '$lib/components/ResizeHandle.svelte';
 	import SendPhotosDialog from '$lib/components/SendPhotosDialog.svelte';
+	import SettingsDialog from '$lib/components/SettingsDialog.svelte';
 	import ServerBar from '$lib/components/ServerBar.svelte';
 	import VoiceDock from '$lib/components/VoiceDock.svelte';
 	import { findActiveFriends } from '$lib/friends/active-friends';
@@ -47,13 +50,17 @@
 	import { typingIn } from '$lib/messages/typing.svelte';
 	import { createIncoming } from '$lib/notifications/incoming.svelte';
 	import { unread } from '$lib/notifications/unread.svelte';
+	import { ownStatus } from '$lib/presence/own-status.svelte';
 	import { createServersPresence } from '$lib/presence/servers-presence.svelte';
+	import { describeProfile, type ProfileTarget } from '$lib/profile/profile';
 	import { inviteLinkOf, joinByInvite, prefetchInviteLink } from '$lib/servers/invites';
 	import type { Server } from '$lib/servers/servers';
 	import { createWorkspaces } from '$lib/servers/workspaces.svelte';
 	import { createSync } from '$lib/sync/sync';
+	import { createDelayedFlag } from '$lib/ui/delayed-flag.svelte';
 	import { lastSelection } from '$lib/ui/last-selection.svelte';
 	import { panelLimits, panelWidths } from '$lib/ui/panel-widths.svelte';
+	import { settle } from '$lib/ui/settle';
 	import { windowTitle } from '$lib/ui/title.svelte';
 	import { createVoiceOccupants } from '$lib/voice/occupants.svelte';
 	import { voice } from '$lib/voice/voice.svelte';
@@ -76,6 +83,7 @@
 	let signingOut = $state(false);
 	let serverDialog = $state<{ view: AddServerView; value: string } | null>(null);
 	let addingFriend = $state(false);
+	let settingsOpen = $state(false);
 	let inviting = $state(false);
 	let channelDialog = $state<'category' | ChannelKind | null>(null);
 	let viewer = $state<{
@@ -100,8 +108,11 @@
 	const members = $derived(workspace?.members ?? []);
 	const memberIds = $derived(new Set(members.map((member) => member.id)));
 	const channelsLoading = $derived(selectedServerId !== null && workspace === undefined);
+	const chatSkeleton = createDelayedFlag(() => channelsLoading);
 
 	const feeds = createFeeds();
+	// svelte-ignore state_referenced_locally
+	if (data.initialChat) feeds.seed(data.initialChat.channelId, data.initialChat.page);
 	const sync = createSync(feeds);
 
 	$effect(() => {
@@ -227,21 +238,26 @@
 		onOpenHome: openHome
 	});
 
-	const sending = createSending({
-		feeds,
-		author: () => {
-			const ownName = username ?? '';
-			const self = members.find((member) => member.id === data.userId);
-			return { id: data.userId, username: ownName, name: self?.name ?? ownName };
-		}
-	});
+	function selfProfile(): ProfileTarget {
+		const ownName = username ?? '';
+		const self = members.find((member) => member.id === data.userId);
+		return { id: data.userId, username: ownName, name: self?.name ?? ownName };
+	}
+
+	const sending = createSending({ feeds, author: selfProfile });
 
 	const membersWithPresence = $derived.by(() => {
-		const online = selectedServer ? presence.byServer[selectedServer.id]?.online : undefined;
-		return members.map((member) => ({
-			...member,
-			online: member.id === data.userId || (online?.has(member.id) ?? false)
-		}));
+		const current = selectedServer ? presence.byServer[selectedServer.id] : undefined;
+		return members.map((member) => {
+			const self = member.id === data.userId;
+			return {
+				...member,
+				online: self
+					? ownStatus.current !== 'invisible'
+					: (current?.online.has(member.id) ?? false),
+				status: self ? ownStatus.current : (current?.statuses[member.id] ?? 'online')
+			};
+		});
 	});
 
 	const activeFriends = $derived(
@@ -252,6 +268,74 @@
 			workspaces: workspaces.all
 		})
 	);
+
+	let profile = $state<{ target: ProfileTarget; source: HTMLElement | null } | null>(null);
+	let sideProfile = $state<{ target: ProfileTarget; place: string } | null>(null);
+
+	const place = $derived(selectedServerId ?? `home:${selectedFriendId ?? ''}`);
+	const sideTarget = $derived(sideProfile?.place === place ? sideProfile.target : null);
+
+	function cardOf(target: ProfileTarget) {
+		return describeProfile({
+			target,
+			selfId: data.userId,
+			selfStatus: ownStatus.current,
+			friends: friends.withPresence,
+			requests: friends.requests,
+			servers,
+			presenceByServer: presence.byServer,
+			workspaces: workspaces.all
+		});
+	}
+
+	const profileCard = $derived(profile ? cardOf(profile.target) : null);
+	const sideCard = $derived(sideTarget ? cardOf(sideTarget) : null);
+	const chatPartnerCard = $derived(selectedFriend ? cardOf(selectedFriend) : null);
+
+	$effect(() => {
+		if (sideProfile && sideProfile.place !== place) sideProfile = null;
+	});
+
+	const sideEnterMs = 150;
+	const sideLeaveMs = 100;
+	let sideClosingInPlace = false;
+
+	function closeSideProfile() {
+		sideClosingInPlace = true;
+		sideProfile = null;
+	}
+
+	function openProfile(target: ProfileTarget, source: HTMLElement | null) {
+		const known = { id: target.id, username: target.username, name: target.name };
+		if (target.id === data.userId) {
+			profile = { target: known, source };
+			return;
+		}
+		if (!selectedServerId && target.id === selectedFriend?.id) {
+			closeSideProfile();
+			return;
+		}
+		sideClosingInPlace = false;
+		sideProfile = { target: known, place };
+	}
+
+	const instant: TransitionConfig = { duration: 0 };
+
+	function enterSideProfile(node: Element): TransitionConfig {
+		return settle(node, { duration: sideEnterMs });
+	}
+
+	function leaveSideProfile(node: Element): TransitionConfig {
+		return sideClosingInPlace ? settle(node, { duration: sideLeaveMs }) : instant;
+	}
+
+	function enterSideList(node: Element): TransitionConfig {
+		return sideClosingInPlace ? settle(node, { duration: sideEnterMs }) : instant;
+	}
+
+	function leaveSideList(node: Element): TransitionConfig {
+		return sideTarget ? settle(node, { duration: sideLeaveMs }) : instant;
+	}
 
 	const unreadServerIds = $derived.by(() => {
 		const unreadChannels = new Set(unread.channelIds);
@@ -293,6 +377,10 @@
 		if (event.key !== 'Escape' || event.defaultPrevented) return;
 		if (menu.reply) {
 			menu.clearReply();
+			return;
+		}
+		if (sideTarget) {
+			closeSideProfile();
 			return;
 		}
 		if (!selectedFriend) return;
@@ -372,11 +460,11 @@
 				: ''
 	);
 
-	function handleSend(text: string, images: CompressedImage[] = []) {
+	function handleSend(text: string, images: CompressedImage[] = [], spoiler = false) {
 		const channelId = openChatId;
 		if (!channelId || !username) return;
 		openChat.resetTyping();
-		sending.send(channelId, text, menu.reply ?? undefined, images);
+		sending.send(channelId, text, menu.reply ?? undefined, images, spoiler);
 		menu.clearReply();
 	}
 
@@ -513,6 +601,18 @@
 		/>
 	{/if}
 
+	{#if settingsOpen}
+		<SettingsDialog
+			{username}
+			email={auth.user?.email ?? null}
+			phone={auth.user?.phone || null}
+			createdAt={auth.user?.created_at ?? null}
+			{signingOut}
+			onsignout={handleSignOut}
+			onclose={() => (settingsOpen = false)}
+		/>
+	{/if}
+
 	{#if menu.deleting}
 		<DeleteMessageDialog
 			message={menu.deleting.message}
@@ -541,6 +641,14 @@
 			onnavigate={(index) => viewer && (viewer = { ...viewer, index, origin: null })}
 			onforward={forwardFromViewer}
 			onclose={() => (viewer = null)}
+		/>
+	{/if}
+
+	{#if profile && profileCard}
+		<ProfileDialog
+			card={profileCard}
+			source={profile.source}
+			onclose={() => (profile = null)}
 		/>
 	{/if}
 
@@ -582,13 +690,13 @@
 		{servers}
 		selectedId={selectedServerId}
 		{username}
-		{signingOut}
 		{unreadServerIds}
 		homeUnread={incoming.homeBadge > 0}
 		onselect={(id) => (selectedServerId = id)}
 		onhome={() => (selectedServerId = null)}
 		oncreate={() => (serverDialog = { view: 'create', value: '' })}
-		onsignout={handleSignOut}
+		onsettings={() => (settingsOpen = true)}
+		onprofile={(source) => openProfile(selfProfile(), source)}
 	/>
 
 	<div class="flex min-h-0 flex-1 gap-3 p-3">
@@ -607,6 +715,7 @@
 				oncreatechannel={(kind) => (channelDialog = kind)}
 				oninvite={() => (inviting = true)}
 				onprefetchinvite={() => prefetchInviteLink(selectedServer.id)}
+				onopenprofile={openProfile}
 			/>
 		{:else}
 			<FriendsPanel
@@ -667,7 +776,11 @@
 				{#if selectedChannel}
 					<ChatHeader channel={selectedChannel} trailing={pinnedToggle} />
 				{:else if selectedFriend}
-					<DirectChatHeader friend={selectedFriend} trailing={pinnedToggle} />
+					<DirectChatHeader
+						friend={selectedFriend}
+						trailing={pinnedToggle}
+						onopenprofile={(source) => selectedFriend && openProfile(selectedFriend, source)}
+					/>
 				{/if}
 				<MessageList
 					bind:this={messageList}
@@ -676,6 +789,8 @@
 					onpin={canPin ? pins.toggle : undefined}
 					oncopy={menu.copy}
 					ondelete={menu.startDelete}
+					onsavephoto={menu.savePhoto}
+					onsaveallphotos={menu.saveAllPhotos}
 					{canDeleteOthers}
 					messages={openChat.messages}
 					selfId={data.userId}
@@ -690,6 +805,7 @@
 					onjoinedinvite={handleServerJoined}
 					onopeninvite={openInvite}
 					onopenphoto={openPhoto}
+					onopenprofile={openProfile}
 				/>
 				{#key openChatId}
 					<MessageComposer
@@ -703,16 +819,22 @@
 					/>
 				{/key}
 			{:else if selectedServer && channelsLoading}
-				<div aria-hidden="true" class="flex min-h-0 flex-1 flex-col gap-3">
-					<div class="panel flex shrink-0 items-center gap-2.5 px-5 py-3.5">
-						<span class="skeleton h-4 w-4 rounded-[5px]"></span>
-						<span class="skeleton my-[7px] h-2.5 w-32 rounded-full"></span>
+				{#if chatSkeleton.current}
+					<div
+						aria-hidden="true"
+						class="flex min-h-0 flex-1 flex-col gap-3"
+						in:fade={{ duration: 150 }}
+					>
+						<div class="panel flex shrink-0 items-center gap-2.5 px-5 py-3.5">
+							<span class="skeleton h-4 w-4 rounded-[5px]"></span>
+							<span class="skeleton my-[7px] h-2.5 w-32 rounded-full"></span>
+						</div>
+						<div class="panel-deep flex min-h-0 flex-1 flex-col justify-end px-2 pt-3 pb-7">
+							<MessageSkeleton />
+						</div>
+						<div class="panel h-14 shrink-0 rounded-[28px] [corner-shape:round]"></div>
 					</div>
-					<div class="panel-deep flex min-h-0 flex-1 flex-col justify-end px-2 pt-3 pb-7">
-						<MessageSkeleton />
-					</div>
-					<div class="panel h-14 shrink-0 rounded-[28px] [corner-shape:round]"></div>
-				</div>
+				{/if}
 			{:else if selectedServer}
 				<div class="flex flex-1 items-center justify-center">
 					<span class="text-[13px] text-muted">Создай первый канал — через «⋯» у названия сервера</span>
@@ -725,13 +847,38 @@
 		</main>
 
 		<div class="relative flex shrink-0 flex-col gap-3" style="width: {panelWidths.members}px">
-			{#if selectedServer}
-				<MemberPanel members={membersWithPresence} loading={members.length === 0} />
-			{:else if selectedFriend}
-				<FriendProfile friend={selectedFriend} />
-			{:else}
-				<ActiveFriendsPanel active={activeFriends} />
-			{/if}
+			<div class="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)]">
+				<div class="panel col-start-1 row-start-1"></div>
+				{#if sideCard}
+					<div
+						class="relative z-10 col-start-1 row-start-1 flex min-h-0 flex-col"
+						in:enterSideProfile
+						out:leaveSideProfile
+					>
+						<ProfilePanel card={sideCard} animated onback={closeSideProfile} />
+					</div>
+				{:else}
+					<div
+						class="relative col-start-1 row-start-1 flex min-h-0 flex-col"
+						in:enterSideList
+						out:leaveSideList
+					>
+						{#if selectedServer}
+							{#key selectedServer.id}
+								<MemberPanel
+									members={membersWithPresence}
+									loading={members.length === 0}
+									onopenprofile={openProfile}
+								/>
+							{/key}
+						{:else if chatPartnerCard}
+							<ProfilePanel card={chatPartnerCard} animated={false} />
+						{:else}
+							<ActiveFriendsPanel active={activeFriends} onopenprofile={openProfile} />
+						{/if}
+					</div>
+				{/if}
+			</div>
 			<VoiceDock occupants={occupants.participants} ondisconnect={handleVoiceDisconnect} />
 			<ResizeHandle
 				side="left"

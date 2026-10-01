@@ -9,6 +9,7 @@
 		previewText,
 		renderKeyOf,
 		type Message,
+		type MessageAuthor,
 		type MessageReply
 	} from '$lib/messages/messages';
 	import { clientIdOf } from '$lib/messages/outbox';
@@ -31,6 +32,7 @@
 		onjoinedinvite?: (server: Server) => void;
 		onopeninvite?: (code: string) => void;
 		onopenphoto?: (message: Message, index: number, element: HTMLElement) => void;
+		onopenprofile?: (author: MessageAuthor, source: HTMLElement | null) => void;
 	}
 
 	let {
@@ -43,7 +45,8 @@
 		onflashend,
 		onjoinedinvite,
 		onopeninvite,
-		onopenphoto
+		onopenphoto,
+		onopenprofile
 	}: Props = $props();
 
 	const linkClass =
@@ -91,6 +94,12 @@
 	const author = $derived(messages[0].author);
 	const avatar = $derived(initials(author.name));
 	const time = $derived(timeFormat.format(messages[0].sentAt));
+
+	let avatarElement = $state<HTMLButtonElement | null>(null);
+
+	function openAuthorProfile() {
+		onopenprofile?.(author, avatarElement);
+	}
 </script>
 
 {#snippet replyConnector(reply: MessageReply, pending: boolean)}
@@ -257,17 +266,26 @@
 					{@render replyConnector(message.replyTo, message.status === 'sending')}
 				{/if}
 				<div class="flex gap-3">
-					<span
-						class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[12px] font-medium text-ink"
+					<button
+						bind:this={avatarElement}
+						type="button"
+						data-avatar
+						aria-label="Профиль @{author.username}"
+						onclick={openAuthorProfile}
+						class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[12px] font-medium text-ink transition-[filter] duration-150 hover:brightness-125"
 					>
 						{avatar}
-					</span>
+					</button>
 
 					<div class="min-w-0 flex-1">
 						<div class="flex items-baseline gap-2">
-							<span class="truncate text-[14px] leading-5 font-medium text-ink">
+							<button
+								type="button"
+								onclick={openAuthorProfile}
+								class="min-w-0 truncate text-left text-[14px] leading-5 font-medium text-ink decoration-white/30 underline-offset-2 hover:underline"
+							>
 								@{author.username}
-							</span>
+							</button>
 							<span class="shrink-0 text-[11px] text-muted">{time}</span>
 						</div>
 						{@render messageBody(message)}

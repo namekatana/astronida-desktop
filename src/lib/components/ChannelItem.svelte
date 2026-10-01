@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { Channel } from '$lib/channels/channels';
+	import { avatarIn } from '$lib/profile/profile';
+	import type { Member } from '$lib/servers/members';
 	import type { VoiceOccupant } from '$lib/voice/occupant';
 	import { describeStats } from '$lib/voice/quality';
 	import Avatar from './Avatar.svelte';
@@ -19,6 +21,7 @@
 		onclick?: () => void;
 		onprefetch?: () => void;
 		element?: HTMLButtonElement;
+		onopenprofile?: (member: Member, source: HTMLElement | null) => void;
 	}
 
 	let {
@@ -27,7 +30,8 @@
 		occupants = [],
 		onclick,
 		onprefetch,
-		element = $bindable()
+		element = $bindable(),
+		onopenprofile
 	}: Props = $props();
 
 	const occupied = $derived(occupants.length > 0);
@@ -38,12 +42,22 @@
 		if (occupants.length > 0) shown = occupants;
 	});
 
-	let menu = $state<{ occupant: VoiceOccupant; x: number; y: number } | null>(null);
+	let menu = $state<{
+		occupant: VoiceOccupant;
+		x: number;
+		y: number;
+		source: HTMLElement | null;
+	} | null>(null);
 
-	function openMenu(event: MouseEvent, occupant: VoiceOccupant) {
+	function openMenu(event: MouseEvent & { currentTarget: HTMLElement }, occupant: VoiceOccupant) {
 		if (occupant.self) return;
 		event.preventDefault();
-		menu = { occupant, x: event.clientX, y: event.clientY };
+		menu = {
+			occupant,
+			x: event.clientX,
+			y: event.clientY,
+			source: avatarIn(event.currentTarget)
+		};
 	}
 
 	$effect(() => {
@@ -92,37 +106,42 @@
 		<div>
 			<div role="list" class="flex flex-col gap-0.5 pt-0.5 pb-1 pr-2.5 pl-[38px]">
 				{#each shown as occupant (occupant.id)}
-					<div
-						role="listitem"
-						oncontextmenu={(event) => openMenu(event, occupant)}
-						class="-mx-1.5 flex h-8 items-center gap-2 rounded-md px-1.5 transition-[background-color,opacity] duration-200 hover:bg-white/[0.05] {occupant.quality ===
-						'lost'
-							? 'opacity-40'
-							: ''} {menu?.occupant.id === occupant.id ? 'bg-white/[0.05]' : ''}"
-					>
-						<Avatar
-							name={occupant.name}
-							size={24}
-							class="ring-online transition-shadow duration-150 {occupant.speaking ? 'ring-2' : 'ring-0'}"
-						/>
-						<span class="min-w-0 flex-1 truncate text-[12px] text-ink-secondary">
-							@{occupant.username}
-						</span>
-						{#if !occupant.self && participantAudio.muted(occupant.id)}
-							<Icon name="volume-off" size={14} class="shrink-0 text-danger" />
-						{/if}
-						{#if occupant.quality !== null}
-							<SignalBars
-								quality={occupant.quality}
-								title={describeStats(occupant.stats, occupant.quality)}
+					<div role="listitem" class="-mx-1.5">
+						<button
+							type="button"
+							onclick={(event) => onopenprofile?.(occupant, avatarIn(event.currentTarget))}
+							oncontextmenu={(event) => openMenu(event, occupant)}
+							class="flex h-8 w-full items-center gap-2 rounded-md px-1.5 text-left transition-[background-color,opacity] duration-200 hover:bg-white/[0.05] {occupant.quality ===
+							'lost'
+								? 'opacity-40'
+								: ''} {menu?.occupant.id === occupant.id ? 'bg-white/[0.05]' : ''}"
+						>
+							<Avatar
+								name={occupant.name}
+								size={24}
+								class="ring-online transition-shadow duration-150 {occupant.speaking
+									? 'ring-2'
+									: 'ring-0'}"
 							/>
-						{/if}
-						{#if occupant.micMuted}
-							<StrikedIcon name="mic" class="shrink-0 text-muted" />
-						{/if}
-						{#if occupant.deafened}
-							<StrikedIcon name="headphones" class="shrink-0 text-muted" />
-						{/if}
+							<span class="min-w-0 flex-1 truncate text-[12px] text-ink-secondary">
+								@{occupant.username}
+							</span>
+							{#if !occupant.self && participantAudio.muted(occupant.id)}
+								<Icon name="volume-off" size={14} class="shrink-0 text-danger" />
+							{/if}
+							{#if occupant.quality !== null}
+								<SignalBars
+									quality={occupant.quality}
+									title={describeStats(occupant.stats, occupant.quality)}
+								/>
+							{/if}
+							{#if occupant.micMuted}
+								<StrikedIcon name="mic" class="shrink-0 text-muted" />
+							{/if}
+							{#if occupant.deafened}
+								<StrikedIcon name="headphones" class="shrink-0 text-muted" />
+							{/if}
+						</button>
 					</div>
 				{/each}
 			</div>
@@ -130,6 +149,13 @@
 	</div>
 
 	{#if menu}
-		<OccupantMenu occupant={menu.occupant} x={menu.x} y={menu.y} onclose={() => (menu = null)} />
+		{@const source = menu.source}
+		<OccupantMenu
+			occupant={menu.occupant}
+			x={menu.x}
+			y={menu.y}
+			onclose={() => (menu = null)}
+			onprofile={(occupant) => onopenprofile?.(occupant, source)}
+		/>
 	{/if}
 </div>
