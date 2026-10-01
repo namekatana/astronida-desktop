@@ -1,6 +1,8 @@
+import type { CompressedImage } from '$lib/media/compress';
+import { adoptSentImage } from '$lib/media/images';
 import { hasVisibleContent, withoutBidiControls } from '$lib/ui/visible-text';
 import type { Feeds } from './feeds.svelte';
-import type { Message, MessageAuthor, MessageReply } from './messages';
+import type { Message, MessageAttachment, MessageAuthor, MessageReply } from './messages';
 import {
 	clientIdOf,
 	createEntry,
@@ -12,6 +14,33 @@ import {
 
 export function createSending(input: { feeds: Feeds; author: () => MessageAuthor }) {
 	const { feeds } = input;
+	const previewUrls = new Map<string, string[]>();
+
+	function previewsOf(entry: OutboxEntry): string[] {
+		let urls = previewUrls.get(entry.clientId);
+		if (!urls) {
+			urls = entry.images.map((image) => URL.createObjectURL(image.feed));
+			previewUrls.set(entry.clientId, urls);
+		}
+		return urls;
+	}
+
+	function releasePreviews(clientId: string) {
+		for (const url of previewUrls.get(clientId) ?? []) URL.revokeObjectURL(url);
+		previewUrls.delete(clientId);
+	}
+
+	function pendingAttachments(entry: OutboxEntry): MessageAttachment[] {
+		const urls = previewsOf(entry);
+		return entry.images.map((image, index) => ({
+			id: `local-${entry.clientId}-${index}`,
+			channelId: entry.channelId,
+			width: image.width,
+			height: image.height,
+			thumbHash: image.thumbHash,
+			localUrl: urls[index]
+		}));
+	}
 
 	function pendingMessageOf(entry: OutboxEntry): Message {
 		const message: Message = {
@@ -22,14 +51,25 @@ export function createSending(input: { feeds: Feeds; author: () => MessageAuthor
 			status: 'sending'
 		};
 		if (entry.replyTo) message.replyTo = entry.replyTo;
+		if (entry.images.length > 0) message.attachments = pendingAttachments(entry);
 		return message;
 	}
 
+	function adoptImages(entry: OutboxEntry, message: Message) {
+		const urls = previewUrls.get(entry.clientId) ?? [];
+		previewUrls.delete(entry.clientId);
+		message.attachments?.forEach((attachment, index) => {
+			const image = entry.images[index];
+			if (image) adoptSentImage(attachment.id, { ...image, feedUrl: urls[index] });
+		});
+	}
+
 	function handleSent(entry: OutboxEntry, message: Message) {
-		const loaded = feeds.isLoaded(entry.channelId);
-		feeds.removeMessage(entry.channelId, pendingIdOf(entry));
-		if (loaded) {
-			feeds.absorb(entry.channelId, [message]);
+		adoptImages(entry, message);
+		const pendingId = pendingIdOf(entry);
+		feeds.removeMessage(entry.channelId, pendingId);
+		if (feeds.has(entry.channelId)) {
+			feeds.absorb(entry.channelId, [{ ...message, localKey: pendingId }]);
 			return;
 		}
 		feeds.storeOnDisk(entry.channelId, message);
@@ -54,10 +94,16 @@ export function createSending(input: { feeds: Feeds; author: () => MessageAuthor
 		};
 	});
 
-	function send(channelId: string, text: string, replyTo?: MessageReply) {
+	function send(
+		channelId: string,
+		text: string,
+		replyTo?: MessageReply,
+		images: CompressedImage[] = []
+	) {
 		const visibleText = withoutBidiControls(text).trim();
-		if (!hasVisibleContent(visibleText)) return;
-		const entry = createEntry(channelId, visibleText, replyTo);
+		const hasText = hasVisibleContent(visibleText);
+		if (!hasText && images.length === 0) return;
+		const entry = createEntry(channelId, hasText ? visibleText : '', replyTo, images);
 		feeds.addPending(channelId, pendingMessageOf(entry));
 		outbox.enqueue(entry);
 	}
@@ -67,6 +113,7 @@ export function createSending(input: { feeds: Feeds; author: () => MessageAuthor
 		if (!clientId) return;
 		outbox.cancel(clientId);
 		feeds.removeMessage(channelId, messageId);
+		releasePreviews(clientId);
 	}
 
 	return { send, cancel, close: outbox.close };

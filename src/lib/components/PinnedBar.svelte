@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
-	import type { Message } from '$lib/messages/messages';
+	import { previewText, type Message } from '$lib/messages/messages';
 	import Icon from './Icon.svelte';
 
 	interface Props {
@@ -27,7 +27,7 @@
 	const label = $derived(
 		count > 1 ? `Закреплённое · ${position + 1} из ${count}` : 'Закреплённое сообщение'
 	);
-	const preview = $derived(shown ? shown.text.replace(/\s+/g, ' ') : '');
+	const preview = $derived(shown ? previewText(shown.text).replace(/\s+/g, ' ') : '');
 </script>
 
 <div class="collapsible shrink-0 {open ? 'is-open' : ''}" inert={!open}>

@@ -1,4 +1,4 @@
-import type { Message } from '$lib/messages/messages';
+import { previewText, type Message } from '$lib/messages/messages';
 import { clearTyping, markTyping } from '$lib/messages/typing.svelte';
 import type { Sync } from '$lib/sync/sync';
 import { windowFocus } from '$lib/ui/window-focus.svelte';
@@ -39,7 +39,7 @@ export function createIncoming(input: {
 		if (windowFocus.active) return;
 		void showNotification({
 			title: `@${message.author.username}`,
-			body: message.text,
+			body: previewText(message.text),
 			target: { kind: 'direct', channelId }
 		});
 		void requestAttention();

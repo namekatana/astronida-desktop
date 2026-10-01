@@ -33,7 +33,7 @@
 	type Phase = 'idle' | 'sending' | 'sent';
 
 	const formId = 'forward-form';
-	const closeAfterSentMs = 600;
+	const closeAfterSentMs = 300;
 
 	let query = $state('');
 	let comment = $state('');
@@ -60,6 +60,7 @@
 					: `Выбрано: ${selected.size}`)
 	);
 	const quotedAuthor = $derived(message.forwardedFrom?.username ?? message.author.username);
+	const photoCount = $derived(message.attachments?.length ?? 0);
 
 	$effect(() => () => {
 		if (closeTimer) clearTimeout(closeTimer);
@@ -168,6 +169,12 @@
 			<p class="flex min-w-0 items-center gap-1.5 text-[12px] leading-4 text-muted">
 				<Icon name="forward" size={12} class="shrink-0" />
 				<span class="shrink-0 font-semibold text-ink-secondary">@{quotedAuthor}</span>
+				{#if photoCount > 0}
+					<span class="flex shrink-0 items-center gap-1">
+						<Icon name="image" size={12} />
+						{photoCount > 1 ? `${photoCount} фото` : 'Фото'}
+					</span>
+				{/if}
 				<span dir="auto" class="min-w-0 truncate [unicode-bidi:plaintext]">
 					{singleLine(message.text)}
 				</span>

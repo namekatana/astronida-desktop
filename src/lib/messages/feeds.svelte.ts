@@ -5,6 +5,7 @@ interface Feed {
 	messages: Message[];
 	hasMore: boolean;
 	localExhausted: boolean;
+	ready: boolean;
 }
 
 const maxCatchUpPages = 10;
@@ -20,7 +21,8 @@ export function createFeeds() {
 		return (feeds[channelId] ??= {
 			messages: [],
 			hasMore: false,
-			localExhausted: false
+			localExhausted: false,
+			ready: false
 		});
 	}
 
@@ -29,8 +31,7 @@ export function createFeeds() {
 	}
 
 	function isLoaded(channelId: string): boolean {
-		const feed = feeds[channelId];
-		return feed !== undefined && feed.messages.some((m) => m.status === undefined);
+		return feeds[channelId]?.ready ?? false;
 	}
 
 	function messagesOf(channelId: string): Message[] {
@@ -149,6 +150,7 @@ export function createFeeds() {
 			mergeMessages(channelId, page.messages);
 			feed.localExhausted = page.messages.length < pageSize;
 			feed.hasMore = !feed.localExhausted || !page.reachedStart;
+			if (page.messages.length > 0 || page.reachedStart) feed.ready = true;
 			return true;
 		} catch {
 			feed.localExhausted = true;
@@ -186,6 +188,7 @@ export function createFeeds() {
 			coverage: { hasMore: latest.hasMore },
 			reachedStart: latest.hasMore ? undefined : true
 		});
+		feed.ready = true;
 		const oldest = latest.messages[0]?.id;
 		if (newestLocal === undefined || !latest.hasMore || oldest === undefined) {
 			feed.localExhausted = true;
@@ -213,6 +216,7 @@ export function createFeeds() {
 		const feed = feedFor(channelId);
 		feed.messages = feed.messages.filter((m) => m.status !== undefined);
 		absorb(channelId, latest.messages, { reachedStart: !latest.hasMore });
+		feed.ready = true;
 		feed.localExhausted = true;
 		feed.hasMore = latest.hasMore;
 	}

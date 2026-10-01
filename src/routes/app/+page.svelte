@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import { signOut } from '$lib/auth/auth';
 	import { workspaceCache } from '$lib/cache/workspace-cache';
@@ -22,16 +23,23 @@
 	import MemberPanel from '$lib/components/MemberPanel.svelte';
 	import MessageComposer from '$lib/components/MessageComposer.svelte';
 	import MessageList from '$lib/components/MessageList.svelte';
+	import MessageSkeleton from '$lib/components/MessageSkeleton.svelte';
+	import Icon from '$lib/components/Icon.svelte';
+	import PhotoViewer from '$lib/components/PhotoViewer.svelte';
 	import PinnedBar from '$lib/components/PinnedBar.svelte';
 	import PinnedToggle from '$lib/components/PinnedToggle.svelte';
 	import ResizeHandle from '$lib/components/ResizeHandle.svelte';
+	import SendPhotosDialog from '$lib/components/SendPhotosDialog.svelte';
 	import ServerBar from '$lib/components/ServerBar.svelte';
 	import VoiceDock from '$lib/components/VoiceDock.svelte';
 	import { findActiveFriends } from '$lib/friends/active-friends';
 	import { acceptFriendRequest, declineFriendRequest } from '$lib/friends/channel';
 	import { createFriendsState } from '$lib/friends/friends-state.svelte';
 	import { history } from '$lib/history/history';
+	import type { CompressedImage } from '$lib/media/compress';
+	import { forgetImages, warmImageIndex } from '$lib/media/images';
 	import { createFeeds } from '$lib/messages/feeds.svelte';
+	import type { Message } from '$lib/messages/messages';
 	import { createMessageMenu } from '$lib/messages/message-menu.svelte';
 	import { createOpenChat } from '$lib/messages/open-chat.svelte';
 	import { createPins } from '$lib/messages/pins.svelte';
@@ -70,6 +78,15 @@
 	let addingFriend = $state(false);
 	let inviting = $state(false);
 	let channelDialog = $state<'category' | ChannelKind | null>(null);
+	let viewer = $state<{
+		message: Message;
+		index: number;
+		origin: DOMRect | null;
+	} | null>(null);
+	let composer = $state<ReturnType<typeof MessageComposer>>();
+	let photoSheet = $state<{ files: File[]; caption: string } | null>(null);
+	let draggingFiles = $state(false);
+	let dragDepth = 0;
 
 	// svelte-ignore state_referenced_locally
 	const workspaces = createWorkspaces({
@@ -86,6 +103,10 @@
 
 	const feeds = createFeeds();
 	const sync = createSync(feeds);
+
+	$effect(() => {
+		warmImageIndex();
+	});
 
 	// svelte-ignore state_referenced_locally
 	const friends = createFriendsState({
@@ -351,12 +372,69 @@
 				: ''
 	);
 
-	function handleSend(text: string) {
+	function handleSend(text: string, images: CompressedImage[] = []) {
 		const channelId = openChatId;
 		if (!channelId || !username) return;
 		openChat.resetTyping();
-		sending.send(channelId, text, menu.reply ?? undefined);
+		sending.send(channelId, text, menu.reply ?? undefined, images);
 		menu.clearReply();
+	}
+
+	function openPhotoSheet(files: File[]) {
+		if (photoSheet) return;
+		photoSheet = { files, caption: composer?.takeText() ?? '' };
+	}
+
+	function closePhotoSheet(caption: string) {
+		composer?.restoreText(caption);
+	}
+
+	function openPhoto(message: Message, index: number, element: HTMLElement) {
+		viewer = { message, index, origin: element.getBoundingClientRect() };
+	}
+
+	function forwardFromViewer(message: Message) {
+		viewer = null;
+		menu.startForward(message);
+	}
+
+	$effect(() => {
+		void openChatId;
+		untrack(() => {
+			viewer = null;
+			photoSheet = null;
+		});
+	});
+
+	function carriesFiles(event: DragEvent): boolean {
+		return event.dataTransfer?.types.includes('Files') ?? false;
+	}
+
+	function handleDragEnter(event: DragEvent) {
+		if (!carriesFiles(event)) return;
+		event.preventDefault();
+		dragDepth += 1;
+		draggingFiles = true;
+	}
+
+	function handleDragOver(event: DragEvent) {
+		if (!carriesFiles(event) || !event.dataTransfer) return;
+		event.preventDefault();
+		event.dataTransfer.dropEffect = 'copy';
+	}
+
+	function handleDragLeave(event: DragEvent) {
+		if (!carriesFiles(event)) return;
+		dragDepth = Math.max(0, dragDepth - 1);
+		if (dragDepth === 0) draggingFiles = false;
+	}
+
+	function handleDrop(event: DragEvent) {
+		if (!carriesFiles(event)) return;
+		event.preventDefault();
+		dragDepth = 0;
+		draggingFiles = false;
+		composer?.attach([...(event.dataTransfer?.files ?? [])]);
 	}
 
 	function cancelSend(messageId: string) {
@@ -369,6 +447,7 @@
 		voice.disconnect();
 		await signOut();
 		workspaceCache.clear(data.userId);
+		forgetImages();
 		await history.clear().catch(() => {});
 		signingOut = false;
 		await goto('/');
@@ -436,10 +515,32 @@
 
 	{#if menu.deleting}
 		<DeleteMessageDialog
+			message={menu.deleting.message}
 			busy={menu.deleting.busy}
 			error={menu.deleting.error}
 			onconfirm={menu.confirmDelete}
 			onclose={menu.closeDelete}
+		/>
+	{/if}
+
+	{#if photoSheet && openChatId}
+		<SendPhotosDialog
+			files={photoSheet.files}
+			caption={photoSheet.caption}
+			onsend={handleSend}
+			onclose={closePhotoSheet}
+			onclosed={() => (photoSheet = null)}
+		/>
+	{/if}
+
+	{#if viewer}
+		<PhotoViewer
+			message={viewer.message}
+			index={viewer.index}
+			origin={viewer.origin}
+			onnavigate={(index) => viewer && (viewer = { ...viewer, index, origin: null })}
+			onforward={forwardFromViewer}
+			onclose={() => (viewer = null)}
 		/>
 	{/if}
 
@@ -498,6 +599,7 @@
 				{channels}
 				{selectedChannelId}
 				voiceOccupants={occupants.byChannel}
+				loading={channelsLoading}
 				bind:width={panelWidths.channels}
 				onselect={selectChannel}
 				onprefetch={prefetchChannel}
@@ -525,7 +627,23 @@
 			/>
 		{/if}
 
-		<main class="flex min-w-0 flex-1 flex-col gap-3">
+		<main
+			class="relative flex min-w-0 flex-1 flex-col gap-3"
+			ondragenter={openChatId ? handleDragEnter : undefined}
+			ondragover={openChatId ? handleDragOver : undefined}
+			ondragleave={openChatId ? handleDragLeave : undefined}
+			ondrop={openChatId ? handleDrop : undefined}
+		>
+			{#if openChatId && draggingFiles}
+				<div
+					transition:fade={{ duration: 150 }}
+					class="panel-deep pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-white/20"
+				>
+					<Icon name="image" size={28} class="text-ink-secondary" />
+					<p class="text-[15px] font-semibold text-ink">Отпустите, чтобы прикрепить фото</p>
+					<p class="text-[13px] text-muted">До 10 фото в одном сообщении</p>
+				</div>
+			{/if}
 			{#if openChatId}
 				{#snippet pinnedToggle()}
 					<PinnedToggle
@@ -571,21 +689,33 @@
 					onforward={menu.startForward}
 					onjoinedinvite={handleServerJoined}
 					onopeninvite={openInvite}
+					onopenphoto={openPhoto}
 				/>
 				{#key openChatId}
 					<MessageComposer
+						bind:this={composer}
 						placeholder={composerPlaceholder}
 						reply={menu.reply}
 						onsend={handleSend}
+						onattach={openPhotoSheet}
 						ontyping={openChat.touchTyping}
 						oncancelreply={menu.clearReply}
 					/>
 				{/key}
+			{:else if selectedServer && channelsLoading}
+				<div aria-hidden="true" class="flex min-h-0 flex-1 flex-col gap-3">
+					<div class="panel flex shrink-0 items-center gap-2.5 px-5 py-3.5">
+						<span class="skeleton h-4 w-4 rounded-[5px]"></span>
+						<span class="skeleton my-[7px] h-2.5 w-32 rounded-full"></span>
+					</div>
+					<div class="panel-deep flex min-h-0 flex-1 flex-col justify-end px-2 pt-3 pb-7">
+						<MessageSkeleton />
+					</div>
+					<div class="panel h-14 shrink-0 rounded-[28px] [corner-shape:round]"></div>
+				</div>
 			{:else if selectedServer}
 				<div class="flex flex-1 items-center justify-center">
-					{#if !channelsLoading}
-						<span class="text-[13px] text-muted">Создай первый канал — через «⋯» у названия сервера</span>
-					{/if}
+					<span class="text-[13px] text-muted">Создай первый канал — через «⋯» у названия сервера</span>
 				</div>
 			{:else}
 				<div class="flex flex-1 items-center justify-center">
@@ -596,7 +726,7 @@
 
 		<div class="relative flex shrink-0 flex-col gap-3" style="width: {panelWidths.members}px">
 			{#if selectedServer}
-				<MemberPanel members={membersWithPresence} />
+				<MemberPanel members={membersWithPresence} loading={members.length === 0} />
 			{:else if selectedFriend}
 				<FriendProfile friend={selectedFriend} />
 			{:else}

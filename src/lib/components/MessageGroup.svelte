@@ -3,14 +3,22 @@
 </script>
 
 <script lang="ts">
+	import { waitingForNetwork } from '$lib/media/upload-progress.svelte';
 	import { splitLinks } from '$lib/messages/links';
-	import type { Message, MessageReply } from '$lib/messages/messages';
+	import {
+		previewText,
+		renderKeyOf,
+		type Message,
+		type MessageReply
+	} from '$lib/messages/messages';
+	import { clientIdOf } from '$lib/messages/outbox';
 	import { inviteCodeInMessage } from '$lib/servers/invites';
 	import type { Server } from '$lib/servers/servers';
 	import { openExternal } from '$lib/ui/external-link';
 	import { initials } from '$lib/ui/initials';
 	import Icon from './Icon.svelte';
 	import InviteCard from './InviteCard.svelte';
+	import MessageAttachments from './MessageAttachments.svelte';
 
 	interface Props {
 		messages: Message[];
@@ -22,6 +30,7 @@
 		onflashend?: () => void;
 		onjoinedinvite?: (server: Server) => void;
 		onopeninvite?: (code: string) => void;
+		onopenphoto?: (message: Message, index: number, element: HTMLElement) => void;
 	}
 
 	let {
@@ -33,7 +42,8 @@
 		onjump,
 		onflashend,
 		onjoinedinvite,
-		onopeninvite
+		onopeninvite,
+		onopenphoto
 	}: Props = $props();
 
 	const linkClass =
@@ -52,6 +62,12 @@
 
 	function singleLine(text: string): string {
 		return text.replace(/\s+/g, ' ').trim();
+	}
+
+	function isWaiting(message: Message): boolean {
+		if (message.status !== 'sending') return false;
+		const clientId = clientIdOf(message.id);
+		return clientId !== null && waitingForNetwork.has(clientId);
 	}
 
 	function repliesToSelf(message: Message): boolean {
@@ -134,7 +150,7 @@
 						? 'group-hover/reply:text-ink-secondary'
 						: ''}"
 				>
-					{singleLine(reply.original.text)}
+					{singleLine(previewText(reply.original.text))}
 				</span>
 			{:else}
 				<span class="shrink-0 pr-0.5 whitespace-nowrap text-muted italic">Сообщение удалено</span>
@@ -168,7 +184,19 @@
 			</span>
 			<span class="truncate text-[13px] font-semibold text-ink">@{username}</span>
 		</div>
-		{@render messageText(message)}
+		{#if message.attachments && message.attachments.length > 0}
+			<div class="mt-1.5">
+				<MessageAttachments
+					{message}
+					attachments={message.attachments}
+					waiting={false}
+					onopen={onopenphoto}
+				/>
+			</div>
+		{/if}
+		{#if message.text !== ''}
+			{@render messageText(message)}
+		{/if}
 		{#if inviteCode && onjoinedinvite}
 			<InviteCard code={inviteCode} onjoined={onjoinedinvite} />
 		{/if}
@@ -177,21 +205,35 @@
 
 {#snippet messageBody(message: Message)}
 	{@const inviteCode = message.status === undefined ? inviteCodeInMessage(message.text) : null}
+	{@const attachments = message.attachments ?? []}
+	{@const waiting = isWaiting(message)}
 	<div
 		class="flex min-w-0 flex-col items-start transition-opacity duration-200 [&>*]:max-w-full {message.status ===
-		'sending'
+			'sending' &&
+		(attachments.length === 0 || waiting)
 			? 'opacity-50'
 			: ''}"
 	>
 		{#if message.forwardedFrom}
 			{@render forwardedCard(message, message.forwardedFrom.username, inviteCode)}
 		{:else}
-			<div class="self-stretch">
-				{@render messageText(message)}
-				{#if inviteCode && onjoinedinvite}
-					<InviteCard code={inviteCode} onjoined={onjoinedinvite} />
-				{/if}
-			</div>
+			{#if attachments.length > 0}
+				<MessageAttachments {message} {attachments} {waiting} onopen={onopenphoto} />
+			{/if}
+			{#if message.text !== ''}
+				<div
+					class="self-stretch transition-opacity duration-200 {message.status === 'sending' &&
+					attachments.length > 0 &&
+					!waiting
+						? 'opacity-50'
+						: ''}"
+				>
+					{@render messageText(message)}
+					{#if inviteCode && onjoinedinvite}
+						<InviteCard code={inviteCode} onjoined={onjoinedinvite} />
+					{/if}
+				</div>
+			{/if}
 		{/if}
 	</div>
 	{#if message.status === 'failed'}
@@ -200,7 +242,7 @@
 {/snippet}
 
 <div role="group" data-group-first={messages[0].id} class="py-1">
-	{#each messages as message, index (message.id)}
+	{#each messages as message, index (renderKeyOf(message))}
 		<div
 			data-message-id={message.id}
 			onanimationend={(event) => {

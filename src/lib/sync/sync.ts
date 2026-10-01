@@ -1,4 +1,5 @@
 import { history } from '$lib/history/history';
+import { prefetchImages } from '$lib/media/images';
 import type { Feeds } from '$lib/messages/feeds.svelte';
 import type { Message } from '$lib/messages/messages';
 import type { UnreadSnapshot } from '$lib/notifications/inbox';
@@ -33,6 +34,7 @@ export function createSync(feeds: Feeds) {
 	}
 
 	function receive(channelId: string, message: Message) {
+		prefetchImages(message.attachments);
 		if (!warmFeeds.has(channelId)) {
 			void warm(channelId);
 			return;

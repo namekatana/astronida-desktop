@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { messageMaxLength, type MessageReply } from '$lib/messages/messages';
+	import { isAcceptedImage } from '$lib/media/compress';
+	import { messageMaxLength, previewText, type MessageReply } from '$lib/messages/messages';
 	import { hasVisibleContent } from '$lib/ui/visible-text';
 	import Icon from './Icon.svelte';
 
@@ -7,14 +8,20 @@
 		placeholder: string;
 		reply?: MessageReply | null;
 		onsend?: (text: string) => void;
+		onattach?: (files: File[]) => void;
 		ontyping?: () => void;
 		oncancelreply?: () => void;
 	}
 
-	let { placeholder, reply = null, onsend, ontyping, oncancelreply }: Props = $props();
+	let { placeholder, reply = null, onsend, onattach, ontyping, oncancelreply }: Props = $props();
+
+	const noticeDurationMs = 3000;
 
 	let textarea = $state<HTMLTextAreaElement>();
+	let fileInput = $state<HTMLInputElement>();
 	let lastReply: MessageReply | null = null;
+	let notice = $state<string | null>(null);
+	let noticeTimer: ReturnType<typeof setTimeout> | undefined;
 
 	const shownReply = $derived.by(() => {
 		if (reply) lastReply = reply;
@@ -23,6 +30,10 @@
 
 	$effect(() => {
 		if (reply) textarea?.focus();
+	});
+
+	$effect(() => {
+		return () => clearTimeout(noticeTimer);
 	});
 
 	const lineHeight = 20;
@@ -55,6 +66,32 @@
 				: 'text-muted'
 	);
 
+	function showNotice(text: string) {
+		notice = text;
+		clearTimeout(noticeTimer);
+		noticeTimer = setTimeout(() => (notice = null), noticeDurationMs);
+	}
+
+	export function attach(files: File[]) {
+		if (files.length === 0) return;
+		if (!files.some(isAcceptedImage)) {
+			showNotice('Можно прикрепить только фото');
+			return;
+		}
+		onattach?.(files);
+	}
+
+	export function takeText(): string {
+		const text = value;
+		value = '';
+		return text;
+	}
+
+	export function restoreText(text: string) {
+		value = text;
+		textarea?.focus();
+	}
+
 	function send() {
 		if (!canSend) return;
 		onsend?.(value.trim());
@@ -70,11 +107,30 @@
 		event.preventDefault();
 		send();
 	}
+
+	function handlePaste(event: ClipboardEvent) {
+		const files = [...(event.clipboardData?.files ?? [])];
+		if (!files.some((file) => file.type.startsWith('image/'))) return;
+		event.preventDefault();
+		attach(files);
+	}
+
+	function handlePicked() {
+		const files = [...(fileInput?.files ?? [])];
+		if (fileInput) fileInput.value = '';
+		attach(files);
+	}
 </script>
 
 <div
 	class="panel relative flex shrink-0 flex-col overflow-hidden rounded-[28px] p-2 [corner-shape:round]"
 >
+	<div class="collapsible {notice ? 'is-open' : ''}" inert={!notice}>
+		<div>
+			<p class="h-5 truncate px-3 pb-1 text-[12px] leading-4 text-danger">{notice ?? ''}</p>
+		</div>
+	</div>
+
 	<div class="collapsible {reply ? 'is-open' : ''}" inert={!reply}>
 		<div>
 			{#if shownReply}
@@ -96,7 +152,9 @@
 								</span>
 							</p>
 							<p dir="auto" class="truncate text-ink-secondary [unicode-bidi:plaintext]">
-								{shownReply.original?.text.replace(/\s+/g, ' ') ?? ''}
+								{shownReply.original
+									? previewText(shownReply.original.text).replace(/\s+/g, ' ')
+									: ''}
 							</p>
 						{/if}
 					</div>
@@ -132,6 +190,7 @@
 				aria-label="Сообщение"
 				onkeydown={handleKeydown}
 				oninput={handleInput}
+				onpaste={handlePaste}
 				style="height: {height}px"
 				class="scrollbar-none block w-full resize-none rounded-xl bg-transparent px-4 py-2.5 text-[14px] leading-5 text-ink transition-[height] duration-[180ms] ease-soft outline-none placeholder:text-muted"
 			></textarea>
@@ -147,9 +206,18 @@
 			>
 				{length}/{messageMaxLength}
 			</span>
+			<input
+				bind:this={fileInput}
+				type="file"
+				accept="image/*"
+				multiple
+				hidden
+				onchange={handlePicked}
+			/>
 			<button
 				type="button"
-				aria-label="Прикрепить файл"
+				aria-label="Прикрепить фото"
+				onclick={() => fileInput?.click()}
 				class="pressable flex h-8 w-8 items-center justify-center rounded-full text-muted duration-150 hover:bg-white/[0.06] hover:text-ink"
 			>
 				<Icon name="paperclip" size={18} />

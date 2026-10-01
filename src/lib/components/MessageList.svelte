@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { tick, type Snippet } from 'svelte';
-	import type { Message } from '$lib/messages/messages';
+	import { fade } from 'svelte/transition';
+	import { renderKeyOf, type Message } from '$lib/messages/messages';
 	import type { Server } from '$lib/servers/servers';
 	import type { MessageMenuMode } from './message-menu';
 	import MessageGroup from './MessageGroup.svelte';
 	import MessageMenu from './MessageMenu.svelte';
+	import MessageSkeleton from './MessageSkeleton.svelte';
 	import Scrollbar from './Scrollbar.svelte';
 	import Toast from './Toast.svelte';
 	import TypingIndicator from './TypingIndicator.svelte';
@@ -22,6 +24,7 @@
 		onforward?: (message: Message) => void;
 		onjoinedinvite?: (server: Server) => void;
 		onopeninvite?: (code: string) => void;
+		onopenphoto?: (message: Message, index: number, element: HTMLElement) => void;
 		pinnedIds?: Set<string>;
 		onpin?: (message: Message) => void;
 		oncopy?: (message: Message) => void;
@@ -43,6 +46,7 @@
 		onforward,
 		onjoinedinvite,
 		onopeninvite,
+		onopenphoto,
 		pinnedIds,
 		onpin,
 		oncopy,
@@ -98,7 +102,7 @@
 				message.sentAt.getTime() - last.sentAt.getTime() <= groupGapMs;
 
 			if (group && continues) group.messages.push(message);
-			else block.groups.push({ key: message.id, messages: [message], unreadStart });
+			else block.groups.push({ key: renderKeyOf(message), messages: [message], unreadStart });
 		}
 		return result;
 	});
@@ -240,10 +244,16 @@
 			? 'overflow-hidden'
 			: 'overflow-y-auto'}"
 	>
-		{#if messages.length === 0 && !loading}
-			<div class="flex flex-1 items-center justify-center">
-				<span class="text-[13px] text-muted">Пока пусто — напиши первым</span>
-			</div>
+		{#if messages.length === 0}
+			{#if loading}
+				<div class="pointer-events-none absolute inset-x-2 bottom-7" out:fade={{ duration: 120 }}>
+					<MessageSkeleton />
+				</div>
+			{:else}
+				<div class="flex flex-1 items-center justify-center" in:fade={{ duration: 150 }}>
+					<span class="text-[13px] text-muted">Пока пусто — напиши первым</span>
+				</div>
+			{/if}
 		{/if}
 
 		{#each blocks as block (block.dateLabel)}
@@ -272,6 +282,7 @@
 						onflashend={() => (flashId = null)}
 						{onjoinedinvite}
 						{onopeninvite}
+						{onopenphoto}
 					/>
 				{/each}
 			</div>
@@ -294,7 +305,7 @@
 		onforward={() => onforward?.(message)}
 		pinned={pinnedIds?.has(message.id) ?? false}
 		onpin={onpin ? () => onpin(message) : undefined}
-		oncopy={() => oncopy?.(message)}
+		oncopy={message.text === '' ? undefined : () => oncopy?.(message)}
 		ondelete={ondelete && (menu.mode === 'own' || canDeleteOthers)
 			? () => ondelete(message)
 			: undefined}

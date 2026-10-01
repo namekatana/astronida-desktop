@@ -14,7 +14,7 @@ export type DeleteFailure = 'forbidden' | 'rate_limited' | 'failed';
 
 export const forwardMaxTargets = 10;
 
-const retryableSendReasons = new Set(['rate_limited', 'in_progress', 'timeout']);
+const retryableSendReasons = new Set(['rate_limited', 'in_progress', 'timeout', 'unavailable']);
 
 function knownReason<T extends string>(reason: string, known: readonly T[]): T | 'failed' {
 	return (known as readonly string[]).includes(reason) ? (reason as T) : 'failed';
@@ -25,14 +25,17 @@ export async function sendMessage(input: {
 	clientId: string;
 	text: string;
 	replyToId?: string;
+	attachmentIds?: string[];
 }): Promise<SendResult> {
 	const channel = joinedRoom(input.channelId);
 	if (!channel) return { ok: false, retry: true };
 
+	const attachments = input.attachmentIds ?? [];
 	const outcome = await pushTo<MessagePayload>(channel, 'send', {
 		content: input.text.trim(),
 		client_id: input.clientId,
-		reply_to_id: input.replyToId ?? null
+		reply_to_id: input.replyToId ?? null,
+		...(attachments.length > 0 ? { attachments } : {})
 	});
 	if (outcome.ok) return { ok: true, message: fromPayload(outcome.reply) };
 	return { ok: false, retry: retryableSendReasons.has(outcome.reason) };

@@ -2,6 +2,7 @@ import { untrack } from 'svelte';
 import { SvelteSet } from 'svelte/reactivity';
 import { workspaceCache } from '$lib/cache/workspace-cache';
 import type { Feeds } from '$lib/messages/feeds.svelte';
+import { previewText } from '$lib/messages/messages';
 import { typingIn } from '$lib/messages/typing.svelte';
 import { requestAttention, showNotification } from '$lib/notifications/notify';
 import { playFriendRequestSound } from '$lib/notifications/sounds';
@@ -88,7 +89,11 @@ export function createFriendsState(input: {
 				return [
 					[
 						friend.id,
-						{ kind: 'message', text: latest.text, own: latest.author.id === input.userId }
+						{
+							kind: 'message',
+							text: previewText(latest.text),
+							own: latest.author.id === input.userId
+						}
 					]
 				];
 			})

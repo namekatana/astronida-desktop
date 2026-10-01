@@ -18,6 +18,15 @@ export interface MessageReply {
 	original: ReplyOriginal | null;
 }
 
+export interface MessageAttachment {
+	id: string;
+	channelId: string;
+	width: number;
+	height: number;
+	thumbHash: string;
+	localUrl?: string;
+}
+
 export interface Message {
 	id: string;
 	author: MessageAuthor;
@@ -25,17 +34,37 @@ export interface Message {
 	sentAt: Date;
 	replyTo?: MessageReply;
 	forwardedFrom?: { username: string };
+	attachments?: MessageAttachment[];
 	status?: 'sending' | 'failed';
+	localKey?: string;
+}
+
+export function renderKeyOf(message: Message): string {
+	return message.localKey ?? message.id;
 }
 
 export const messageMaxLength = 2000;
 export const pageSize = 50;
 export const pinnedMaxCount = 50;
+export const attachmentMaxCount = 10;
+
+const photoOnlyText = 'Фото';
+
+export function previewText(text: string): string {
+	return text.trim() === '' ? photoOnlyText : text;
+}
 
 interface AuthorPayload {
 	id: string;
 	username: string;
 	display_name: string;
+}
+
+interface AttachmentPayload {
+	id: string;
+	width: number;
+	height: number;
+	thumbhash: string;
 }
 
 export interface MessagePayload {
@@ -51,6 +80,7 @@ export interface MessagePayload {
 		forwarded_from?: { username: string } | null;
 	} | null;
 	forwarded_from?: { username: string } | null;
+	attachments?: AttachmentPayload[];
 }
 
 export function compareIds(a: { id: string }, b: { id: string }): number {
@@ -59,6 +89,20 @@ export function compareIds(a: { id: string }, b: { id: string }): number {
 
 function authorFrom(payload: AuthorPayload): MessageAuthor {
 	return { id: payload.id, username: payload.username, name: payload.display_name };
+}
+
+function attachmentsFrom(
+	channelId: string,
+	payloads: AttachmentPayload[] | null | undefined
+): MessageAttachment[] {
+	if (!Array.isArray(payloads)) return [];
+	return payloads.map((payload) => ({
+		id: payload.id,
+		channelId,
+		width: payload.width,
+		height: payload.height,
+		thumbHash: payload.thumbhash
+	}));
 }
 
 function replyOriginal(
@@ -82,10 +126,16 @@ export function fromPayload(payload: MessagePayload): Message {
 	if (reply) {
 		message.replyTo = {
 			id: reply.id,
-			original: replyOriginal(authorFrom(reply.author), reply.content, reply.forwarded_from?.username)
+			original: replyOriginal(
+				authorFrom(reply.author),
+				reply.content,
+				reply.forwarded_from?.username
+			)
 		};
 	}
 	if (payload.forwarded_from) message.forwardedFrom = { username: payload.forwarded_from.username };
+	const attachments = attachmentsFrom(payload.channel_id, payload.attachments);
+	if (attachments.length > 0) message.attachments = attachments;
 	return message;
 }
 
@@ -112,23 +162,37 @@ async function loadReplyOriginals(ids: string[]): Promise<Map<string, ReplyOrigi
 	for (const row of data) {
 		originals.set(
 			row.id,
-			replyOriginal(authorOfRow(row.author_id, row.profiles), row.content, row.forwarded_from_username)
+			replyOriginal(
+				authorOfRow(row.author_id, row.profiles),
+				row.content,
+				row.forwarded_from_username
+			)
 		);
 	}
 	return originals;
 }
 
 const messageColumns =
-	'id, author_id, content, created_at, reply_to_id, forwarded_from_username, profiles (username, display_name)';
+	'id, channel_id, author_id, content, created_at, reply_to_id, forwarded_from_username, profiles (username, display_name), attachments (id, position, width, height, thumbhash)';
+
+interface AttachmentRow extends AttachmentPayload {
+	position: number | null;
+}
 
 interface MessageRow {
 	id: string;
+	channel_id: string;
 	author_id: string;
 	content: string;
 	created_at: string;
 	reply_to_id: string | null;
 	forwarded_from_username: string | null;
 	profiles: ProfileRow;
+	attachments: AttachmentRow[];
+}
+
+function orderedAttachments(rows: AttachmentRow[]): AttachmentRow[] {
+	return [...rows].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
 }
 
 async function messagesFromRows(data: MessageRow[]): Promise<Message[] | null> {
@@ -149,6 +213,8 @@ async function messagesFromRows(data: MessageRow[]): Promise<Message[] | null> {
 		if (row.forwarded_from_username) {
 			message.forwardedFrom = { username: row.forwarded_from_username };
 		}
+		const attachments = attachmentsFrom(row.channel_id, orderedAttachments(row.attachments));
+		if (attachments.length > 0) message.attachments = attachments;
 		return message;
 	});
 }
