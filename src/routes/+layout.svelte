@@ -2,6 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import { dev } from '$app/environment';
 	import '../app.css';
+	import SmoothScroll from '$lib/components/SmoothScroll.svelte';
 	import TitleBar from '$lib/components/TitleBar.svelte';
 	import { updates } from '$lib/updates/updates.svelte';
 
@@ -57,8 +58,8 @@
 	<TitleBar />
 
 	<main class="relative flex-1 overflow-hidden">
-		<div class="relative h-full overflow-y-auto">
+		<SmoothScroll class="h-full" contentClass="relative h-full">
 			{@render children()}
-		</div>
+		</SmoothScroll>
 	</main>
 </div>

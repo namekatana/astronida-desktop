@@ -248,6 +248,103 @@ input {
 	animation: reply-flash 1400ms ease-in-out;
 }
 
+@keyframes spoiler-focus {
+	from {
+		filter: blur(12px);
+		transform: scale(1.04);
+	}
+	to {
+		filter: blur(0);
+		transform: scale(1);
+	}
+}
+
+.spoiler-focus {
+	animation: spoiler-focus 500ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.spoiler-focus {
+		animation: none;
+	}
+}
+
+@property --orbit-angle {
+	syntax: '<angle>';
+	inherits: true;
+	initial-value: 0deg;
+}
+
+.orbit {
+	--orbit-head: 3px;
+	--orbit-glow: 6px;
+	transition: --orbit-angle 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.orbit-compact {
+	--orbit-head: 2.5px;
+	--orbit-glow: 3px;
+}
+
+.orbit-ring {
+	mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+}
+
+.orbit-track {
+	background: currentColor;
+	opacity: 0.14;
+}
+
+.orbit-tail {
+	background: conic-gradient(
+		transparent 0deg,
+		currentColor var(--orbit-angle),
+		transparent var(--orbit-angle)
+	);
+}
+
+.orbit-head {
+	transform: rotate(var(--orbit-angle));
+}
+
+.orbit-head::after {
+	content: '';
+	position: absolute;
+	top: calc(0.75px - var(--orbit-head) / 2);
+	left: 50%;
+	width: var(--orbit-head);
+	height: var(--orbit-head);
+	margin-left: calc(var(--orbit-head) / -2);
+	border-radius: 9999px;
+	background: currentColor;
+	box-shadow: 0 0 var(--orbit-glow) calc(var(--orbit-glow) / 4)
+		color-mix(in srgb, currentColor 70%, transparent);
+}
+
+.orbit-planet {
+	width: 3px;
+	height: 3px;
+	margin: -1.5px 0 0 -1.5px;
+	background: currentColor;
+	opacity: 0.35;
+}
+
+.orbit-spin {
+	animation: orbit-spin 1.4s linear infinite;
+}
+
+@keyframes orbit-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.orbit-spin {
+		animation: none;
+	}
+}
+
 .reply-mention {
 	position: relative;
 }
@@ -296,6 +393,14 @@ input {
 	}
 	.panel-floating {
 		border: 1px solid var(--color-panel-edge);
+	}
+	.status-invisible {
+		background-color: var(--color-muted);
+		background-image: radial-gradient(
+			circle closest-side,
+			var(--color-surface) 46%,
+			transparent 52%
+		);
 	}
 }
 

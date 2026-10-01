@@ -3,6 +3,7 @@
 	import { dismissOn } from '$lib/ui/dismiss';
 	import type { IconName } from '$lib/ui/icons';
 	import { pop } from '$lib/ui/pop';
+	import { portal } from '$lib/ui/portal';
 	import type { VoiceOccupant } from '$lib/voice/occupant';
 	import { voice } from '$lib/voice/voice.svelte';
 	import { defaultVolume, maxVolume, participantAudio } from '$lib/voice/volumes.svelte';
@@ -62,6 +63,7 @@
 
 <div
 	bind:this={root}
+	use:portal
 	role="menu"
 	aria-label="Участник @{occupant.username}"
 	in:pop={{ y: -4, duration: 180 }}

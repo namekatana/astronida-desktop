@@ -1,4 +1,4 @@
-import { history, type HistoryCoverage } from '$lib/history/history';
+import { history, type HistoryCoverage, type HistoryPage } from '$lib/history/history';
 import { compareIds, loadMessages, pageSize, type Message } from './messages';
 
 interface Feed {
@@ -143,17 +143,20 @@ export function createFeeds() {
 		if (pending) pending.status = 'failed';
 	}
 
-	async function readDisk(channelId: string, before?: string): Promise<boolean> {
+	function seed(channelId: string, page: HistoryPage) {
 		const feed = feedFor(channelId);
+		mergeMessages(channelId, page.messages);
+		feed.localExhausted = page.messages.length < pageSize;
+		feed.hasMore = !feed.localExhausted || !page.reachedStart;
+		if (page.messages.length > 0 || page.reachedStart) feed.ready = true;
+	}
+
+	async function readDisk(channelId: string, before?: string): Promise<boolean> {
 		try {
-			const page = await history.page(channelId, before);
-			mergeMessages(channelId, page.messages);
-			feed.localExhausted = page.messages.length < pageSize;
-			feed.hasMore = !feed.localExhausted || !page.reachedStart;
-			if (page.messages.length > 0 || page.reachedStart) feed.ready = true;
+			seed(channelId, await history.page(channelId, before));
 			return true;
 		} catch {
-			feed.localExhausted = true;
+			feedFor(channelId).localExhausted = true;
 			return false;
 		}
 	}
@@ -253,6 +256,7 @@ export function createFeeds() {
 		removeMessage,
 		forget,
 		markFailed,
+		seed,
 		open,
 		sync,
 		loadOlder

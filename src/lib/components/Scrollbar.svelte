@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { on } from 'svelte/events';
+	import type { SmoothScrollController } from '$lib/ui/smooth-scroll';
 
 	interface Props {
 		target: HTMLElement | undefined;
+		controller?: SmoothScrollController;
 	}
 
-	let { target }: Props = $props();
+	let { target, controller }: Props = $props();
 
 	const minThumb = 28;
 	const idleMs = 900;
@@ -71,6 +73,7 @@
 		(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
 		dragging = true;
 		dragStartY = event.clientY;
+		controller?.stop();
 		dragStartTop = target.scrollTop;
 	}
 
@@ -79,7 +82,9 @@
 		const range = trackHeight - thumbHeight;
 		if (range <= 0) return;
 		const scrollRange = target.scrollHeight - target.clientHeight;
-		target.scrollTop = dragStartTop + ((event.clientY - dragStartY) / range) * scrollRange;
+		const offset = dragStartTop + ((event.clientY - dragStartY) / range) * scrollRange;
+		if (controller) controller.scrollTo(offset, { instant: true });
+		else target.scrollTop = offset;
 	}
 
 	function handleThumbPointerUp() {
@@ -91,7 +96,9 @@
 		const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
 		const clickY = event.clientY - rect.top;
 		const direction = clickY < thumbOffset ? -1 : 1;
-		target.scrollBy({ top: direction * target.clientHeight * 0.9, behavior: 'smooth' });
+		const delta = direction * target.clientHeight * 0.9;
+		if (controller) controller.scrollTo(controller.position + delta);
+		else target.scrollBy({ top: delta, behavior: 'smooth' });
 	}
 
 	const visible = $derived(overflowing && (active || hovered || dragging));

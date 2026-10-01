@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { describeInviteSettings, generateInviteLink, type InviteLink } from '$lib/servers/invites';
 	import { settle } from '$lib/ui/settle';
+	import Orbit from './Orbit.svelte';
 	import SelectMenu from './SelectMenu.svelte';
 
 	interface Props {
@@ -84,8 +85,20 @@
 		disabled={submitting}
 		aria-busy={submitting}
 		onclick={generate}
-		class="pressable mt-3 h-10 w-full rounded-full bg-ink text-[13px] font-semibold text-bg duration-150 hover:bg-ink-hover active:bg-ink-pressed disabled:opacity-60"
+		class="pressable mt-3 grid h-10 w-full place-items-center rounded-full bg-ink text-[13px] font-semibold text-bg duration-150 hover:bg-ink-hover active:bg-ink-pressed"
 	>
-		Создать ссылку
+		<span
+			class="col-start-1 row-start-1 transition-opacity duration-150 {submitting
+				? 'opacity-0'
+				: 'opacity-100'}"
+		>
+			Создать ссылку
+		</span>
+		<Orbit
+			size={16}
+			class="col-start-1 row-start-1 transition-opacity duration-150 {submitting
+				? 'opacity-100'
+				: 'opacity-0'}"
+		/>
 	</button>
 </div>

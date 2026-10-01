@@ -15,6 +15,7 @@
 	import Icon from './Icon.svelte';
 	import FriendItem from './FriendItem.svelte';
 	import ResizeHandle from './ResizeHandle.svelte';
+	import SmoothScroll from './SmoothScroll.svelte';
 
 	interface Props {
 		friends: Member[];
@@ -142,7 +143,7 @@
 	</div>
 	<div class="mx-4 h-px bg-surface-line"></div>
 
-	<div class="scrollbar-none min-h-0 flex-1 overflow-y-auto px-2.5 py-3">
+	<SmoothScroll scrollbar class="min-h-0 flex-1" contentClass="px-2.5 py-3">
 		<button
 			type="button"
 			onclick={onaddfriend}
@@ -151,16 +152,6 @@
 			<Icon name="plus" size={14} />
 			Добавить друга
 		</button>
-
-		{#snippet heading(label: string, count: number, first: boolean)}
-			<div class={first ? '' : 'pt-2'}>
-				<div
-					class="flex h-7 items-center px-2 text-[13px] font-semibold text-muted"
-				>
-					{label} — {count}
-				</div>
-			</div>
-		{/snippet}
 
 		{#if requests.length > 0}
 			<div class="pb-3" transition:reveal>
@@ -292,10 +283,18 @@
 				</div>
 			{/each}
 		</div>
-	</div>
+	</SmoothScroll>
 
 	<ResizeHandle side="right" bind:width min={panelLimits.min} max={panelLimits.max} />
 </aside>
+
+{#snippet heading(label: string, count: number, first: boolean)}
+	<div class={first ? '' : 'pt-2'}>
+		<div class="flex h-7 items-center px-2 text-[13px] font-semibold text-muted">
+			{label} — {count}
+		</div>
+	</div>
+{/snippet}
 
 <style>
 	.request-fresh {

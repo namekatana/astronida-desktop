@@ -2,8 +2,10 @@
 	import { on } from 'svelte/events';
 	import { fade } from 'svelte/transition';
 	import { pop } from '$lib/ui/pop';
+	import { portal } from '$lib/ui/portal';
 	import { settle } from '$lib/ui/settle';
 	import Icon from './Icon.svelte';
+	import SmoothScroll from './SmoothScroll.svelte';
 
 	interface Props {
 		label: string;
@@ -86,7 +88,8 @@
 		const close = () => (open = false);
 		const offKey = on(window, 'keydown', handleKey, { capture: true });
 		const offPointer = on(document, 'pointerdown', (event) => {
-			if (!root?.contains(event.target as Node)) close();
+			const target = event.target as Node;
+			if (!root?.contains(target) && !list?.contains(target)) close();
 		});
 		const offResize = on(window, 'resize', close);
 		const offScroll = on(
@@ -144,34 +147,41 @@
 	{#if open}
 		<div
 			bind:this={list}
+			use:portal
 			role="listbox"
 			aria-label={label}
 			in:pop={{ y: position.above ? 6 : -6, duration: 200 }}
 			out:fade={{ duration: 100 }}
-			class="panel panel-floating scrollbar-none fixed z-50 overflow-y-auto p-2 {position.above
+			class="panel panel-floating fixed z-50 flex flex-col overflow-hidden {position.above
 				? 'origin-bottom-right'
 				: 'origin-top-right'}"
 			style="left: {position.left}px; top: {position.top}px; width: {menuWidth}px; max-height: {menuHeight}px"
 		>
-			{#each options as option, index (index)}
-				<button
-					bind:this={optionButtons[index]}
-					type="button"
-					role="option"
-					aria-selected={index === selectedIndex}
-					onpointerenter={() => (highlighted = index)}
-					onclick={() => pick(index)}
-					class="flex h-9 w-full items-center gap-2.5 rounded-[10px] px-3 text-left [corner-shape:squircle] text-[13px] transition-colors duration-150 {index ===
-					highlighted
-						? 'bg-white/[0.06] text-ink'
-						: 'text-ink-secondary'}"
-				>
-					<span class="min-w-0 flex-1 truncate tabular-nums">{option.label}</span>
-					{#if index === selectedIndex}
-						<Icon name="check" size={14} class="text-ink" />
-					{/if}
-				</button>
-			{/each}
+			<SmoothScroll class="min-h-0" contentClass="p-2">
+				{@render optionList()}
+			</SmoothScroll>
 		</div>
 	{/if}
 </div>
+
+{#snippet optionList()}
+	{#each options as option, index (index)}
+		<button
+			bind:this={optionButtons[index]}
+			type="button"
+			role="option"
+			aria-selected={index === selectedIndex}
+			onpointerenter={() => (highlighted = index)}
+			onclick={() => pick(index)}
+			class="flex h-9 w-full items-center gap-2.5 rounded-[10px] px-3 text-left [corner-shape:squircle] text-[13px] transition-colors duration-150 {index ===
+			highlighted
+				? 'bg-white/[0.06] text-ink'
+				: 'text-ink-secondary'}"
+		>
+			<span class="min-w-0 flex-1 truncate tabular-nums">{option.label}</span>
+			{#if index === selectedIndex}
+				<Icon name="check" size={14} class="text-ink" />
+			{/if}
+		</button>
+	{/each}
+{/snippet}

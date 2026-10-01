@@ -24,7 +24,5 @@
 	aria-hidden="true"
 	class="shrink-0 {className}"
 >
-	{#each iconPaths[name] as d (d)}
-		<path {d} />
-	{/each}
+	<path d={iconPaths[name]} />
 </svg>

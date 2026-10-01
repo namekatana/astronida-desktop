@@ -2,6 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import { settle } from '$lib/ui/settle';
 	import DrawnCheck from './DrawnCheck.svelte';
+	import Orbit from './Orbit.svelte';
 
 	interface Props {
 		title: string;
@@ -96,9 +97,9 @@
 					onclick={actionForm ? undefined : onaction}
 					class="grid h-5 items-center text-[14px] leading-5 font-semibold transition-[color,opacity] duration-200 ease-soft active:opacity-60 {actionDisabled
 						? 'text-muted'
-						: 'text-ink'} {actionBusy ? 'opacity-50' : ''}"
+						: 'text-ink'}"
 				>
-					{#key actionDone ? 'done' : actionLabel}
+					{#key actionDone ? 'done' : actionBusy ? 'busy' : actionLabel}
 						<span
 							class="col-start-1 row-start-1 flex h-5 items-center justify-end gap-1.5 whitespace-nowrap"
 							in:settle
@@ -107,6 +108,8 @@
 							{#if actionDone}
 								<DrawnCheck size={14} delay={60} />
 								Готово
+							{:else if actionBusy}
+								<Orbit size={16} />
 							{:else}
 								{actionLabel}
 							{/if}

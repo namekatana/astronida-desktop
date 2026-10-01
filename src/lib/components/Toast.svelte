@@ -4,8 +4,9 @@
 	import { settle } from '$lib/ui/settle';
 	import { toast } from '$lib/ui/toast.svelte';
 	import DrawnCheck from './DrawnCheck.svelte';
+	import Icon from './Icon.svelte';
 
-	let lastShown = { text: '', version: 0 };
+	let lastShown = { text: '', failed: false, version: 0 };
 
 	const shown = $derived.by(() => {
 		if (toast.current) lastShown = toast.current;
@@ -29,7 +30,11 @@
 					out:settle={{ duration: 100 }}
 					class="col-start-1 row-start-1 flex items-center justify-center gap-1.5 text-[13px] font-medium tracking-[-0.01em] whitespace-nowrap text-ink"
 				>
-					<DrawnCheck size={14} delay={100} class="shrink-0" />
+					{#if shown.failed}
+						<Icon name="close" size={13} class="shrink-0 text-danger" />
+					{:else}
+						<DrawnCheck size={14} delay={100} class="shrink-0" />
+					{/if}
 					{shown.text}
 				</span>
 			{/key}

@@ -2,6 +2,7 @@
 	import { previewText, type Message } from '$lib/messages/messages';
 	import Dialog from './Dialog.svelte';
 	import Icon from './Icon.svelte';
+	import Orbit from './Orbit.svelte';
 	import SheetHeader from './SheetHeader.svelte';
 
 	interface Props {
@@ -76,24 +77,12 @@
 				>
 					Удалить
 				</span>
-				<svg
-					width="14"
-					height="14"
-					viewBox="0 0 16 16"
-					fill="none"
-					aria-hidden="true"
-					class="col-start-1 row-start-1 animate-spin transition-opacity duration-150 {busy
+				<Orbit
+					size={16}
+					class="col-start-1 row-start-1 transition-opacity duration-150 {busy
 						? 'opacity-100'
 						: 'opacity-0'}"
-				>
-					<circle cx="8" cy="8" r="6" stroke="currentColor" stroke-opacity="0.25" stroke-width="2" />
-					<path
-						d="M14 8a6 6 0 0 0-6-6"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-					/>
-				</svg>
+				/>
 			</button>
 		</div>
 	</div>

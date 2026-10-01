@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
 	import type { Category, Channel, ChannelKind } from '$lib/channels/channels';
+	import type { Member } from '$lib/servers/members';
+	import { createDelayedFlag } from '$lib/ui/delayed-flag.svelte';
 	import { panelLimits } from '$lib/ui/panel-widths.svelte';
 	import type { VoiceOccupant } from '$lib/voice/occupant';
 	import ChannelList from './ChannelList.svelte';
@@ -8,6 +10,7 @@
 	import Icon from './Icon.svelte';
 	import ResizeHandle from './ResizeHandle.svelte';
 	import ServerMenu from './ServerMenu.svelte';
+	import SmoothScroll from './SmoothScroll.svelte';
 
 	interface Props {
 		serverName: string;
@@ -23,6 +26,7 @@
 		oncreatechannel: (kind: ChannelKind) => void;
 		oninvite: () => void;
 		onprefetchinvite: () => void;
+		onopenprofile?: (member: Member, source: HTMLElement | null) => void;
 	}
 
 	let {
@@ -38,7 +42,8 @@
 		oncreatecategory,
 		oncreatechannel,
 		oninvite,
-		onprefetchinvite
+		onprefetchinvite,
+		onopenprofile
 	}: Props = $props();
 
 	const uncategorized = $derived(channels.filter((channel) => channel.categoryId === null));
@@ -53,6 +58,8 @@
 		{ opacity: 0.4, width: 56 },
 		{ opacity: 0.25, width: 44 }
 	];
+
+	const skeleton = createDelayedFlag(() => loading);
 
 	let collapsed = $state<Record<string, boolean>>({});
 
@@ -78,9 +85,14 @@
 	</div>
 	<div class="mx-4 h-px bg-surface-line"></div>
 
-	<div class="scrollbar-none grid min-h-0 flex-1 overflow-y-auto px-2.5 py-3">
-		{#if loading}
-			<div aria-hidden="true" class="col-start-1 row-start-1" out:fade={{ duration: 120 }}>
+	<SmoothScroll scrollbar class="min-h-0 flex-1" contentClass="grid px-2.5 py-3">
+		{#if skeleton.current}
+			<div
+				aria-hidden="true"
+				class="col-start-1 row-start-1"
+				in:fade={{ duration: 150 }}
+				out:fade={{ duration: 120 }}
+			>
 				<div class="flex h-7 items-center px-2">
 					<span class="skeleton h-2 w-20 rounded-full"></span>
 				</div>
@@ -93,12 +105,12 @@
 					{/each}
 				</div>
 			</div>
-		{:else}
+		{:else if !loading}
 			<div class="col-start-1 row-start-1" in:fade={{ duration: 150 }}>
 				{@render channelTree()}
 			</div>
 		{/if}
-	</div>
+	</SmoothScroll>
 
 	<ResizeHandle side="right" bind:width min={panelLimits.min} max={panelLimits.max} />
 </aside>
@@ -112,6 +124,7 @@
 				{voiceOccupants}
 				{onselect}
 				{onprefetch}
+				{onopenprofile}
 			/>
 		</div>
 	{/if}
@@ -142,6 +155,7 @@
 							{voiceOccupants}
 							{onselect}
 							{onprefetch}
+							{onopenprofile}
 						/>
 					</div>
 				</div>

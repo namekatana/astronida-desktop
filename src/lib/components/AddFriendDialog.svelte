@@ -17,6 +17,7 @@
 	import DrawnCheck from './DrawnCheck.svelte';
 	import SearchField from './SearchField.svelte';
 	import SheetHeader from './SheetHeader.svelte';
+	import SmoothScroll from './SmoothScroll.svelte';
 
 	interface Props {
 		friendIds: ReadonlySet<string>;
@@ -166,8 +167,9 @@
 </Dialog>
 
 {#snippet resultList()}
-	<div
-		class="scrollbar-none h-full overflow-y-auto px-2 py-2 [mask-image:linear-gradient(to_bottom,transparent,black_10px,black_calc(100%-10px),transparent)]"
+	<SmoothScroll
+		class="h-full [mask-image:linear-gradient(to_bottom,transparent,black_10px,black_calc(100%-10px),transparent)]"
+		contentClass="px-2 py-2"
 	>
 		<ul class="flex flex-col gap-0.5">
 			{#each shownResults as result (result.id)}
@@ -189,7 +191,7 @@
 				</li>
 			{/each}
 		</ul>
-	</div>
+	</SmoothScroll>
 {/snippet}
 
 {#snippet skeleton()}

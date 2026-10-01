@@ -2,6 +2,7 @@
 	import { untrack } from 'svelte';
 	import { prefersReducedMotion } from 'svelte/motion';
 	import type { Channel } from '$lib/channels/channels';
+	import type { Member } from '$lib/servers/members';
 	import type { VoiceOccupant } from '$lib/voice/occupant';
 	import ChannelItem from './ChannelItem.svelte';
 
@@ -11,9 +12,17 @@
 		voiceOccupants?: Record<string, VoiceOccupant[]>;
 		onselect: (channelId: string) => void;
 		onprefetch?: (channelId: string) => void;
+		onopenprofile?: (member: Member, source: HTMLElement | null) => void;
 	}
 
-	let { channels, selectedChannelId, voiceOccupants = {}, onselect, onprefetch }: Props = $props();
+	let {
+		channels,
+		selectedChannelId,
+		voiceOccupants = {},
+		onselect,
+		onprefetch,
+		onopenprofile
+	}: Props = $props();
 
 	let itemElements = $state<Record<string, HTMLButtonElement>>({});
 
@@ -81,6 +90,7 @@
 			occupants={voiceOccupants[channel.id]}
 			onclick={() => onselect(channel.id)}
 			onprefetch={() => onprefetch?.(channel.id)}
+			{onopenprofile}
 			bind:element={itemElements[channel.id]}
 		/>
 	{/each}

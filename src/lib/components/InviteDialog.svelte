@@ -10,8 +10,10 @@
 	import DrawnCheck from './DrawnCheck.svelte';
 	import Icon from './Icon.svelte';
 	import InviteSettingsPanel from './InviteSettingsPanel.svelte';
+	import Orbit from './Orbit.svelte';
 	import SearchField from './SearchField.svelte';
 	import SheetHeader from './SheetHeader.svelte';
+	import SmoothScroll from './SmoothScroll.svelte';
 
 	interface Props {
 		serverId: string;
@@ -131,8 +133,9 @@
 		/>
 	</div>
 
-	<div
-		class="scrollbar-none mt-1 h-[244px] overflow-y-auto px-2 py-2 [mask-image:linear-gradient(to_bottom,transparent,black_10px,black_calc(100%-10px),transparent)]"
+	<SmoothScroll
+		class="mt-1 h-[244px] [mask-image:linear-gradient(to_bottom,transparent,black_10px,black_calc(100%-10px),transparent)]"
+		contentClass="flex min-h-full flex-col px-2 py-2"
 	>
 		{#if shownFriends.length > 0}
 			<h3 class="px-3 pt-2 pb-1 text-[12px] font-semibold text-muted">Друзья</h3>
@@ -161,7 +164,7 @@
 				{/each}
 			</ul>
 		{:else}
-			<div class="flex h-full flex-col items-center justify-center gap-1 px-6 text-center">
+			<div class="flex flex-1 flex-col items-center justify-center gap-1 px-6 text-center">
 				{#if friends.length === 0}
 					<p class="text-[13px] text-ink">Пока некого пригласить</p>
 					<p class="text-[12px] leading-5 text-muted">Отправьте ссылку ниже</p>
@@ -171,7 +174,7 @@
 				{/if}
 			</div>
 		{/if}
-	</div>
+	</SmoothScroll>
 
 	<div class="px-4 pt-1 pb-4">
 		<h3 class="px-1 pb-1.5 text-[12px] font-semibold text-muted">Ссылка-приглашение</h3>
@@ -195,7 +198,10 @@
 					{/key}
 				{:else if linkState.status === 'loading'}
 					{#if slowLoading}
-						<span in:fade={{ duration: 150 }}>Создаём ссылку…</span>
+						<span in:fade={{ duration: 150 }} class="flex items-center gap-2">
+							<Orbit size={12} />
+							Создаём ссылку…
+						</span>
 					{/if}
 				{:else}
 					Не удалось получить ссылку
