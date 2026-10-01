@@ -9,11 +9,13 @@
 	import { forwardMaxTargets, type ForwardResult } from '$lib/messages/message-actions';
 	import { messageMaxLength, type Message } from '$lib/messages/messages';
 	import type { Server } from '$lib/servers/servers';
+	import { statusDotClass } from '$lib/presence/status';
 	import Avatar from './Avatar.svelte';
 	import Dialog from './Dialog.svelte';
 	import Icon from './Icon.svelte';
 	import SearchField from './SearchField.svelte';
 	import SheetHeader from './SheetHeader.svelte';
+	import SmoothScroll from './SmoothScroll.svelte';
 
 	interface Props {
 		message: Message;
@@ -133,8 +135,9 @@
 		<SearchField bind:value={query} />
 	</div>
 
-	<div
-		class="scrollbar-none mt-1 h-[272px] overflow-y-auto px-2 py-2 [mask-image:linear-gradient(to_bottom,transparent,black_10px,black_calc(100%-10px),transparent)]"
+	<SmoothScroll
+		class="mt-1 h-[272px] [mask-image:linear-gradient(to_bottom,transparent,black_10px,black_calc(100%-10px),transparent)]"
+		contentClass="flex min-h-full flex-col px-2 py-2"
 	>
 		{#if sections.length > 0}
 			{#each sections as section (section.key)}
@@ -150,7 +153,7 @@
 				</section>
 			{/each}
 		{:else}
-			<div class="flex h-full flex-col items-center justify-center gap-1 px-6 text-center">
+			<div class="flex flex-1 flex-col items-center justify-center gap-1 px-6 text-center">
 				{#if hasAnyTarget}
 					<p class="text-[13px] text-ink">Ничего не нашлось</p>
 					<p class="text-[12px] leading-5 text-muted">Проверьте ник друга или название канала</p>
@@ -160,7 +163,7 @@
 				{/if}
 			</div>
 		{/if}
-	</div>
+	</SmoothScroll>
 
 	<form id={formId} class="px-4 pt-1 pb-4" onsubmit={submit}>
 		<div
@@ -209,7 +212,9 @@
 			<Avatar name={target.name} size={32} class="relative">
 				{#if target.online}
 					<span
-						class="absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border-2 border-surface bg-online"
+						class="absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border-2 border-surface {statusDotClass[
+							target.status
+						]}"
 					></span>
 				{/if}
 			</Avatar>

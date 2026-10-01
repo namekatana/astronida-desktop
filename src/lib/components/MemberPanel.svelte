@@ -1,14 +1,20 @@
 <script lang="ts">
-	import { fade } from 'svelte/transition';
+	import { flip } from 'svelte/animate';
+	import { cubicOut } from 'svelte/easing';
+	import { prefersReducedMotion } from 'svelte/motion';
+	import { crossfade, fade } from 'svelte/transition';
 	import type { Member } from '$lib/servers/members';
+	import { createDelayedFlag } from '$lib/ui/delayed-flag.svelte';
 	import MemberItem from './MemberItem.svelte';
+	import SmoothScroll from './SmoothScroll.svelte';
 
 	interface Props {
 		members: Member[];
 		loading?: boolean;
+		onopenprofile?: (member: Member, source: HTMLElement | null) => void;
 	}
 
-	let { members, loading = false }: Props = $props();
+	let { members, loading = false, onopenprofile }: Props = $props();
 
 	const skeletonRows = [
 		{ opacity: 1, width: 58 },
@@ -18,7 +24,17 @@
 		{ opacity: 0.22, width: 38 }
 	];
 
-	const byOwnerFirst = (a: Member, b: Member) => Number(b.owner) - Number(a.owner);
+	const skeleton = createDelayedFlag(() => loading);
+
+	const moveMs = 250;
+	const motionMs = $derived(prefersReducedMotion.current ? 0 : moveMs);
+	const [send, receive] = crossfade({
+		duration: () => (prefersReducedMotion.current ? 0 : moveMs),
+		easing: cubicOut,
+		fallback: (node) => fade(node, { duration: prefersReducedMotion.current ? 0 : 150 })
+	});
+
+	const byOwnerFirst =(a: Member, b: Member) => Number(b.owner) - Number(a.owner);
 
 	const online = $derived(members.filter((m) => m.online).sort(byOwnerFirst));
 	const offline = $derived(members.filter((m) => !m.online).sort(byOwnerFirst));
@@ -37,9 +53,14 @@
 	</div>
 	<div class="mx-4 h-px bg-surface-line"></div>
 
-	<div class="scrollbar-none grid min-h-0 flex-1 overflow-y-auto px-2.5 py-3">
-		{#if loading}
-			<div aria-hidden="true" class="col-start-1 row-start-1" out:fade={{ duration: 120 }}>
+	<SmoothScroll scrollbar class="min-h-0 flex-1" contentClass="grid px-2.5 py-3">
+		{#if skeleton.current}
+			<div
+				aria-hidden="true"
+				class="col-start-1 row-start-1"
+				in:fade={{ duration: 150 }}
+				out:fade={{ duration: 120 }}
+			>
 				<div class="flex h-7 items-center px-2">
 					<span class="skeleton h-2 w-16 rounded-full"></span>
 				</div>
@@ -52,26 +73,35 @@
 					{/each}
 				</div>
 			</div>
-		{:else}
+		{:else if !loading}
 			<div class="col-start-1 row-start-1" in:fade={{ duration: 150 }}>
 				{@render group('В сети', online)}
 				{@render group('Не в сети', offline)}
 			</div>
 		{/if}
-	</div>
+	</SmoothScroll>
 </aside>
 
 {#snippet group(label: string, list: Member[])}
-	{#if list.length > 0}
-		<div class="mb-2">
-			<div class="flex h-7 items-center px-2 text-[13px] font-semibold text-muted">
+	<div class={list.length > 0 ? 'mb-2' : ''}>
+		{#if list.length > 0}
+			<div
+				transition:fade={{ duration: motionMs ? 150 : 0 }}
+				class="flex h-7 items-center px-2 text-[13px] font-semibold text-muted"
+			>
 				{label} — {list.length}
 			</div>
-			<div class="flex flex-col gap-0.5 pt-0.5">
-				{#each list as member (member.id)}
-					<MemberItem {member} />
-				{/each}
-			</div>
+		{/if}
+		<div class="flex flex-col gap-0.5 {list.length > 0 ? 'pt-0.5' : ''}">
+			{#each list as member (member.id)}
+				<div
+					in:receive={{ key: member.id }}
+					out:send={{ key: member.id }}
+					animate:flip={{ duration: motionMs, easing: cubicOut }}
+				>
+					<MemberItem {member} onopenprofile={(source) => onopenprofile?.(member, source)} />
+				</div>
+			{/each}
 		</div>
-	{/if}
+	</div>
 {/snippet}

@@ -1,4 +1,5 @@
 import type { Channel } from 'phoenix';
+import { presenceStatusFrom, type PresenceStatus } from '$lib/presence/status';
 import { pushTo, type PushOutcome } from '$lib/realtime/push';
 import { phoenixSocket } from '$lib/realtime/socket';
 import type { Friend, FriendRelation, UserSearchResult } from './friends';
@@ -17,10 +18,12 @@ interface FriendAddedPayload {
 	user: ProfilePayload;
 	channel_id: string | null;
 	online: boolean;
+	status?: unknown;
 }
 
 interface JoinReply {
 	online: string[];
+	statuses?: Record<string, unknown>;
 	incoming: ProfilePayload[];
 }
 
@@ -40,17 +43,22 @@ function toFriend(profile: ProfilePayload, channelId: string | null = null): Fri
 
 export function subscribeToFriends(input: {
 	userId: string;
-	onOnline: (online: Set<string>) => void;
+	onOnline: (online: Map<string, PresenceStatus>) => void;
 	onRequests: (requests: Friend[]) => void;
 	onRequestReceived: (request: Friend) => void;
 	onFriendAdded: (friend: Friend) => void;
 }): () => void {
 	const channel = phoenixSocket().channel(`friends:${input.userId}`);
-	let online = new Set<string>();
+	let online = new Map<string, PresenceStatus>();
 	let requests: Friend[] = [];
 
-	const publishOnline = () => input.onOnline(new Set(online));
+	const publishOnline = () => input.onOnline(new Map(online));
 	const publishRequests = () => input.onRequests([...requests]);
+
+	function markPresence(userId: string, isOnline: boolean, status: unknown) {
+		if (isOnline) online.set(userId, presenceStatusFrom(status));
+		else online.delete(userId);
+	}
 
 	function dropRequest(userId: string) {
 		if (!requests.some((request) => request.id === userId)) return;
@@ -58,11 +66,13 @@ export function subscribeToFriends(input: {
 		publishRequests();
 	}
 
-	channel.on('friend_presence', (payload: { user_id: string; online: boolean }) => {
-		if (payload.online) online.add(payload.user_id);
-		else online.delete(payload.user_id);
-		publishOnline();
-	});
+	channel.on(
+		'friend_presence',
+		(payload: { user_id: string; online: boolean; status?: unknown }) => {
+			markPresence(payload.user_id, payload.online, payload.status);
+			publishOnline();
+		}
+	);
 	channel.on('friend_request', (payload: { user: ProfilePayload }) => {
 		const request = toFriend(payload.user);
 		const known = requests.some((existing) => existing.id === request.id);
@@ -72,14 +82,15 @@ export function subscribeToFriends(input: {
 	});
 	channel.on('friend_added', (payload: FriendAddedPayload) => {
 		const friend = toFriend(payload.user, payload.channel_id);
-		if (payload.online) online.add(friend.id);
-		else online.delete(friend.id);
+		markPresence(friend.id, payload.online, payload.status);
 		dropRequest(friend.id);
 		publishOnline();
 		input.onFriendAdded(friend);
 	});
 	channel.join().receive('ok', (reply: JoinReply) => {
-		online = new Set(reply.online);
+		online = new Map(
+			reply.online.map((userId) => [userId, presenceStatusFrom(reply.statuses?.[userId])])
+		);
 		requests = reply.incoming.map((profile) => toFriend(profile));
 		publishOnline();
 		publishRequests();

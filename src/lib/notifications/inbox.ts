@@ -1,5 +1,7 @@
 import type { Channel } from 'phoenix';
 import { fromPayload, type Message, type MessagePayload } from '$lib/messages/messages';
+import { userStatusFrom, type UserStatus } from '$lib/presence/status';
+import { pushTo } from '$lib/realtime/push';
 import { phoenixSocket } from '$lib/realtime/socket';
 
 export interface DirectUnread {
@@ -30,6 +32,7 @@ interface SnapshotPayload {
 	direct: { channel_id: string; count: number; newest_id: string; read_id: string | null }[];
 	channels: { channel_id: string; newest_id: string; read_id: string | null }[];
 	latest: { channel_id: string; newest_id: string }[];
+	status?: unknown;
 }
 
 const readFlushMs = 1000;
@@ -65,6 +68,8 @@ export function subscribeToInbox(input: {
 	onRead: (channelId: string, messageId: string) => void;
 	onTyping: (channelId: string, userId: string) => void;
 	onMessageDeleted: (channelId: string, messageId: string) => void;
+	onStatus: (status: UserStatus) => void;
+	onStatusRestored: (status: UserStatus | null) => void;
 }): () => void {
 	const channel = phoenixSocket().channel(`inbox:${input.userId}`);
 
@@ -82,7 +87,14 @@ export function subscribeToInbox(input: {
 			input.onMessageDeleted(payload.channel_id, payload.message_id);
 		}
 	});
-	channel.join().receive('ok', (reply: SnapshotPayload) => input.onSnapshot(toSnapshot(reply)));
+	channel.on('status', (payload: { status?: unknown }) => {
+		const status = userStatusFrom(payload?.status);
+		if (status) input.onStatus(status);
+	});
+	channel.join().receive('ok', (reply: SnapshotPayload) => {
+		input.onSnapshot(toSnapshot(reply));
+		input.onStatusRestored(userStatusFrom(reply.status));
+	});
 
 	inbox = channel;
 
@@ -100,6 +112,12 @@ function flushReads() {
 		channel.push('read', { channel_id: channelId, message_id: messageId });
 	}
 	queuedReads.clear();
+}
+
+export async function pushStatus(status: UserStatus): Promise<boolean> {
+	if (!inbox) return false;
+	const outcome = await pushTo<unknown>(inbox, 'status', { status });
+	return outcome.ok;
 }
 
 export function markRead(channelId: string, messageId: string) {

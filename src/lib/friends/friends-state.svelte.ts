@@ -6,6 +6,8 @@ import { previewText } from '$lib/messages/messages';
 import { typingIn } from '$lib/messages/typing.svelte';
 import { requestAttention, showNotification } from '$lib/notifications/notify';
 import { playFriendRequestSound } from '$lib/notifications/sounds';
+import { ownStatus } from '$lib/presence/own-status.svelte';
+import type { PresenceStatus } from '$lib/presence/status';
 import { unread } from '$lib/notifications/unread.svelte';
 import { windowFocus } from '$lib/ui/window-focus.svelte';
 import { subscribeToFriends } from './channel';
@@ -21,7 +23,9 @@ export function createFriendsState(input: {
 	persist: (friends: Friend[]) => void;
 }) {
 	let list = $state<Friend[]>(input.friends);
-	let online = $state<Set<string>>(input.online);
+	let online = $state<Map<string, PresenceStatus>>(
+		new Map([...input.online].map((userId) => [userId, 'online' as const]))
+	);
 	let requests = $state<Friend[]>([]);
 	const freshRequestIds = new SvelteSet<string>();
 	const freshFriendIds = new SvelteSet<string>();
@@ -40,6 +44,7 @@ export function createFriendsState(input: {
 
 	function handleRequestReceived(request: Friend) {
 		freshRequestIds.add(request.id);
+		if (ownStatus.quiet) return;
 		playFriendRequestSound();
 		if (windowFocus.active) return;
 		void showNotification({
@@ -55,7 +60,7 @@ export function createFriendsState(input: {
 			userId: input.userId,
 			onOnline: (next) => {
 				online = next;
-				workspaceCache.saveFriendsOnline(input.userId, next);
+				workspaceCache.saveFriendsOnline(input.userId, new Set(next.keys()));
 			},
 			onRequests: (next) => (requests = next),
 			onRequestReceived: handleRequestReceived,
@@ -66,7 +71,12 @@ export function createFriendsState(input: {
 	const ids = $derived(new Set(list.map((friend) => friend.id)));
 
 	const withPresence = $derived(
-		list.map((friend) => ({ ...friend, online: online.has(friend.id), owner: false }))
+		list.map((friend) => ({
+			...friend,
+			online: online.has(friend.id),
+			status: online.get(friend.id) ?? 'online',
+			owner: false
+		}))
 	);
 
 	const directChannelIds = $derived(

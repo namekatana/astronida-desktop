@@ -1,5 +1,6 @@
 import { previewText, type Message } from '$lib/messages/messages';
 import { clearTyping, markTyping } from '$lib/messages/typing.svelte';
+import { ownStatus } from '$lib/presence/own-status.svelte';
 import type { Sync } from '$lib/sync/sync';
 import { windowFocus } from '$lib/ui/window-focus.svelte';
 import { markRead, subscribeToInbox, type UnreadSnapshot } from './inbox';
@@ -35,6 +36,7 @@ export function createIncoming(input: {
 			return;
 		}
 		unread.addDirect(channelId, message.id);
+		if (ownStatus.quiet) return;
 		playDirectMessageSound();
 		if (windowFocus.active) return;
 		void showNotification({
@@ -63,7 +65,9 @@ export function createIncoming(input: {
 			onDirectMessage: handleDirectMessage,
 			onRead: (channelId, messageId) => unread.clear(channelId, messageId),
 			onTyping: markTyping,
-			onMessageDeleted: sync.forget
+			onMessageDeleted: sync.forget,
+			onStatus: (status) => ownStatus.adopt(status),
+			onStatusRestored: (status) => ownStatus.restore(status)
 		});
 	});
 

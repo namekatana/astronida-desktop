@@ -2,6 +2,7 @@ import type { Category, Channel } from '$lib/channels/channels';
 import { history } from '$lib/history/history';
 import type { Friend } from '$lib/friends/friends';
 import type { ServerPresence, VoiceMember } from '$lib/presence/presence';
+import type { PresenceStatus } from '$lib/presence/status';
 import type { Member } from '$lib/servers/members';
 import type { Server } from '$lib/servers/servers';
 import { createCachedSection } from './cached-section';
@@ -20,6 +21,7 @@ export interface Workspace {
 
 interface StoredPresence {
 	online: string[];
+	statuses?: Record<string, PresenceStatus>;
 	voice: Record<string, VoiceMember[]>;
 }
 
@@ -116,7 +118,11 @@ export const workspaceCache = {
 			presence: Object.fromEntries(
 				Object.entries(current.presence).map(([serverId, presence]) => [
 					serverId,
-					{ online: new Set(presence.online), voice: presence.voice }
+					{
+						online: new Set(presence.online),
+						statuses: presence.statuses ?? {},
+						voice: presence.voice
+					}
 				])
 			),
 			friendsOnline: new Set(current.friendsOnline)
@@ -124,7 +130,11 @@ export const workspaceCache = {
 	},
 
 	savePresence(userId: string, serverId: string, presence: ServerPresence) {
-		current(userId).presence[serverId] = { online: [...presence.online], voice: presence.voice };
+		current(userId).presence[serverId] = {
+			online: [...presence.online],
+			statuses: presence.statuses,
+			voice: presence.voice
+		};
 		scheduleWrite('presence');
 	},
 

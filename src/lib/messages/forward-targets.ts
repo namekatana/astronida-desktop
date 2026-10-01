@@ -1,9 +1,17 @@
 import type { Workspace } from '$lib/cache/workspace-cache';
 import type { Friend } from '$lib/friends/friends';
+import type { UserStatus } from '$lib/presence/status';
 import type { Server } from '$lib/servers/servers';
 
 export type ForwardTarget =
-	| { kind: 'friend'; channelId: string; username: string; name: string; online: boolean }
+	| {
+			kind: 'friend';
+			channelId: string;
+			username: string;
+			name: string;
+			online: boolean;
+			status: UserStatus;
+	  }
 	| { kind: 'channel'; channelId: string; name: string; serverName: string };
 
 export interface ForwardSection {
@@ -12,7 +20,7 @@ export interface ForwardSection {
 	targets: ForwardTarget[];
 }
 
-type FriendWithPresence = Friend & { online: boolean };
+type FriendWithPresence = Friend & { online: boolean; status?: UserStatus };
 
 function friendSection(friends: FriendWithPresence[], query: string): ForwardSection | null {
 	const targets: ForwardTarget[] = friends
@@ -23,7 +31,8 @@ function friendSection(friends: FriendWithPresence[], query: string): ForwardSec
 			channelId: friend.channelId as string,
 			username: friend.username,
 			name: friend.name,
-			online: friend.online
+			online: friend.online,
+			status: friend.status ?? 'online'
 		}));
 	return targets.length > 0 ? { key: 'friends', title: 'Друзья', targets } : null;
 }

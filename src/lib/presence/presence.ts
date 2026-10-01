@@ -2,6 +2,7 @@ import { Presence, type Channel as PhoenixChannel } from 'phoenix';
 import { categoryFrom, channelFrom, type Category, type Channel } from '$lib/channels/channels';
 import { fromPayload, type Message, type MessagePayload } from '$lib/messages/messages';
 import { pushTo } from '$lib/realtime/push';
+import { presenceStatusFrom, type PresenceStatus } from './status';
 import { phoenixSocket } from '$lib/realtime/socket';
 import { joinedMemberFrom, type JoinedMember } from '$lib/servers/members';
 
@@ -13,6 +14,7 @@ export interface VoiceMember {
 
 export interface ServerPresence {
 	online: Set<string>;
+	statuses: Record<string, PresenceStatus>;
 	voice: Record<string, VoiceMember[]>;
 }
 
@@ -45,6 +47,17 @@ interface PresenceMeta {
 	voice_channel_id?: string;
 	mic_muted?: boolean;
 	deafened?: boolean;
+	status?: unknown;
+}
+
+const statusRank: Record<PresenceStatus, number> = { online: 0, dnd: 1, idle: 2 };
+
+function visibleStatus(metas: PresenceMeta[]): PresenceStatus | null {
+	const statuses = metas
+		.filter((meta) => meta.status !== 'offline')
+		.map((meta) => presenceStatusFrom(meta.status));
+	if (statuses.length === 0) return null;
+	return statuses.reduce((best, status) => (statusRank[status] < statusRank[best] ? status : best));
 }
 
 interface JoinReply {
@@ -59,9 +72,14 @@ const voiceUrls = new Map<string, string>();
 
 function collect(presence: Presence): ServerPresence {
 	const online = new Set<string>();
+	const statuses: Record<string, PresenceStatus> = {};
 	const voice: Record<string, VoiceMember[]> = {};
 	presence.list((userId: string, { metas }: { metas: PresenceMeta[] }) => {
-		online.add(userId);
+		const status = visibleStatus(metas);
+		if (status) {
+			online.add(userId);
+			statuses[userId] = status;
+		}
 		const meta = metas.find((candidate) => typeof candidate.voice_channel_id === 'string');
 		if (!meta || typeof meta.voice_channel_id !== 'string') return;
 		(voice[meta.voice_channel_id] ??= []).push({
@@ -70,7 +88,7 @@ function collect(presence: Presence): ServerPresence {
 			deafened: meta.deafened === true
 		});
 	});
-	return { online, voice };
+	return { online, statuses, voice };
 }
 
 const offlineMessage = 'Нет соединения с сервером';
@@ -111,6 +129,7 @@ export function subscribeToServerPresence(input: {
 	onChannelCreated: (channel: Channel) => void;
 	onMemberJoined: (member: JoinedMember) => void;
 	onMessageDeleted: (channelId: string, messageId: string) => void;
+	onWentOffline: (userId: string) => void;
 }): () => void {
 	const channel = phoenixSocket().channel(`server:${input.serverId}`);
 	channels.set(input.serverId, channel);
@@ -135,6 +154,9 @@ export function subscribeToServerPresence(input: {
 	channel.on('channel_created', (payload: unknown) => {
 		const created = channelFrom(payload);
 		if (created?.serverId === input.serverId) input.onChannelCreated(created);
+	});
+	channel.on('went_offline', (payload: { user_id?: unknown }) => {
+		if (typeof payload?.user_id === 'string') input.onWentOffline(payload.user_id);
 	});
 	channel.on('member_joined', (payload: unknown) => {
 		const member = joinedMemberFrom(payload);

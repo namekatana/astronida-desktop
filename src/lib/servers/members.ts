@@ -1,3 +1,4 @@
+import type { UserStatus } from '$lib/presence/status';
 import { supabase } from '$lib/supabase/client';
 import { retryOnFreshToken } from '$lib/supabase/retry';
 import { asRecord } from '$lib/ui/record';
@@ -7,6 +8,7 @@ export interface Member {
 	username: string;
 	name: string;
 	online: boolean;
+	status?: UserStatus;
 	owner: boolean;
 }
 
