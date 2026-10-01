@@ -6,6 +6,7 @@
 	import type { VoiceQuality } from '$lib/voice/transport';
 	import { voice } from '$lib/voice/voice.svelte';
 	import Icon from './Icon.svelte';
+	import SheetHeader from './SheetHeader.svelte';
 	import SignalBars from './SignalBars.svelte';
 
 	interface Props {
@@ -78,76 +79,87 @@
 	bind:this={root}
 	role="dialog"
 	aria-label="Соединение"
-	in:pop={{ y: 6, duration: 220 }}
-	out:fade={{ duration: 120 }}
+	in:pop={{ y: 4, duration: 180 }}
+	out:fade={{ duration: 100 }}
 	style="left: {left}px; bottom: {bottom}px; width: {width}px"
-	class="panel panel-floating fixed z-50 origin-bottom-right px-4 pt-3.5 pb-4"
+	class="panel panel-floating fixed z-50 origin-bottom-right pb-4"
 >
-	<div class="text-[13px] font-semibold text-muted">Соединение</div>
-	<div class="mt-2 grid grid-cols-3 gap-2">
-		<div class="rounded-md bg-surface-raised px-2.5 py-2">
-			<div class="text-[10px] text-muted">Пинг</div>
-			<div class="mt-0.5 text-[13px] font-medium text-ink tabular-nums">
-				{rtt === null ? '—' : `${rtt} мс`}
-			</div>
-		</div>
-		<div class="rounded-md bg-surface-raised px-2.5 py-2">
-			<div class="text-[10px] text-muted">Потери</div>
-			<div class="mt-0.5 text-[13px] font-medium text-ink tabular-nums">
-				{loss === null ? '—' : `${loss}%`}
-			</div>
-		</div>
-		<div class="rounded-md bg-surface-raised px-2.5 py-2">
-			<div class="text-[10px] text-muted">Качество</div>
-			<div
-				class="mt-0.5 flex items-center gap-1.5 text-[13px] font-medium {voice.quality
-					? qualityColorClass(voice.quality)
-					: 'text-muted'}"
-			>
-				{#if voice.quality}
-					<SignalBars quality={voice.quality} />
-					<span class="truncate">{qualityLabels[voice.quality]}</span>
-				{:else}
-					—
-				{/if}
-			</div>
-		</div>
-	</div>
+	<SheetHeader
+		title="Соединение"
+		subtitle={voice.quality ? qualityLabels[voice.quality] : 'Нет данных'}
+	/>
 
-	<div class="mt-4 flex items-baseline justify-between gap-2">
-		<div class="flex items-center gap-1.5 text-[13px] font-semibold text-muted">
-			<Icon name="lock" size={11} />
-			Сквозное шифрование
+	<div class="px-4">
+		<div class="overflow-hidden rounded-[14px] bg-white/[0.05] [corner-shape:squircle]">
+			{@render row('Пинг', rtt === null ? '—' : `${rtt} мс`)}
+			<div class="mx-4 h-px bg-surface-line"></div>
+			{@render row('Потери', loss === null ? '—' : `${loss}%`)}
+			<div class="mx-4 h-px bg-surface-line"></div>
+			<div class="flex h-11 items-center gap-3 px-4">
+				<span class="min-w-0 flex-1 truncate text-[13px] text-ink">Качество</span>
+				<span
+					class="flex shrink-0 items-center gap-1.5 text-[13px] {voice.quality
+						? qualityColorClass(voice.quality)
+						: 'text-ink-secondary'}"
+				>
+					{#if voice.quality}
+						<SignalBars quality={voice.quality} />
+						{qualityLabels[voice.quality]}
+					{:else}
+						—
+					{/if}
+				</span>
+			</div>
 		</div>
-		{#if voice.encrypted}
-			<div class="shrink-0 text-[11px] text-muted tabular-nums">ключ №{voice.keyVersion}</div>
+
+		<div class="flex items-center justify-between gap-2 px-4 pt-4 pb-1.5 text-[12px] text-muted">
+			<span class="flex items-center gap-1.5">
+				<Icon name="lock" size={11} />
+				Сквозное шифрование
+			</span>
+			{#if voice.encrypted}
+				<span class="shrink-0 tabular-nums">ключ №{voice.keyVersion}</span>
+			{/if}
+		</div>
+
+		{#if voice.encrypted && groups.length > 0}
+			<div class="overflow-hidden rounded-[14px] bg-white/[0.05] [corner-shape:squircle]">
+				<div class="grid grid-cols-3 gap-x-2 gap-y-2 px-4 py-3.5">
+					{#each groups as group, index (index)}
+						<span
+							class="text-center font-mono text-[14px] tracking-[0.08em] text-ink tabular-nums"
+						>
+							{group}
+						</span>
+					{/each}
+				</div>
+				<div class="mx-4 h-px bg-surface-line"></div>
+				<button
+					type="button"
+					onclick={copyCode}
+					class="flex h-11 w-full items-center gap-2.5 px-4 text-left text-[13px] transition-colors duration-150 hover:bg-white/[0.03] {copied
+						? 'text-online'
+						: 'text-ink'}"
+				>
+					<Icon name={copied ? 'check' : 'copy'} size={14} class={copied ? '' : 'text-muted'} />
+					{copied ? 'Скопировано' : 'Скопировать код'}
+				</button>
+			</div>
+			<p class="px-4 pt-2 text-[12px] leading-[18px] text-muted">
+				Назовите код друг другу. Если он совпадает у всех в канале, разговор зашифрован одним
+				ключом и медиасервер его не видит. Код меняется, когда кто-то выходит из канала.
+			</p>
+		{:else}
+			<div class="rounded-[14px] bg-white/[0.05] px-4 py-3 [corner-shape:squircle]">
+				<p class="text-[13px] leading-5 text-danger">Шифрование не установлено</p>
+			</div>
 		{/if}
 	</div>
-	{#if voice.encrypted && groups.length > 0}
-		<div class="mt-2 grid grid-cols-3 gap-x-2 gap-y-1.5">
-			{#each groups as group, index (index)}
-				<div
-					class="rounded-md bg-surface-raised py-1.5 text-center font-mono text-[13px] tracking-[0.08em] text-ink tabular-nums"
-				>
-					{group}
-				</div>
-			{/each}
-		</div>
-		<button
-			type="button"
-			onclick={copyCode}
-			class="pressable mt-2 flex h-8 w-full items-center justify-center gap-1.5 rounded-lg text-[12px] duration-150 {copied
-				? 'bg-online/10 text-online'
-				: 'bg-white/[0.04] text-ink-secondary hover:bg-white/[0.08] hover:text-ink'}"
-		>
-			<Icon name={copied ? 'check' : 'copy'} size={13} />
-			{copied ? 'Скопировано' : 'Копировать код'}
-		</button>
-		<p class="mt-2.5 text-[12px] leading-relaxed text-muted">
-			Назовите код друг другу. Если он совпадает у всех в канале, разговор зашифрован одним
-			ключом и медиасервер его не видит. Код меняется, когда кто-то выходит из канала.
-		</p>
-	{:else}
-		<p class="mt-2 text-[12px] leading-relaxed text-danger">Шифрование не установлено.</p>
-	{/if}
 </div>
+
+{#snippet row(label: string, value: string)}
+	<div class="flex h-11 items-center gap-3 px-4">
+		<span class="min-w-0 flex-1 truncate text-[13px] text-ink">{label}</span>
+		<span class="shrink-0 text-[13px] text-ink-secondary tabular-nums">{value}</span>
+	</div>
+{/snippet}

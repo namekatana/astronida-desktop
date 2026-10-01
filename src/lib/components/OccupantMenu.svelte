@@ -7,7 +7,7 @@
 	import { voice } from '$lib/voice/voice.svelte';
 	import { defaultVolume, maxVolume, participantAudio } from '$lib/voice/volumes.svelte';
 	import Avatar from './Avatar.svelte';
-	import Icon from './Icon.svelte';
+	import MenuItem from './MenuItem.svelte';
 
 	interface Props {
 		occupant: VoiceOccupant;
@@ -56,21 +56,8 @@
 	});
 </script>
 
-{#snippet item(icon: IconName, label: string, onclick: () => void, active = false)}
-	<button
-		type="button"
-		role="menuitem"
-		{onclick}
-		class="flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] transition-colors duration-150 hover:bg-white/[0.06] {active
-			? 'text-ink'
-			: 'text-ink-secondary hover:text-ink'}"
-	>
-		<Icon name={icon} size={15} class={active ? 'text-ink' : 'text-muted'} />
-		<span class="min-w-0 flex-1 truncate">{label}</span>
-		{#if active}
-			<Icon name="check" size={14} class="text-ink" />
-		{/if}
-	</button>
+{#snippet item(icon: IconName, label: string, onclick: () => void, active?: boolean)}
+	<MenuItem {icon} {label} {onclick} checked={active} />
 {/snippet}
 
 <div

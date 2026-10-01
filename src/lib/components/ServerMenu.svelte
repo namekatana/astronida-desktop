@@ -4,6 +4,7 @@
 	import { dismissOn } from '$lib/ui/dismiss';
 	import { pop } from '$lib/ui/pop';
 	import Icon from './Icon.svelte';
+	import MenuItem from './MenuItem.svelte';
 
 	interface Props {
 		oncreatecategory: () => void;
@@ -43,25 +44,25 @@
 	{#if open}
 		<div
 			role="menu"
-			in:pop={{ y: -6, duration: 220 }}
-			out:fade={{ duration: 120 }}
-			class="panel panel-floating absolute top-full right-0 z-50 mt-2 w-52 origin-top-right p-1.5"
+			aria-label="Действия с сервером"
+			in:pop={{ y: -4, duration: 180 }}
+			out:fade={{ duration: 100 }}
+			class="panel panel-floating absolute top-full right-0 z-50 mt-2 w-[200px] origin-top-right p-1.5"
 		>
-			{#snippet item(label: string, icon: 'plus' | 'text' | 'voice', action: () => void)}
-				<button
-					type="button"
-					role="menuitem"
-					onclick={() => pick(action)}
-					class="flex h-9 w-full items-center gap-2.5 rounded-lg px-3 text-left text-[13px] text-ink-secondary transition-colors duration-150 hover:bg-white/[0.06] hover:text-ink"
-				>
-					<Icon name={icon} class="text-muted" />
-					{label}
-				</button>
-			{/snippet}
-
-			{@render item('Добавить категорию', 'plus', oncreatecategory)}
-			{@render item('Текстовый канал', 'text', () => oncreatechannel('text'))}
-			{@render item('Голосовой канал', 'voice', () => oncreatechannel('voice'))}
+			<MenuItem icon="plus" label="Новая категория" onclick={() => pick(oncreatecategory)} />
+			<div class="mx-1.5 my-1.5 h-px bg-surface-line"></div>
+			<div class="flex flex-col gap-0.5">
+				<MenuItem
+					icon="text"
+					label="Текстовый канал"
+					onclick={() => pick(() => oncreatechannel('text'))}
+				/>
+				<MenuItem
+					icon="voice"
+					label="Голосовой канал"
+					onclick={() => pick(() => oncreatechannel('voice'))}
+				/>
+			</div>
 		</div>
 	{/if}
 </div>

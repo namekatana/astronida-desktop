@@ -2,8 +2,10 @@
 	import { fade } from 'svelte/transition';
 	import { dismissOn } from '$lib/ui/dismiss';
 	import { pop } from '$lib/ui/pop';
+	import { settle } from '$lib/ui/settle';
 	import { updates } from '$lib/updates/updates.svelte';
 	import Icon from './Icon.svelte';
+	import SheetHeader from './SheetHeader.svelte';
 
 	let open = $state(false);
 	let root = $state<HTMLDivElement | null>(null);
@@ -48,48 +50,64 @@
 			<div
 				role="dialog"
 				aria-label="Обновление"
-				in:pop={{ y: -6, duration: 220 }}
-				out:fade={{ duration: 120 }}
-				class="panel panel-floating absolute top-full right-0 z-50 mt-2 w-64 origin-top-right px-4 pt-3.5 pb-4"
+				in:pop={{ y: -4, duration: 180 }}
+				out:fade={{ duration: 100 }}
+				class="panel panel-floating absolute top-full right-0 z-50 mt-2 w-[300px] origin-top-right pb-4"
 			>
-				<div class="flex items-baseline justify-between gap-2">
-					<div class="text-[13px] font-semibold text-muted">Обновление</div>
-					{#if dateLabel}
-						<div class="shrink-0 text-[11px] text-muted">{dateLabel}</div>
-					{/if}
-				</div>
-				<div class="mt-1.5 text-[13px] text-ink">Версия {updates.available.version}</div>
-				{#if updates.available.notes}
-					<p class="mt-2 line-clamp-4 text-[12px] leading-relaxed text-muted">
-						{updates.available.notes}
-					</p>
-				{/if}
+				<SheetHeader
+					title="Обновление"
+					subtitle={dateLabel
+						? `Версия ${updates.available.version} · ${dateLabel}`
+						: `Версия ${updates.available.version}`}
+				/>
 
-				{#if updates.installing}
-					<div class="mt-3.5">
-						<div class="flex items-center justify-between text-[11px] text-muted tabular-nums">
-							<span>Загрузка</span>
-							<span>{updates.progress}%</span>
+				<div class="px-4">
+					{#if updates.available.notes}
+						<div class="rounded-[14px] bg-white/[0.05] px-4 py-3 [corner-shape:squircle]">
+							<p class="line-clamp-6 text-[13px] leading-5 text-ink-secondary">
+								{updates.available.notes}
+							</p>
 						</div>
-						<div class="mt-1.5 h-0.5 overflow-hidden rounded-full bg-white/[0.08]">
-							<div
-								class="h-full w-full origin-left rounded-full bg-ink transition-[scale] duration-200 ease-out"
-								style="scale: {updates.progress / 100} 1"
-							></div>
-						</div>
+					{/if}
+
+					<div class="mt-2 grid h-4 grid-cols-1 px-1">
+						{#key updates.installing ? 'progress' : (updates.error ?? 'hint')}
+							<p
+								class="col-start-1 row-start-1 truncate text-[12px] leading-4 tabular-nums {updates.error &&
+								!updates.installing
+									? 'text-danger'
+									: 'text-ink-secondary'}"
+								in:settle
+								out:settle={{ duration: 100 }}
+							>
+								{#if updates.installing}
+									Загрузка · {updates.progress}%
+								{:else}
+									{updates.error ?? 'Приложение перезапустится само'}
+								{/if}
+							</p>
+						{/key}
 					</div>
-				{:else}
+
 					<button
 						type="button"
+						disabled={updates.installing}
+						aria-busy={updates.installing}
 						onclick={() => void updates.install()}
-						class="pressable mt-3.5 flex h-9 w-full items-center justify-center rounded-full bg-ink text-[13px] font-medium text-bg duration-200 hover:bg-ink-hover active:bg-ink-pressed"
+						class="pressable relative mt-3 h-10 w-full overflow-hidden rounded-full bg-ink text-[13px] font-semibold text-bg duration-150 hover:bg-ink-hover active:bg-ink-pressed disabled:hover:bg-ink"
 					>
-						Обновить и перезапустить
+						{#if updates.installing}
+							<span
+								aria-hidden="true"
+								class="absolute inset-0 origin-left bg-black/10 transition-[scale] duration-200 ease-out"
+								style="scale: {updates.progress / 100} 1"
+							></span>
+						{/if}
+						<span class="relative">
+							{updates.installing ? 'Загружается…' : 'Обновить и перезапустить'}
+						</span>
 					</button>
-					{#if updates.error}
-						<div class="mt-2 text-[12px] text-danger">{updates.error}</div>
-					{/if}
-				{/if}
+				</div>
 			</div>
 		{/if}
 	</div>

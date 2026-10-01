@@ -1,6 +1,7 @@
 import { createCachedSection } from '$lib/cache/cached-section';
 import { failureMessage, getApi, postApi } from '$lib/realtime/api-request';
 import { asRecord } from '$lib/ui/record';
+import { rememberJoinedLayout } from './joined-layouts';
 import { serverFrom, type Server } from './servers';
 
 export interface InviteLink {
@@ -277,6 +278,7 @@ export async function joinByInvite(code: string): Promise<JoinResult> {
 	const server = response?.status === 200 ? serverFrom(response.body) : null;
 	if (server) {
 		rememberMembership(code);
+		rememberJoinedLayout(server.id, response?.body);
 		return { ok: true, server };
 	}
 	if (response?.status === 404) {

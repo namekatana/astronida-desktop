@@ -33,8 +33,7 @@ async function checkNow() {
 			date: update.date ?? null,
 			notes: update.body ?? null
 		};
-	} catch {
-	}
+	} catch {}
 }
 
 export const updates = {

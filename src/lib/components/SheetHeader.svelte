@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import { settle } from '$lib/ui/settle';
 	import DrawnCheck from './DrawnCheck.svelte';
 
@@ -15,6 +16,7 @@
 		actionDone?: boolean;
 		actionForm?: string;
 		onaction?: () => void;
+		trailing?: Snippet;
 	}
 
 	let {
@@ -29,7 +31,8 @@
 		actionBusy = false,
 		actionDone = false,
 		actionForm,
-		onaction
+		onaction,
+		trailing
 	}: Props = $props();
 
 	const reservesSubtitle = $derived(subtitle !== undefined);
@@ -82,7 +85,9 @@
 		{/if}
 
 		<div class="col-start-3 row-start-1 flex h-5 items-center justify-end">
-			{#if actionLabel}
+			{#if trailing}
+				{@render trailing()}
+			{:else if actionLabel}
 				<button
 					type={actionForm ? 'submit' : 'button'}
 					form={actionForm}

@@ -2,6 +2,8 @@
 	import { fade } from 'svelte/transition';
 	import { dismissOn } from '$lib/ui/dismiss';
 	import { pop } from '$lib/ui/pop';
+	import Avatar from './Avatar.svelte';
+	import MenuItem from './MenuItem.svelte';
 
 	interface Props {
 		username: string | null;
@@ -44,29 +46,33 @@
 	{#if open}
 		<div
 			role="menu"
-			in:pop={{ y: -6, duration: 220 }}
-			out:fade={{ duration: 120 }}
-			class="panel panel-floating absolute top-full right-0 z-50 mt-2 w-52 origin-top-right p-1.5"
+			aria-label="Аккаунт"
+			in:pop={{ y: -4, duration: 180 }}
+			out:fade={{ duration: 100 }}
+			class="panel panel-floating absolute top-full right-0 z-50 mt-2 w-[224px] origin-top-right p-1.5"
 		>
-			<div class="px-3 pt-2 pb-2.5">
-				<div class="text-[13px] font-semibold text-muted">Аккаунт</div>
-				<div class="mt-0.5 truncate text-[13px] text-ink">
-					{username ? `@${username}` : '—'}
+			<div class="flex items-center gap-2.5 px-2.5 pt-2 pb-2.5">
+				<Avatar name={username ?? '?'} size={32} />
+				<div class="min-w-0">
+					<div class="truncate text-[13px] font-medium text-ink">
+						{username ? `@${username}` : '—'}
+					</div>
+					<div class="truncate text-[11px] text-muted">Аккаунт</div>
 				</div>
 			</div>
 			<div class="mx-1.5 h-px bg-surface-line"></div>
-			<button
-				type="button"
-				role="menuitem"
-				disabled={signingOut}
-				onclick={() => {
-					open = false;
-					onsignout();
-				}}
-				class="mt-1.5 flex h-9 w-full items-center rounded-lg px-3 text-left text-[13px] text-ink-secondary transition-colors duration-150 hover:bg-white/[0.06] hover:text-danger disabled:opacity-60"
-			>
-				Выйти
-			</button>
+			<div class="mt-1.5">
+				<MenuItem
+					icon="log-out"
+					label="Выйти"
+					destructive
+					disabled={signingOut}
+					onclick={() => {
+						open = false;
+						onsignout();
+					}}
+				/>
+			</div>
 		</div>
 	{/if}
 </div>

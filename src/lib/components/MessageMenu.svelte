@@ -4,7 +4,7 @@
 	import type { IconName } from '$lib/ui/icons';
 	import { pop } from '$lib/ui/pop';
 	import type { MessageMenuMode } from './message-menu';
-	import Icon from './Icon.svelte';
+	import MenuItem from './MenuItem.svelte';
 
 	interface Props {
 		x: number;
@@ -90,18 +90,19 @@
 	{/if}
 {/snippet}
 
+{#snippet commonItems()}
+	{@render item('reply', 'Ответить', reply)}
+	{#if onforward}
+		{@render item('forward', 'Переслать', forward)}
+	{/if}
+	{@render pinItem()}
+	{#if oncopy}
+		{@render item('copy', 'Скопировать', copy)}
+	{/if}
+{/snippet}
+
 {#snippet item(icon: IconName, label: string, onclick: () => void, destructive = false)}
-	<button
-		type="button"
-		role="menuitem"
-		{onclick}
-		class="flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] text-ink-secondary transition-colors duration-150 hover:bg-white/[0.06] {destructive
-			? 'hover:text-danger'
-			: 'hover:text-ink'}"
-	>
-		<Icon name={icon} size={15} class="text-muted" />
-		<span class="min-w-0 flex-1 truncate">{label}</span>
-	</button>
+	<MenuItem {icon} {label} {onclick} {destructive} />
 {/snippet}
 
 <div
@@ -117,10 +118,7 @@
 		{@render item('close', 'Отменить отправку', cancelSending, true)}
 	{:else if mode === 'own'}
 		<div class="flex flex-col gap-0.5">
-			{@render item('reply', 'Ответить', reply)}
-			{@render item('forward', 'Переслать', forward)}
-			{@render pinItem()}
-			{@render item('copy', 'Скопировать', copy)}
+			{@render commonItems()}
 		</div>
 		{#if ondelete}
 			<div class="mx-1.5 my-1.5 h-px bg-surface-line"></div>
@@ -128,10 +126,7 @@
 		{/if}
 	{:else}
 		<div class="flex flex-col gap-0.5">
-			{@render item('reply', 'Ответить', reply)}
-			{@render item('forward', 'Переслать', forward)}
-			{@render pinItem()}
-			{@render item('copy', 'Скопировать', copy)}
+			{@render commonItems()}
 		</div>
 		<div class="mx-1.5 my-1.5 h-px bg-surface-line"></div>
 		<div class="flex flex-col gap-0.5">

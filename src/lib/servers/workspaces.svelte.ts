@@ -1,5 +1,6 @@
 import { workspaceCache, type Workspace } from '$lib/cache/workspace-cache';
 import { loadChannels, type Category, type Channel } from '$lib/channels/channels';
+import { takeJoinedLayout } from './joined-layouts';
 import { loadMembers, type JoinedMember } from './members';
 import type { Server } from './servers';
 
@@ -21,10 +22,17 @@ export function createWorkspaces(input: {
 		workspaceCache.saveWorkspace(input.userId, server.id, fresh);
 	}
 
+	function seedJoined(serverId: string) {
+		const layout = takeJoinedLayout(serverId);
+		if (!layout || all[serverId]) return;
+		all[serverId] = { ...layout, members: [] };
+	}
+
 	$effect(() => {
 		for (const server of input.servers()) {
 			if (refreshed.has(server.id)) continue;
 			refreshed.add(server.id);
+			seedJoined(server.id);
 			void refresh(server);
 		}
 	});
