@@ -53,6 +53,7 @@ pub(super) fn prepare(
     ensure_column(connection, "messages", "reply", "BLOB")?;
     ensure_column(connection, "messages", "forwarded_from", "TEXT")?;
     ensure_column(connection, "messages", "attachments", "BLOB")?;
+    ensure_column(connection, "profiles", "avatar_id", "TEXT")?;
     ensure_column(connection, "outbox", "reply", "BLOB")?;
     ensure_column(connection, "outbox", "attachments", "BLOB")?;
     migrate(connection, cipher, fresh_key)

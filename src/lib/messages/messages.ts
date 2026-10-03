@@ -1,3 +1,4 @@
+import { knownAvatars } from '$lib/profile/known-avatars.svelte';
 import { supabase } from '$lib/supabase/client';
 import { retryOnFreshToken } from '$lib/supabase/retry';
 
@@ -5,6 +6,7 @@ export interface MessageAuthor {
 	id: string;
 	name: string;
 	username: string;
+	avatarId?: string | null;
 }
 
 export type ReplyOriginal = {
@@ -59,6 +61,7 @@ interface AuthorPayload {
 	id: string;
 	username: string;
 	display_name: string;
+	avatar_id?: string | null;
 }
 
 interface AttachmentPayload {
@@ -89,8 +92,22 @@ export function compareIds(a: { id: string }, b: { id: string }): number {
 	return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
+function avatarIdFrom(value: unknown): string | null {
+	return typeof value === 'string' ? value : null;
+}
+
+function learnedAuthor(author: MessageAuthor): MessageAuthor {
+	knownAvatars.learn(author.id, author.avatarId);
+	return author;
+}
+
 function authorFrom(payload: AuthorPayload): MessageAuthor {
-	return { id: payload.id, username: payload.username, name: payload.display_name };
+	return learnedAuthor({
+		id: payload.id,
+		username: payload.username,
+		name: payload.display_name,
+		avatarId: avatarIdFrom(payload.avatar_id)
+	});
 }
 
 function attachmentsFrom(
@@ -142,14 +159,16 @@ export function fromPayload(payload: MessagePayload): Message {
 	return message;
 }
 
-type ProfileRow = { username: string; display_name: string } | null;
+type ProfileRow = { username: string; display_name: string; avatar_id: string | null } | null;
 
 function authorOfRow(authorId: string, profile: ProfileRow): MessageAuthor {
-	return {
+	if (!profile) return { id: authorId, username: 'unknown', name: '?' };
+	return learnedAuthor({
 		id: authorId,
-		username: profile?.username ?? 'unknown',
-		name: profile?.display_name ?? '?'
-	};
+		username: profile.username,
+		name: profile.display_name,
+		avatarId: avatarIdFrom(profile.avatar_id)
+	});
 }
 
 async function loadReplyOriginals(ids: string[]): Promise<Map<string, ReplyOriginal> | null> {
@@ -158,7 +177,9 @@ async function loadReplyOriginals(ids: string[]): Promise<Map<string, ReplyOrigi
 	const { data, error } = await retryOnFreshToken(() =>
 		supabase
 			.from('messages')
-			.select('id, author_id, content, forwarded_from_username, profiles (username, display_name)')
+			.select(
+				'id, author_id, content, forwarded_from_username, profiles (username, display_name, avatar_id)'
+			)
 			.in('id', ids)
 	);
 	if (error || !data) return null;
@@ -176,7 +197,7 @@ async function loadReplyOriginals(ids: string[]): Promise<Map<string, ReplyOrigi
 }
 
 const messageColumns =
-	'id, channel_id, author_id, content, created_at, reply_to_id, forwarded_from_username, profiles (username, display_name), attachments (id, position, width, height, thumbhash, spoiler)';
+	'id, channel_id, author_id, content, created_at, reply_to_id, forwarded_from_username, profiles (username, display_name, avatar_id), attachments (id, position, width, height, thumbhash, spoiler)';
 
 interface AttachmentRow extends AttachmentPayload {
 	position: number | null;

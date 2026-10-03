@@ -28,6 +28,7 @@ interface StoredAuthor {
 	id: string;
 	username: string;
 	displayName: string;
+	avatarId?: string | null;
 }
 
 interface StoredReplyOriginal {
@@ -110,11 +111,25 @@ function fromStoredAttachment(channelId: string, stored: StoredAttachment): Mess
 }
 
 function toStoredAuthor(author: MessageAuthor): StoredAuthor {
-	return { id: author.id, username: author.username, displayName: author.name };
+	const stored: StoredAuthor = {
+		id: author.id,
+		username: author.username,
+		displayName: author.name
+	};
+	if (author.avatarId !== undefined) stored.avatarId = author.avatarId;
+	return stored;
 }
 
 function fromStoredAuthor(stored: StoredAuthor): MessageAuthor {
-	return { id: stored.id, username: stored.username, name: stored.displayName };
+	const author: MessageAuthor = {
+		id: stored.id,
+		username: stored.username,
+		name: stored.displayName
+	};
+	if (typeof stored.avatarId === 'string' || stored.avatarId === null) {
+		author.avatarId = stored.avatarId;
+	}
+	return author;
 }
 
 function toStoredOriginal(original: ReplyOriginal): StoredReplyOriginal {

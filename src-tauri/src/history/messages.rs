@@ -15,7 +15,7 @@ const PAGE_SIZE: i64 = 50;
 
 macro_rules! select_messages {
     () => {
-        "SELECT m.id, m.channel_id, m.author_id, m.content, m.sent_at, p.username, p.display_name, m.reply, m.forwarded_from, m.attachments
+        "SELECT m.id, m.channel_id, m.author_id, m.content, m.sent_at, p.username, p.display_name, m.reply, m.forwarded_from, m.attachments, p.avatar_id
          FROM messages m LEFT JOIN profiles p ON p.id = m.author_id"
     };
 }
@@ -37,6 +37,19 @@ pub struct Author {
     id: String,
     username: String,
     display_name: String,
+    #[serde(
+        default,
+        deserialize_with = "present_value",
+        skip_serializing_if = "Option::is_none"
+    )]
+    avatar_id: Option<Option<String>>,
+}
+
+fn present_value<'de, D>(deserializer: D) -> Result<Option<Option<String>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Option::<String>::deserialize(deserializer).map(Some)
 }
 
 #[derive(Serialize, Deserialize)]
@@ -106,6 +119,7 @@ fn message_from_row(row: &Row, cipher: &Aes256Gcm) -> rusqlite::Result<Option<Hi
             display_name: row
                 .get::<_, Option<String>>(6)?
                 .unwrap_or_else(|| "?".into()),
+            avatar_id: Some(row.get(10)?),
         },
         content,
         sent_at: row.get(4)?,
@@ -194,8 +208,9 @@ fn upsert_messages(
 ) -> Result<(), String> {
     let mut profile = transaction
         .prepare_cached(
-            "INSERT INTO profiles (id, username, display_name) VALUES (?1, ?2, ?3)
-             ON CONFLICT (id) DO UPDATE SET username = excluded.username, display_name = excluded.display_name",
+            "INSERT INTO profiles (id, username, display_name, avatar_id) VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT (id) DO UPDATE SET username = excluded.username, display_name = excluded.display_name,
+               avatar_id = CASE WHEN ?5 THEN excluded.avatar_id ELSE profiles.avatar_id END",
         )
         .map_err(describe)?;
     let mut message = transaction
@@ -216,7 +231,9 @@ fn upsert_messages(
             .execute(params![
                 item.author.id,
                 item.author.username,
-                item.author.display_name
+                item.author.display_name,
+                item.author.avatar_id.clone().flatten(),
+                item.author.avatar_id.is_some()
             ])
             .map_err(describe)?;
         message

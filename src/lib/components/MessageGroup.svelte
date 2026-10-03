@@ -17,6 +17,7 @@
 	import type { Server } from '$lib/servers/servers';
 	import { openExternal } from '$lib/ui/external-link';
 	import { initials } from '$lib/ui/initials';
+	import Avatar from './Avatar.svelte';
 	import Icon from './Icon.svelte';
 	import InviteCard from './InviteCard.svelte';
 	import MessageAttachments from './MessageAttachments.svelte';
@@ -92,7 +93,6 @@
 	}
 
 	const author = $derived(messages[0].author);
-	const avatar = $derived(initials(author.name));
 	const time = $derived(timeFormat.format(messages[0].sentAt));
 
 	let avatarElement = $state<HTMLButtonElement | null>(null);
@@ -272,9 +272,9 @@
 						data-avatar
 						aria-label="Профиль @{author.username}"
 						onclick={openAuthorProfile}
-						class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[12px] font-medium text-ink transition-[filter] duration-150 hover:brightness-125"
+						class="mt-0.5 h-8 w-8 shrink-0 rounded-full transition-[filter] duration-150 hover:brightness-125"
 					>
-						{avatar}
+						<Avatar name={author.name} size={32} userId={author.id} avatarId={author.avatarId} />
 					</button>
 
 					<div class="min-w-0 flex-1">
