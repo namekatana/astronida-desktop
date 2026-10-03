@@ -10,6 +10,15 @@ const ticketUrl = apiUrl('/socket/ticket');
 
 const ticketTimeoutMs = 10_000;
 const spareTicketRefreshMs = 4 * 60_000;
+const reconnectStepsMs = [250, 1000, 2000, 5000];
+const rejoinStepsMs = [1000, 2000, 5000];
+
+function spread(steps: number[]): (tries: number) => number {
+	return (tries) => {
+		const base = steps[Math.min(tries, steps.length) - 1] ?? steps[steps.length - 1];
+		return Math.round(base * (0.5 + Math.random()));
+	};
+}
 
 let socket: Socket | null = null;
 let ticket = '';
@@ -70,7 +79,11 @@ function watchTokenRefresh() {
 export function phoenixSocket(): Socket {
 	if (socket) return socket;
 
-	const created = new Socket(PUBLIC_PHOENIX_URL, { params: () => ({ ticket }) });
+	const created = new Socket(PUBLIC_PHOENIX_URL, {
+		params: () => ({ ticket }),
+		reconnectAfterMs: spread(reconnectStepsMs),
+		rejoinAfterMs: spread(rejoinStepsMs)
+	});
 	keepReconnectingWhileHidden(created);
 	connection.setTracking(true);
 	created.onOpen(() => {

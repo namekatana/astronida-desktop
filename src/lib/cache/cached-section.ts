@@ -1,13 +1,22 @@
 import { history } from '$lib/history/history';
 
-const persistDelayMs = 300;
+const persistDelayMs = 1000;
 
 export function createCachedSection(section: string) {
 	let persistTimer: ReturnType<typeof setTimeout> | null = null;
+	let latest: (() => unknown) | null = null;
 
 	function cancel() {
 		if (persistTimer) clearTimeout(persistTimer);
 		persistTimer = null;
+		latest = null;
+	}
+
+	function write() {
+		persistTimer = null;
+		const snapshot = latest;
+		latest = null;
+		if (snapshot) void history.cachePut(section, JSON.stringify(snapshot())).catch(() => {});
 	}
 
 	return {
@@ -22,11 +31,8 @@ export function createCachedSection(section: string) {
 		},
 
 		persist(snapshot: () => unknown) {
-			cancel();
-			persistTimer = setTimeout(() => {
-				persistTimer = null;
-				void history.cachePut(section, JSON.stringify(snapshot())).catch(() => {});
-			}, persistDelayMs);
+			latest = snapshot;
+			persistTimer ??= setTimeout(write, persistDelayMs);
 		},
 
 		cancel

@@ -1,14 +1,14 @@
 const typingTtlMs = 5000;
 const typingThrottleMs = 3000;
 
-let typingByChannel = $state<Record<string, Record<string, number>>>({});
+let typingByChannel = $state<Record<string, Record<string, string | null>>>({});
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 
 function timerKey(channelId: string, userId: string) {
 	return `${channelId}:${userId}`;
 }
 
-export function markTyping(channelId: string, userId: string) {
+export function markTyping(channelId: string, userId: string, username: string | null = null) {
 	const key = timerKey(channelId, userId);
 	const existing = timers.get(key);
 	if (existing) clearTimeout(existing);
@@ -16,7 +16,7 @@ export function markTyping(channelId: string, userId: string) {
 		key,
 		setTimeout(() => clearTyping(channelId, userId), typingTtlMs)
 	);
-	typingByChannel[channelId] = { ...typingByChannel[channelId], [userId]: Date.now() };
+	typingByChannel[channelId] = { ...typingByChannel[channelId], [userId]: username };
 }
 
 export function clearTyping(channelId: string, userId: string) {
@@ -33,6 +33,10 @@ export function clearTyping(channelId: string, userId: string) {
 
 export function typingIn(channelId: string): string[] {
 	return Object.keys(typingByChannel[channelId] ?? {});
+}
+
+export function typingUsername(channelId: string, userId: string): string | null {
+	return typingByChannel[channelId]?.[userId] ?? null;
 }
 
 export function createTypingSender(send: () => void) {

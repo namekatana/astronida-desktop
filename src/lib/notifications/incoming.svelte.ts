@@ -1,6 +1,8 @@
 import { previewText, type Message } from '$lib/messages/messages';
 import { clearTyping, markTyping } from '$lib/messages/typing.svelte';
 import { ownStatus } from '$lib/presence/own-status.svelte';
+import type { ChannelActivity } from '$lib/presence/presence';
+import type { ProfileDetails } from '$lib/profile/profile-details.svelte';
 import type { Sync } from '$lib/sync/sync';
 import { windowFocus } from '$lib/ui/window-focus.svelte';
 import { markRead, subscribeToInbox, type UnreadSnapshot } from './inbox';
@@ -16,6 +18,8 @@ export function createIncoming(input: {
 	isTextChannel: (serverId: string, channelId: string) => boolean;
 	requestCount: () => number;
 	onOpenHome: (directChannelId: string | null) => void;
+	onAvatarChanged: (avatarId: string | null) => void;
+	onProfileChanged: (changes: Partial<ProfileDetails>) => void;
 }) {
 	const { sync } = input;
 
@@ -58,6 +62,15 @@ export function createIncoming(input: {
 		unread.addChannel(channelId, message.id);
 	}
 
+	function handleChannelActivity(serverId: string, activity: ChannelActivity[]) {
+		for (const { channelId, firstId, messageId, authorId } of activity) {
+			if (authorId === input.userId) continue;
+			if (!input.isTextChannel(serverId, channelId)) continue;
+			if (isViewing(channelId)) markRead(channelId, messageId);
+			else unread.addChannel(channelId, messageId, firstId);
+		}
+	}
+
 	$effect(() => {
 		return subscribeToInbox({
 			userId: input.userId,
@@ -67,7 +80,9 @@ export function createIncoming(input: {
 			onTyping: markTyping,
 			onMessageDeleted: sync.forget,
 			onStatus: (status) => ownStatus.adopt(status),
-			onStatusRestored: (status) => ownStatus.restore(status)
+			onStatusRestored: (status) => ownStatus.restore(status),
+			onAvatarChanged: input.onAvatarChanged,
+			onProfileChanged: input.onProfileChanged
 		});
 	});
 
@@ -102,6 +117,7 @@ export function createIncoming(input: {
 
 	return {
 		handleChannelMessage,
+		handleChannelActivity,
 		get homeBadge() {
 			return homeBadge;
 		}

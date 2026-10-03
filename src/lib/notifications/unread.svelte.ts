@@ -60,10 +60,10 @@ export const unread = {
 			mark: current?.mark ?? { from: messageId }
 		};
 	},
-	addChannel(channelId: string, messageId: string) {
+	addChannel(channelId: string, messageId: string, firstNewId: string = messageId) {
 		const current = channels[channelId];
 		if (current && current.newestId >= messageId) return;
-		channels[channelId] = { newestId: messageId, mark: current?.mark ?? { from: messageId } };
+		channels[channelId] = { newestId: messageId, mark: current?.mark ?? { from: firstNewId } };
 	},
 	clear(channelId: string, readId: string) {
 		const directEntry = direct[channelId];

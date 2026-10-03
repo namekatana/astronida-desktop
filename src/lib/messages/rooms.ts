@@ -83,7 +83,7 @@ export function subscribeToPins(input: {
 export function subscribeToChannel(input: {
 	channelId: string;
 	onMessage: (message: Message) => void;
-	onTyping: (userId: string) => void;
+	onTyping: (userId: string, username: string | null) => void;
 	onDeleted: (messageId: string) => void;
 	onReady: () => void;
 }): () => void {
@@ -92,8 +92,10 @@ export function subscribeToChannel(input: {
 	const messageRef = channel.on('message', (payload: MessagePayload) =>
 		input.onMessage(fromPayload(payload))
 	);
-	const typingRef = channel.on('typing', (payload: { user_id?: unknown }) => {
-		if (typeof payload?.user_id === 'string') input.onTyping(payload.user_id);
+	const typingRef = channel.on('typing', (payload: { user_id?: unknown; username?: unknown }) => {
+		if (typeof payload?.user_id !== 'string') return;
+		const username = typeof payload.username === 'string' ? payload.username : null;
+		input.onTyping(payload.user_id, username);
 	});
 	const deletedRef = channel.on('deleted', (payload: { message_id?: unknown }) => {
 		if (typeof payload?.message_id === 'string') input.onDeleted(payload.message_id);

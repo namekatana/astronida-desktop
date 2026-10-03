@@ -77,8 +77,8 @@ export function createOpenChat(input: {
 				clearTyping(channelId, message.author.id);
 				feeds.absorb(channelId, [message]);
 			},
-			onTyping: (userId) => {
-				if (!stale && userId !== input.userId) markTyping(channelId, userId);
+			onTyping: (userId, username) => {
+				if (!stale && userId !== input.userId) markTyping(channelId, userId, username);
 			},
 			onDeleted: (messageId) => {
 				if (!stale) sync.forget(channelId, messageId);
