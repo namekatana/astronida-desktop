@@ -37,6 +37,7 @@
 	import VoiceDock from '$lib/components/VoiceDock.svelte';
 	import { findActiveFriends } from '$lib/friends/active-friends';
 	import { acceptFriendRequest, declineFriendRequest } from '$lib/friends/channel';
+	import type { Friend } from '$lib/friends/friends';
 	import { createFriendsState } from '$lib/friends/friends-state.svelte';
 	import { history } from '$lib/history/history';
 	import type { CompressedImage } from '$lib/media/compress';
@@ -47,11 +48,18 @@
 	import { createOpenChat } from '$lib/messages/open-chat.svelte';
 	import { createPins } from '$lib/messages/pins.svelte';
 	import { createSending } from '$lib/messages/sending.svelte';
-	import { typingIn } from '$lib/messages/typing.svelte';
+	import { typingIn, typingUsername } from '$lib/messages/typing.svelte';
 	import { createIncoming } from '$lib/notifications/incoming.svelte';
 	import { unread } from '$lib/notifications/unread.svelte';
 	import { ownStatus } from '$lib/presence/own-status.svelte';
 	import { createServersPresence } from '$lib/presence/servers-presence.svelte';
+	import { forgetAvatars } from '$lib/profile/avatar-images';
+	import { forgetBanners } from '$lib/profile/banner-images';
+	import { memberStatuses } from '$lib/presence/member-statuses.svelte';
+	import { lookupStatus, watchMembers } from '$lib/presence/presence';
+	import type { MemberListPreview } from '$lib/servers/member-list.svelte';
+	import { knownAvatars } from '$lib/profile/known-avatars.svelte';
+	import { profileDetails } from '$lib/profile/profile-details.svelte';
 	import { describeProfile, type ProfileTarget } from '$lib/profile/profile';
 	import { inviteLinkOf, joinByInvite, prefetchInviteLink } from '$lib/servers/invites';
 	import type { Server } from '$lib/servers/servers';
@@ -72,6 +80,15 @@
 	let servers = $state<Server[]>(data.account.servers);
 	// svelte-ignore state_referenced_locally
 	let username = $state<string | null>(data.account.username);
+	// svelte-ignore state_referenced_locally
+	let displayName = $state<string | null>(data.account.displayName ?? null);
+	// svelte-ignore state_referenced_locally
+	let avatarId = $state<string | null>(data.account.avatarId ?? null);
+	// svelte-ignore state_referenced_locally
+	profileDetails.set(data.userId, {
+		bannerId: data.account.bannerId ?? null,
+		bio: data.account.bio ?? null
+	});
 	// svelte-ignore state_referenced_locally
 	let selectedServerId = $state<string | null>(
 		data.account.servers.some((server) => server.id === lastSelection.serverId)
@@ -105,8 +122,14 @@
 	const workspace = $derived(selectedServerId ? workspaces.all[selectedServerId] : undefined);
 	const categories = $derived(workspace?.categories ?? []);
 	const channels = $derived(workspace?.channels ?? []);
-	const members = $derived(workspace?.members ?? []);
-	const memberIds = $derived(new Set(members.map((member) => member.id)));
+	// svelte-ignore state_referenced_locally
+	const memberPreviews: Record<string, MemberListPreview> = { ...data.cache.memberPreviews };
+
+	function saveMemberPreview(serverId: string, preview: MemberListPreview) {
+		memberPreviews[serverId] = preview;
+		workspaceCache.saveMemberPreview(data.userId, serverId, preview);
+	}
+
 	const channelsLoading = $derived(selectedServerId !== null && workspace === undefined);
 	const chatSkeleton = createDelayedFlag(() => channelsLoading);
 
@@ -125,7 +148,7 @@
 		friends: data.account.friends ?? [],
 		online: data.cache.friendsOnline,
 		feeds,
-		persist: (list) => workspaceCache.saveAccount(data.userId, { username, servers, friends: list })
+		persist: (list) => persistAccount(list)
 	});
 
 	const selectedServer = $derived(servers.find((server) => server.id === selectedServerId) ?? null);
@@ -148,6 +171,13 @@
 		data.refresh.then((account) => {
 			servers = account.servers;
 			username = account.username;
+			displayName = account.displayName ?? null;
+			avatarId = account.avatarId ?? null;
+			knownAvatars.learn(data.userId, avatarId);
+			profileDetails.set(data.userId, {
+				bannerId: account.bannerId ?? null,
+				bio: account.bio ?? null
+			});
 			friends.list = account.friends;
 		});
 	});
@@ -173,6 +203,11 @@
 	});
 
 	$effect(() => {
+		watchMembers(selectedServerId);
+		return () => watchMembers(null);
+	});
+
+	$effect(() => {
 		if (selectedServerId && selectedChannelId) {
 			lastSelection.setChannel(selectedServerId, selectedChannelId);
 		}
@@ -185,9 +220,9 @@
 		serverIds: () => servers.map((server) => server.id),
 		onChannelMessage: (serverId, channelId, message) =>
 			incoming.handleChannelMessage(serverId, channelId, message),
+		onChannelActivity: (serverId, activity) => incoming.handleChannelActivity(serverId, activity),
 		onCategoryCreated: workspaces.addCategory,
 		onChannelCreated: workspaces.addChannel,
-		onMemberJoined: workspaces.addMember,
 		onMessageDeleted: sync.forget
 	});
 
@@ -195,7 +230,12 @@
 	const occupants = createVoiceOccupants({
 		userId: data.userId,
 		presence,
-		membersOf: (serverId) => workspaces.all[serverId]?.members ?? [],
+		ownerOf: (serverId) => servers.find((server) => server.id === serverId)?.ownerId ?? null,
+		selfProfile: () => ({
+			username: username ?? '',
+			name: displayName ?? username ?? '',
+			avatarId
+		}),
 		selectedServerId: () => selectedServerId
 	});
 
@@ -235,30 +275,22 @@
 		openChatId: () => openChatId,
 		isTextChannel: workspaces.isTextChannel,
 		requestCount: () => friends.requests.length,
-		onOpenHome: openHome
+		onOpenHome: openHome,
+		onAvatarChanged: (next) => {
+			if (next !== avatarId) changeAvatar(next);
+		},
+		onProfileChanged: (changes) => {
+			profileDetails.set(data.userId, changes);
+			persistAccount(friends.list);
+		}
 	});
 
 	function selfProfile(): ProfileTarget {
 		const ownName = username ?? '';
-		const self = members.find((member) => member.id === data.userId);
-		return { id: data.userId, username: ownName, name: self?.name ?? ownName };
+		return { id: data.userId, username: ownName, name: displayName ?? ownName, avatarId };
 	}
 
 	const sending = createSending({ feeds, author: selfProfile });
-
-	const membersWithPresence = $derived.by(() => {
-		const current = selectedServer ? presence.byServer[selectedServer.id] : undefined;
-		return members.map((member) => {
-			const self = member.id === data.userId;
-			return {
-				...member,
-				online: self
-					? ownStatus.current !== 'invisible'
-					: (current?.online.has(member.id) ?? false),
-				status: self ? ownStatus.current : (current?.statuses[member.id] ?? 'online')
-			};
-		});
-	});
 
 	const activeFriends = $derived(
 		findActiveFriends({
@@ -280,12 +312,19 @@
 			target,
 			selfId: data.userId,
 			selfStatus: ownStatus.current,
+			selfAvatarId: avatarId,
+			detailsOf: profileDetails.of,
 			friends: friends.withPresence,
 			requests: friends.requests,
 			servers,
 			presenceByServer: presence.byServer,
 			workspaces: workspaces.all
 		});
+	}
+
+	function statusServerFor(userId: string): string | null {
+		if (selectedServerId) return selectedServerId;
+		return profileDetails.of(userId).mutualServerIds?.[0] ?? null;
 	}
 
 	const profileCard = $derived(profile ? cardOf(profile.target) : null);
@@ -296,6 +335,27 @@
 		if (sideProfile && sideProfile.place !== place) sideProfile = null;
 	});
 
+	$effect(() => {
+		for (const card of [profileCard, sideCard, chatPartnerCard]) {
+			if (card) profileDetails.refresh(card.target.id);
+		}
+	});
+
+	const statusTargetId = $derived(sideTarget?.id ?? profile?.target.id ?? null);
+
+	$effect(() => {
+		const targetId = statusTargetId;
+		if (!targetId || targetId === data.userId) return;
+		untrack(() => {
+			if (friends.ids.has(targetId)) return;
+			const serverId = statusServerFor(targetId);
+			if (!serverId) return;
+			void lookupStatus(serverId, targetId).then((status) => {
+				if (status !== undefined) memberStatuses.learn(targetId, status);
+			});
+		});
+	});
+
 	const sideEnterMs = 150;
 	const sideLeaveMs = 100;
 	let sideClosingInPlace = false;
@@ -303,6 +363,35 @@
 	function closeSideProfile() {
 		sideClosingInPlace = true;
 		sideProfile = null;
+	}
+
+	function persistAccount(list: Friend[]) {
+		const details = profileDetails.of(data.userId);
+		workspaceCache.saveAccount(data.userId, {
+			username,
+			displayName,
+			avatarId,
+			bannerId: details.bannerId,
+			bio: details.bio,
+			servers,
+			friends: list
+		});
+	}
+
+	function changeAvatar(next: string | null) {
+		avatarId = next;
+		knownAvatars.learn(data.userId, next);
+		persistAccount(friends.list);
+	}
+
+	function changeBanner(next: string | null) {
+		profileDetails.set(data.userId, { bannerId: next });
+		persistAccount(friends.list);
+	}
+
+	function changeBio(next: string | null) {
+		profileDetails.set(data.userId, { bio: next });
+		persistAccount(friends.list);
 	}
 
 	function openProfile(target: ProfileTarget, source: HTMLElement | null) {
@@ -442,13 +531,14 @@
 
 	function usernameOf(userId: string): string | undefined {
 		if (selectedFriend?.id === userId) return selectedFriend.username;
-		return members.find((member) => member.id === userId)?.username;
+		return undefined;
 	}
 
 	const typingNames = $derived.by(() => {
 		if (!openChatId) return [];
-		return typingIn(openChatId)
-			.map(usernameOf)
+		const chatId = openChatId;
+		return typingIn(chatId)
+			.map((userId) => typingUsername(chatId, userId) ?? usernameOf(userId))
 			.filter((name): name is string => name !== undefined);
 	});
 
@@ -536,6 +626,11 @@
 		await signOut();
 		workspaceCache.clear(data.userId);
 		forgetImages();
+		forgetAvatars();
+		forgetBanners();
+		profileDetails.clear();
+		knownAvatars.clear();
+		memberStatuses.clear();
 		await history.clear().catch(() => {});
 		signingOut = false;
 		await goto('/');
@@ -594,7 +689,6 @@
 			serverId={selectedServer.id}
 			serverName={selectedServer.name}
 			friends={friends.list}
-			{memberIds}
 			canManage={selectedServer.ownerId === data.userId}
 			oninvite={(channelId, link) => sending.send(channelId, link)}
 			onclose={() => (inviting = false)}
@@ -649,6 +743,9 @@
 			card={profileCard}
 			source={profile.source}
 			onclose={() => (profile = null)}
+			onavatarchange={changeAvatar}
+			onbannerchange={changeBanner}
+			onbiochange={changeBio}
 		/>
 	{/if}
 
@@ -689,6 +786,8 @@
 	<ServerBar
 		{servers}
 		selectedId={selectedServerId}
+		userId={data.userId}
+		{avatarId}
 		{username}
 		{unreadServerIds}
 		homeUnread={incoming.homeBadge > 0}
@@ -866,8 +965,12 @@
 						{#if selectedServer}
 							{#key selectedServer.id}
 								<MemberPanel
-									members={membersWithPresence}
-									loading={members.length === 0}
+									serverId={selectedServer.id}
+									ownerId={selectedServer.ownerId}
+									selfId={data.userId}
+									selfStatus={ownStatus.current}
+									preview={memberPreviews[selectedServer.id] ?? null}
+									onpreview={(next) => saveMemberPreview(selectedServer.id, next)}
 									onopenprofile={openProfile}
 								/>
 							{/key}

@@ -4,6 +4,7 @@
 	import { fade } from 'svelte/transition';
 	import { normalizeUsernameQuery, type Friend } from '$lib/friends/friends';
 	import { cachedInviteLink, fetchInviteLink, type InviteLink } from '$lib/servers/invites';
+	import { membersAmong } from '$lib/servers/members';
 	import { settle } from '$lib/ui/settle';
 	import Avatar from './Avatar.svelte';
 	import Dialog from './Dialog.svelte';
@@ -19,14 +20,29 @@
 		serverId: string;
 		serverName: string;
 		friends: Friend[];
-		memberIds: ReadonlySet<string>;
 		canManage: boolean;
 		oninvite: (channelId: string, link: string) => void;
 		onclose: () => void;
 	}
 
-	let { serverId, serverName, friends, memberIds, canManage, oninvite, onclose }: Props =
-		$props();
+	let { serverId, serverName, friends, canManage, oninvite, onclose }: Props = $props();
+
+	const memberIds = new SvelteSet<string>();
+	const friendIdList = $derived(friends.map((friend) => friend.id).join(','));
+
+	$effect(() => {
+		const target = serverId;
+		const ids = friendIdList ? friendIdList.split(',') : [];
+		let current = true;
+		void membersAmong(target, ids).then((members) => {
+			if (!current) return;
+			memberIds.clear();
+			for (const id of members) memberIds.add(id);
+		});
+		return () => {
+			current = false;
+		};
+	});
 
 	type LinkState =
 		| { status: 'loading' }

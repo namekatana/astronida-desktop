@@ -1,7 +1,6 @@
 import { workspaceCache, type Workspace } from '$lib/cache/workspace-cache';
 import { loadChannels, type Category, type Channel } from '$lib/channels/channels';
 import { takeJoinedLayout } from './joined-layouts';
-import { loadMembers, type JoinedMember } from './members';
 import type { Server } from './servers';
 
 export function createWorkspaces(input: {
@@ -13,11 +12,8 @@ export function createWorkspaces(input: {
 	const refreshed = new Set<string>();
 
 	async function refresh(server: Server) {
-		const [loaded, members] = await Promise.all([
-			loadChannels(server.id),
-			loadMembers(server.id, server.ownerId)
-		]);
-		const fresh = { categories: loaded.categories, channels: loaded.channels, members };
+		const loaded = await loadChannels(server.id);
+		const fresh = { categories: loaded.categories, channels: loaded.channels };
 		all[server.id] = fresh;
 		workspaceCache.saveWorkspace(input.userId, server.id, fresh);
 	}
@@ -25,7 +21,7 @@ export function createWorkspaces(input: {
 	function seedJoined(serverId: string) {
 		const layout = takeJoinedLayout(serverId);
 		if (!layout || all[serverId]) return;
-		all[serverId] = { ...layout, members: [] };
+		all[serverId] = layout;
 	}
 
 	$effect(() => {
@@ -36,13 +32,6 @@ export function createWorkspaces(input: {
 			void refresh(server);
 		}
 	});
-
-	function addMember(serverId: string, member: JoinedMember) {
-		const target = all[serverId];
-		if (!target || target.members.some((known) => known.id === member.id)) return;
-		const ownerId = input.servers().find((server) => server.id === serverId)?.ownerId;
-		target.members.push({ ...member, online: false, owner: member.id === ownerId });
-	}
 
 	function addCategory(category: Category) {
 		const target = all[category.serverId];
@@ -64,7 +53,6 @@ export function createWorkspaces(input: {
 		get all() {
 			return all;
 		},
-		addMember,
 		addCategory,
 		addChannel,
 		isTextChannel
