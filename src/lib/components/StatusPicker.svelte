@@ -1,6 +1,6 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { on } from 'svelte/events';
-	import { fade } from 'svelte/transition';
 	import {
 		statusDotClass,
 		statusHints,
@@ -8,10 +8,7 @@
 		userStatuses,
 		type UserStatus
 	} from '$lib/presence/status';
-	import { pop } from '$lib/ui/pop';
-	import { portal } from '$lib/ui/portal';
 	import { settle } from '$lib/ui/settle';
-	import Icon from './Icon.svelte';
 
 	interface Props {
 		status: UserStatus;
@@ -20,150 +17,233 @@
 
 	let { status, onchoose }: Props = $props();
 
-	const menuWidth = 232;
-	const menuHeight = 184;
-	const gap = 6;
-	const edge = 8;
+	const optionWidth = 26;
+	const labelDelay = 70;
+	const returnDelay = 300;
+	const jitterRadius = 4;
 
 	let open = $state(false);
 	let highlighted = $state(0);
+	let shownLabel = $state(0);
+	let root = $state<HTMLDivElement | null>(null);
 	let trigger = $state<HTMLButtonElement | null>(null);
-	let list = $state<HTMLDivElement | null>(null);
-	let position = $state({ left: 0, top: 0, above: false });
+	let group = $state<HTMLDivElement | null>(null);
+	let options = $state<HTMLButtonElement[]>([]);
+	let collapsedWidth = $state(0);
+	let expandedWidth = $state(0);
+	let measured = $state(false);
 
-	const selectedIndex = $derived(userStatuses.indexOf(status));
+	let openedAt: { x: number; y: number } | null = null;
+	let labelTimer: ReturnType<typeof setTimeout> | undefined;
+	let returnTimer: ReturnType<typeof setTimeout> | undefined;
 
-	function place() {
-		if (!trigger) return;
-		const rect = trigger.getBoundingClientRect();
-		const fitsBelow = window.innerHeight - rect.bottom >= menuHeight + gap + edge;
-		const above = !fitsBelow && rect.top >= menuHeight + gap + edge;
-		const centered = rect.left + rect.width / 2 - menuWidth / 2;
-		const left = Math.min(Math.max(centered, edge), window.innerWidth - menuWidth - edge);
-		position = { left, top: above ? rect.top - gap - menuHeight : rect.bottom + gap, above };
+	const selectedIndex = $derived(Math.max(userStatuses.indexOf(status), 0));
+
+	function describe(option: UserStatus): string {
+		const hint = statusHints[option];
+		return hint ? `${statusLabels[option]}. ${hint}` : statusLabels[option];
 	}
 
-	function toggle() {
-		if (open) {
-			open = false;
-			return;
-		}
-		place();
-		highlighted = Math.max(selectedIndex, 0);
+	function clearTimers() {
+		clearTimeout(labelTimer);
+		clearTimeout(returnTimer);
+	}
+
+	function highlight(index: number, immediate: boolean) {
+		highlighted = index;
+		clearTimeout(labelTimer);
+		if (immediate) shownLabel = index;
+		else labelTimer = setTimeout(() => (shownLabel = highlighted), labelDelay);
+	}
+
+	async function expand(event: MouseEvent) {
+		openedAt = event.detail === 0 ? null : { x: event.clientX, y: event.clientY };
+		highlight(selectedIndex, true);
 		open = true;
+		await tick();
+		options[highlighted]?.focus();
+	}
+
+	async function collapse(returnFocus: boolean) {
+		clearTimers();
+		open = false;
+		if (!returnFocus) return;
+		await tick();
+		trigger?.focus();
 	}
 
 	function pick(index: number, fromKeyboard: boolean) {
-		onchoose(userStatuses[index]);
-		open = false;
-		if (fromKeyboard) trigger?.focus();
+		const chosen = userStatuses[index];
+		if (chosen !== status) onchoose(chosen);
+		collapse(fromKeyboard);
+	}
+
+	function isJitter(event: PointerEvent): boolean {
+		if (!openedAt) return false;
+		const distance = Math.hypot(event.clientX - openedAt.x, event.clientY - openedAt.y);
+		if (distance < jitterRadius) return true;
+		openedAt = null;
+		return false;
+	}
+
+	function followPointer(event: PointerEvent) {
+		if (!group || isJitter(event)) return;
+		const offset = event.clientX - group.getBoundingClientRect().left;
+		const index = Math.min(Math.max(Math.floor(offset / optionWidth), 0), userStatuses.length - 1);
+		if (index !== highlighted) highlight(index, false);
+	}
+
+	function holdHighlight() {
+		clearTimeout(returnTimer);
+	}
+
+	function releaseHighlight() {
+		clearTimeout(returnTimer);
+		returnTimer = setTimeout(() => highlight(selectedIndex, true), returnDelay);
+	}
+
+	function move(step: number) {
+		const next = (highlighted + step + userStatuses.length) % userStatuses.length;
+		highlight(next, true);
+		options[next]?.focus();
 	}
 
 	function handleKey(event: KeyboardEvent) {
 		if (event.key === 'Escape') {
 			event.preventDefault();
 			event.stopPropagation();
-			open = false;
-			trigger?.focus();
-		} else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+			collapse(true);
+		} else if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
 			event.preventDefault();
-			const step = event.key === 'ArrowDown' ? 1 : -1;
-			highlighted = (highlighted + step + userStatuses.length) % userStatuses.length;
-		} else if (event.key === 'Enter' || event.key === ' ') {
-			event.preventDefault();
-			pick(highlighted, true);
+			move(event.key === 'ArrowRight' ? 1 : -1);
 		} else if (event.key === 'Tab') {
-			open = false;
+			collapse(false);
 		}
 	}
 
 	$effect(() => {
+		if (measured || collapsedWidth === 0) return;
+		const frame = requestAnimationFrame(() => (measured = true));
+		return () => cancelAnimationFrame(frame);
+	});
+
+	$effect(() => {
+		if (!root) return;
+		const offEnter = on(root, 'pointerenter', holdHighlight);
+		const offLeave = on(root, 'pointerleave', releaseHighlight);
+		return () => {
+			offEnter();
+			offLeave();
+		};
+	});
+
+	$effect(() => {
 		if (!open) return;
-		const close = () => (open = false);
 		const offKey = on(window, 'keydown', handleKey, { capture: true });
 		const offPointer = on(document, 'pointerdown', (event) => {
-			const target = event.target as Node;
-			if (!trigger?.contains(target) && !list?.contains(target)) close();
+			if (!root?.contains(event.target as Node)) collapse(false);
 		});
-		const offResize = on(window, 'resize', close);
+		const offResize = on(window, 'resize', () => collapse(false));
 		return () => {
 			offKey();
 			offPointer();
 			offResize();
+			clearTimers();
 		};
 	});
 </script>
 
-<button
-	bind:this={trigger}
-	type="button"
-	aria-haspopup="listbox"
-	aria-expanded={open}
-	aria-label="Статус: {statusLabels[status]}"
-	onclick={toggle}
-	class="pressable flex h-7 items-center gap-1.5 rounded-full pr-2.5 pl-2.5 text-[12px] font-semibold text-ink-secondary duration-150 hover:bg-white/[0.08] hover:text-ink {open
-		? 'bg-white/[0.08] text-ink'
-		: 'bg-white/[0.05]'}"
+<div
+	bind:this={root}
+	class="relative h-7 overflow-hidden rounded-full {measured
+		? 'transition-[width,background-color,scale] duration-[260ms] ease-soft motion-reduce:transition-[background-color]'
+		: ''} {open ? 'bg-white/[0.08]' : 'bg-white/[0.05] hover:bg-white/[0.08] active:scale-[0.97]'}"
+	style:width="{open ? expandedWidth : collapsedWidth}px"
 >
-	<span
-		class="h-2 w-2 shrink-0 rounded-full transition-[background-color] duration-300 ease-soft {statusDotClass[
-			status
-		]}"
-	></span>
-	<span class="grid grid-cols-1">
-		{#key status}
-			<span class="col-start-1 row-start-1 whitespace-nowrap" in:settle out:settle={{ duration: 100 }}>
-				{statusLabels[status]}
-			</span>
-		{/key}
-	</span>
-	<Icon
-		name="chevron"
-		size={12}
-		class="text-muted transition-transform duration-200 ease-soft {open ? 'rotate-180' : ''}"
-	/>
-</button>
-
-{#if open}
-	<div
-		bind:this={list}
-		use:portal
-		role="listbox"
-		aria-label="Статус"
-		in:pop={{ y: position.above ? 6 : -6, duration: 200 }}
-		out:fade={{ duration: 100 }}
-		class="panel panel-floating fixed z-50 flex flex-col p-2 {position.above
-			? 'origin-bottom'
-			: 'origin-top'}"
-		style="left: {position.left}px; top: {position.top}px; width: {menuWidth}px"
+	<button
+		bind:this={trigger}
+		bind:offsetWidth={collapsedWidth}
+		type="button"
+		inert={open}
+		aria-expanded={open}
+		aria-label="Статус: {statusLabels[status]}"
+		onclick={expand}
+		class="absolute top-0 left-1/2 flex h-7 w-max -translate-x-1/2 items-center gap-1.5 px-2.5 text-[12px] font-semibold text-ink-secondary transition-[opacity,filter,color] duration-200 ease-soft hover:text-ink {open
+			? 'opacity-0 blur-[2px]'
+			: ''}"
 	>
-		{#each userStatuses as option, index (option)}
-			{@const hint = statusHints[option]}
-			<button
-				type="button"
-				role="option"
-				aria-selected={index === selectedIndex}
-				onpointerenter={() => (highlighted = index)}
-				onclick={(event) => pick(index, event.detail === 0)}
-				class="flex w-full items-center gap-2.5 rounded-[10px] px-3 text-left [corner-shape:squircle] transition-colors duration-150 {hint
-					? 'h-12'
-					: 'h-9'} {index === highlighted ? 'bg-white/[0.06]' : ''}"
-			>
-				<span class="h-2.5 w-2.5 shrink-0 rounded-full {statusDotClass[option]}"></span>
-				<span class="flex min-w-0 flex-1 flex-col">
-					<span
-						class="truncate text-[13px] {index === highlighted ? 'text-ink' : 'text-ink-secondary'}"
-					>
-						{statusLabels[option]}
-					</span>
-					{#if hint}
-						<span class="truncate text-[11px] leading-4 text-muted">{hint}</span>
-					{/if}
+		<span
+			class="h-2 w-2 shrink-0 rounded-full transition-[background-color] duration-300 ease-soft {statusDotClass[
+				status
+			]}"
+		></span>
+		<span class="grid grid-cols-1">
+			{#key status}
+				<span class="col-start-1 row-start-1 whitespace-nowrap" in:settle out:settle={{ duration: 100 }}>
+					{statusLabels[status]}
 				</span>
-				{#if index === selectedIndex}
-					<Icon name="check" size={14} class="text-ink" />
-				{/if}
-			</button>
-		{/each}
+			{/key}
+		</span>
+	</button>
+
+	<div
+		bind:offsetWidth={expandedWidth}
+		inert={!open}
+		class="absolute top-0 left-1/2 flex h-7 w-max -translate-x-1/2 items-center transition-[opacity,filter] duration-200 ease-soft {open
+			? ''
+			: 'opacity-0 blur-[2px]'}"
+	>
+		<div
+			bind:this={group}
+			role="radiogroup"
+			aria-label="Статус"
+			tabindex="-1"
+			onpointermove={followPointer}
+			class="relative flex h-7 items-center"
+		>
+			<span
+				aria-hidden="true"
+				class="absolute top-0.5 left-px h-6 w-6 rounded-full bg-white/[0.12] transition-[translate] duration-[180ms] ease-soft motion-reduce:transition-none"
+				style:translate="{highlighted * optionWidth}px 0"
+			></span>
+			{#each userStatuses as option, index (option)}
+				<button
+					bind:this={options[index]}
+					type="button"
+					role="radio"
+					aria-checked={index === selectedIndex}
+					aria-label={describe(option)}
+					title={describe(option)}
+					tabindex={index === highlighted ? 0 : -1}
+					onfocus={() => highlight(index, true)}
+					onclick={(event) => pick(index, event.detail === 0)}
+					class="relative flex h-7 w-[26px] items-center justify-center outline-none"
+				>
+					<span
+						class="h-2.5 w-2.5 rounded-full transition-[scale] duration-200 ease-soft motion-reduce:transition-none {statusDotClass[
+							option
+						]} {index === highlighted ? 'scale-125' : ''}"
+					></span>
+				</button>
+			{/each}
+		</div>
+		<button
+			type="button"
+			tabindex="-1"
+			aria-hidden="true"
+			onclick={() => pick(highlighted, false)}
+			class="grid h-7 grid-cols-1 items-center pr-3 pl-2 text-[12px] font-semibold text-ink"
+		>
+			{#each userStatuses as option, index (option)}
+				<span
+					class="col-start-1 row-start-1 text-left whitespace-nowrap transition-[opacity,filter] duration-150 ease-soft {index ===
+					shownLabel
+						? ''
+						: 'opacity-0 blur-[2px]'}"
+				>
+					{statusLabels[option]}
+				</span>
+			{/each}
+		</button>
 	</div>
-{/if}
+</div>
