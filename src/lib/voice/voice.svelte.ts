@@ -10,7 +10,7 @@ import {
 import { keyFingerprint } from './fingerprint';
 import { createVoiceTransport, prepareTransport } from './transport-factory';
 import { qualityFromStats, worstQuality } from './quality';
-import { playToggleSound } from './sounds';
+import { playToggleSound, repeatToggleSound } from './sounds';
 import type { TransportState, VoiceQuality, VoiceStats, VoiceTransport } from './transport';
 import { participantAudio } from './volumes.svelte';
 
@@ -25,7 +25,10 @@ export type VoiceStatus = 'connecting' | 'connected' | 'reconnecting' | 'failed'
 export type VoiceFailure = 'duplicate' | 'removed' | 'error';
 
 const retryBaseMs = 1000;
-const retryMaxMs = 10_000;
+const retryMaxMs = 5_000;
+const credentialsReuseMs = 40_000;
+const reconnectingToneTiming = { firstAfterMs: 1_000, everyMs: 2_500 };
+const keyResyncGapMs = 5_000;
 
 let micMuted = $state(false);
 let deafened = $state(false);
@@ -35,6 +38,7 @@ let failure = $state<VoiceFailure | null>(null);
 let quality = $state<VoiceQuality | null>(null);
 let stats = $state<VoiceStats | null>(null);
 let speakingIds = $state<string[]>([]);
+let roomParticipants = $state<string[]>([]);
 let participantQuality = $state<Record<string, VoiceQuality>>({});
 let participantStats = $state<Record<string, VoiceStats>>({});
 let encrypted = $state(false);
@@ -44,9 +48,18 @@ let micMutedBeforeDeafen = false;
 let transport: VoiceTransport | null = null;
 let attempt = 0;
 let keyVersion = $state(0);
+let keyEpoch: string | null = null;
+let lastKeyResyncAt = 0;
 let retryCount = 0;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let onlineListener: (() => void) | null = null;
+let pendingRetry: (() => void) | null = null;
+let stopReconnectingTone: (() => void) | null = null;
+let recentCredentials: {
+	channelId: string;
+	credentials: VoiceCredentials;
+	fetchedAt: number;
+} | null = null;
 
 function microphoneEnabled() {
 	return !micMuted && !deafened;
@@ -61,7 +74,19 @@ async function fetchCredentials(target: VoiceConnection): Promise<VoiceCredentia
 		channelId: target.channelId,
 		...announcedState()
 	});
-	return result.ok ? result.value : null;
+	if (!result.ok) return null;
+	recentCredentials = {
+		channelId: target.channelId,
+		credentials: result.value,
+		fetchedAt: Date.now()
+	};
+	return result.value;
+}
+
+function reusableCredentials(target: VoiceConnection): VoiceCredentials | null {
+	const recent = recentCredentials;
+	if (!recent || recent.channelId !== target.channelId) return null;
+	return Date.now() - recent.fetchedAt < credentialsReuseMs ? recent.credentials : null;
 }
 
 function announceState() {
@@ -70,16 +95,23 @@ function announceState() {
 
 function rememberKey(channelId: string, key: VoiceKey) {
 	keyVersion = key.version;
+	keyEpoch = key.epoch ?? null;
 	void keyFingerprint(channelId, key).then((code) => {
-		if (keyVersion === key.version && connected?.channelId === channelId) fingerprint = code;
+		const current = keyVersion === key.version && keyEpoch === (key.epoch ?? null);
+		if (current && connected?.channelId === channelId) fingerprint = code;
 	});
+}
+
+function isNewer(version: number, epoch: string | undefined): boolean {
+	if (epoch !== undefined && epoch !== keyEpoch) return true;
+	return version > keyVersion;
 }
 
 function adoptKey(serverId: string, channelId: string, key: VoiceKey) {
 	const owner = transport;
 	if (!owner || !connected) return;
 	if (connected.serverId !== serverId || connected.channelId !== channelId) return;
-	if (key.version <= keyVersion) return;
+	if (!isNewer(key.version, key.epoch)) return;
 	rememberKey(channelId, key);
 	void owner.rotateKey(key);
 }
@@ -93,6 +125,7 @@ function releaseTransport() {
 function cancelRetry() {
 	if (retryTimer) clearTimeout(retryTimer);
 	retryTimer = null;
+	pendingRetry = null;
 	if (onlineListener) window.removeEventListener('online', onlineListener);
 	onlineListener = null;
 }
@@ -101,6 +134,7 @@ function resetLiveState() {
 	quality = null;
 	stats = null;
 	speakingIds = [];
+	roomParticipants = [];
 	participantQuality = {};
 	participantStats = {};
 	encrypted = false;
@@ -112,6 +146,7 @@ function scheduleReconnect(target: VoiceConnection) {
 	cancelRetry();
 	releaseTransport();
 	status = 'reconnecting';
+	startReconnectingTone();
 	resetLiveState();
 
 	const delay = Math.min(retryBaseMs * 2 ** retryCount, retryMaxMs) + Math.random() * 500;
@@ -133,11 +168,30 @@ function scheduleReconnect(target: VoiceConnection) {
 	};
 
 	retryTimer = setTimeout(waitForOnline, delay);
+	pendingRetry = start;
+}
+
+function startReconnectingTone() {
+	stopReconnectingTone ??= repeatToggleSound('voice-reconnecting', reconnectingToneTiming);
+}
+
+function silenceReconnectingTone() {
+	stopReconnectingTone?.();
+	stopReconnectingTone = null;
+}
+
+function markConnected() {
+	const recovered = status === 'reconnecting';
+	status = 'connected';
+	retryCount = 0;
+	silenceReconnectingTone();
+	if (recovered) playToggleSound('voice-connected');
 }
 
 function failWith(reason: VoiceFailure) {
 	cancelRetry();
 	releaseTransport();
+	silenceReconnectingTone();
 	status = 'failed';
 	failure = reason;
 	resetLiveState();
@@ -148,7 +202,8 @@ async function establish(
 	options: { reconnect: boolean; attemptId: number }
 ) {
 	const current = options.attemptId;
-	const credentials = await fetchCredentials(target);
+	const credentials =
+		(options.reconnect ? reusableCredentials(target) : null) ?? (await fetchCredentials(target));
 	if (current !== attempt) return;
 	if (!credentials) {
 		if (options.reconnect) scheduleReconnect(target);
@@ -177,11 +232,21 @@ async function establish(
 		onEncryption: (next_encrypted) => {
 			if (transport === next) encrypted = next_encrypted;
 		},
+		onDecryptionFailure: () => {
+			if (transport !== next) return;
+			const now = Date.now();
+			if (now - lastKeyResyncAt < keyResyncGapMs) return;
+			lastKeyResyncAt = now;
+			void syncKey(target, next);
+		},
 		onStats: (next_stats) => {
 			if (transport === next) stats = next_stats;
 		},
 		onSpeaking: (ids) => {
 			if (transport === next) speakingIds = ids;
+		},
+		onRoomParticipants: (ids) => {
+			if (transport === next) roomParticipants = ids;
 		},
 		volumeFor: (userId) => participantAudio.effective(userId)
 	});
@@ -197,8 +262,7 @@ async function establish(
 	}
 	if (current !== attempt || transport !== next) return;
 
-	retryCount = 0;
-	status = 'connected';
+	markConnected();
 	failure = null;
 	rememberKey(target.channelId, credentials.e2ee);
 	if (!options.reconnect) playToggleSound('voice-connected');
@@ -215,11 +279,11 @@ async function syncKey(target: VoiceConnection, owner: VoiceTransport) {
 function handleTransportState(state: TransportState, target: VoiceConnection) {
 	if (state.kind === 'reconnecting') {
 		status = 'reconnecting';
+		startReconnectingTone();
 		return;
 	}
 	if (state.kind === 'connected') {
-		status = 'connected';
-		retryCount = 0;
+		markConnected();
 		return;
 	}
 	switch (state.cause) {
@@ -258,6 +322,9 @@ export const voice = {
 	},
 	get speakingIds() {
 		return speakingIds;
+	},
+	get roomParticipants() {
+		return roomParticipants;
 	},
 	get participantQuality() {
 		return participantQuality;
@@ -317,16 +384,26 @@ export const voice = {
 		if (url) prepareTransport(url);
 	},
 
-	handleKeyRotation(serverId: string, channelId: string, version: number) {
+	handleKeyRotation(
+		serverId: string,
+		channelId: string,
+		version: number,
+		epoch: string | undefined
+	) {
 		const owner = transport;
 		if (!owner || !connected) return;
 		if (connected.serverId !== serverId || connected.channelId !== channelId) return;
-		if (version <= keyVersion) return;
+		if (!isNewer(version, epoch)) return;
 		void syncKey(connected, owner);
 	},
 
-	handleRejoin(serverId: string, channelId: string, key: VoiceKey) {
-		adoptKey(serverId, channelId, key);
+	handleRejoin(serverId: string, channelId: string, credentials: VoiceCredentials) {
+		adoptKey(serverId, channelId, credentials.e2ee);
+		const sameRoom = connected?.serverId === serverId && connected.channelId === channelId;
+		if (!sameRoom) return;
+		recentCredentials = { channelId, credentials, fetchedAt: Date.now() };
+		const waiting = pendingRetry;
+		if (waiting && status === 'reconnecting' && navigator.onLine) waiting();
 	},
 
 	connect(target: VoiceConnection) {
@@ -334,6 +411,7 @@ export const voice = {
 		const current = ++attempt;
 		cancelRetry();
 		releaseTransport();
+		silenceReconnectingTone();
 		retryCount = 0;
 		connected = target;
 		status = 'connecting';
@@ -346,12 +424,15 @@ export const voice = {
 		attempt++;
 		cancelRetry();
 		releaseTransport();
+		silenceReconnectingTone();
 		if (connected) leaveVoice(connected.serverId);
 		if (status === 'connected') playToggleSound('voice-disconnected');
 		connected = null;
 		status = null;
 		failure = null;
 		keyVersion = 0;
+		keyEpoch = null;
+		recentCredentials = null;
 		resetLiveState();
 	}
 };

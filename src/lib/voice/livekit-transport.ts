@@ -173,6 +173,13 @@ export function createLiveKitTransport(handlers: VoiceTransportHandlers): VoiceT
 		for (const participant of room.remoteParticipants.values()) applyVolume(participant);
 	}
 
+	function reportParticipants(without?: string) {
+		const identities = [...room.remoteParticipants.keys()].filter(
+			(identity) => identity !== without
+		);
+		handlers.onRoomParticipants(identities);
+	}
+
 	function microphoneTrack(): LocalAudioTrack | undefined {
 		const track = room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track;
 		return track instanceof LocalAudioTrack ? track : undefined;
@@ -250,12 +257,14 @@ export function createLiveKitTransport(handlers: VoiceTransportHandlers): VoiceT
 	room
 		.on(RoomEvent.ParticipantConnected, () => {
 			applyDeafen();
+			reportParticipants();
 			void measureStats();
 		})
 		.on(RoomEvent.Reconnecting, () => handlers.onState({ kind: 'reconnecting' }))
 		.on(RoomEvent.Reconnected, () => {
 			applyDeafen();
 			meterLocalMicrophone();
+			reportParticipants();
 			handlers.onState({ kind: 'connected' });
 		})
 		.on(RoomEvent.LocalTrackPublished, meterLocalMicrophone)
@@ -268,6 +277,7 @@ export function createLiveKitTransport(handlers: VoiceTransportHandlers): VoiceT
 			handlers.onParticipantQuality(participant.identity, mapped);
 		})
 		.on(RoomEvent.ParticipantDisconnected, (participant: Participant) => {
+			reportParticipants(participant.identity);
 			handlers.onParticipantQuality(participant.identity, null);
 			handlers.onParticipantStats(participant.identity, null);
 			lastStatsAt.delete(participant.identity);
@@ -279,7 +289,10 @@ export function createLiveKitTransport(handlers: VoiceTransportHandlers): VoiceT
 		.on(RoomEvent.ParticipantEncryptionStatusChanged, (encrypted: boolean, participant) => {
 			if (participant === room.localParticipant) handlers.onEncryption(encrypted);
 		})
-		.on(RoomEvent.EncryptionError, () => handlers.onEncryption(false))
+		.on(RoomEvent.EncryptionError, () => {
+			handlers.onEncryption(room.isE2EEEnabled);
+			handlers.onDecryptionFailure();
+		})
 		.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, _publication, participant) => {
 			if (track.kind !== Track.Kind.Audio) return;
 			document.body.appendChild(track.attach());
@@ -291,6 +304,7 @@ export function createLiveKitTransport(handlers: VoiceTransportHandlers): VoiceT
 		})
 		.on(RoomEvent.Disconnected, (reason?: DisconnectReason) => {
 			teardown();
+			handlers.onRoomParticipants([]);
 			handlers.onState({ kind: 'disconnected', cause: causeFrom(reason) });
 		});
 
@@ -309,6 +323,7 @@ export function createLiveKitTransport(handlers: VoiceTransportHandlers): VoiceT
 				throw error;
 			}
 			applyDeafen();
+			reportParticipants();
 			handlers.onEncryption(room.isE2EEEnabled);
 			const track = await microphone;
 			if (track) {

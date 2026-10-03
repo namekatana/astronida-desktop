@@ -1,6 +1,7 @@
 export interface EncryptionKey {
 	key: string;
 	version: number;
+	epoch?: string;
 }
 
 export interface VoiceCredentials {
@@ -29,8 +30,10 @@ export interface VoiceTransportHandlers {
 	onParticipantQuality: (userId: string, quality: VoiceQuality | null) => void;
 	onParticipantStats: (userId: string, stats: VoiceStats | null) => void;
 	onEncryption: (encrypted: boolean) => void;
+	onDecryptionFailure: () => void;
 	onStats: (stats: VoiceStats) => void;
 	onSpeaking: (userIds: string[]) => void;
+	onRoomParticipants: (userIds: string[]) => void;
 	volumeFor: (userId: string) => number;
 }
 

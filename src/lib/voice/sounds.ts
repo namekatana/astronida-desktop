@@ -5,6 +5,7 @@ export type ToggleSound =
 	| 'deafen-off'
 	| 'voice-connected'
 	| 'voice-disconnected'
+	| 'voice-reconnecting'
 	| 'user-joined'
 	| 'user-left'
 	| 'direct-message'
@@ -22,6 +23,7 @@ const tones: Record<ToggleSound, { notes: number[]; gain: number }> = {
 	'deafen-off': { notes: [585, 390], gain: peakGain },
 	'voice-connected': { notes: [440, 660, 880], gain: peakGain },
 	'voice-disconnected': { notes: [880, 660, 440], gain: peakGain },
+	'voice-reconnecting': { notes: [587, 494], gain: softGain },
 	'user-joined': { notes: [660, 880], gain: softGain },
 	'user-left': { notes: [880, 660], gain: softGain },
 	'direct-message': { notes: [784, 1047], gain: peakGain },
@@ -56,4 +58,15 @@ export function playToggleSound(kind: ToggleSound) {
 	notes.forEach((frequency, index) => {
 		playTone(ctx, frequency, gain, now + index * (toneDurationSeconds + toneGapSeconds));
 	});
+}
+
+export function repeatToggleSound(
+	kind: ToggleSound,
+	timing: { firstAfterMs: number; everyMs: number }
+): () => void {
+	let timer = setTimeout(function play() {
+		playToggleSound(kind);
+		timer = setTimeout(play, timing.everyMs);
+	}, timing.firstAfterMs);
+	return () => clearTimeout(timer);
 }

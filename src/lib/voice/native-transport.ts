@@ -54,6 +54,11 @@ export function createNativeTransport(handlers: VoiceTransportHandlers): VoiceTr
 	let generation: number | null = null;
 	let closed = false;
 	const unlisteners: UnlistenFn[] = [];
+	const inRoom = new Set<string>();
+
+	function reportParticipants() {
+		handlers.onRoomParticipants([...inRoom]);
+	}
 
 	function mine(event: { generation: number }) {
 		return !closed && generation !== null && event.generation === generation;
@@ -66,9 +71,14 @@ export function createNativeTransport(handlers: VoiceTransportHandlers): VoiceTr
 	function handleParticipant(event: ParticipantEvent) {
 		if (event.kind === 'subscribed') {
 			applyVolume(event.identity, handlers.volumeFor(event.identity));
+			if (!inRoom.has(event.identity)) {
+				inRoom.add(event.identity);
+				reportParticipants();
+			}
 		} else if (event.kind === 'left') {
 			handlers.onParticipantQuality(event.identity, null);
 			handlers.onParticipantStats(event.identity, null);
+			if (inRoom.delete(event.identity)) reportParticipants();
 		}
 	}
 
@@ -77,6 +87,8 @@ export function createNativeTransport(handlers: VoiceTransportHandlers): VoiceTr
 			listen<StateEvent>(stateEvent, ({ payload }) => {
 				if (!mine(payload)) return;
 				if (payload.kind === 'disconnected') {
+					inRoom.clear();
+					reportParticipants();
 					handlers.onState({ kind: 'disconnected', cause: payload.cause ?? 'network' });
 				} else {
 					handlers.onState({ kind: payload.kind });
@@ -120,7 +132,9 @@ export function createNativeTransport(handlers: VoiceTransportHandlers): VoiceTr
 			handlers.onEncryption(connected.encrypted);
 			for (const identity of connected.participants) {
 				applyVolume(identity, handlers.volumeFor(identity));
+				inRoom.add(identity);
 			}
+			reportParticipants();
 		},
 
 		async disconnect() {
