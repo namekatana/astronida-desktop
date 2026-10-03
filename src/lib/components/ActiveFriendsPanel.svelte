@@ -38,7 +38,14 @@
 						onclick={(event) => onopenprofile?.(friend, avatarIn(event.currentTarget))}
 						class="flex h-12 w-full items-center gap-2.5 rounded-lg px-2.5 text-left transition-colors duration-200 hover:bg-white/[0.04]"
 					>
-						<Avatar name={friend.name} size={32} online status={friend.status} />
+						<Avatar
+							name={friend.name}
+							size={32}
+							userId={friend.id}
+							avatarId={friend.avatarId}
+							online
+							status={friend.status}
+						/>
 						<span class="flex min-w-0 flex-col">
 							<span class="truncate text-[13px] text-ink-secondary">@{friend.username}</span>
 							<span class="flex min-w-0 items-center gap-1 text-[11px] text-muted">

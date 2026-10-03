@@ -42,6 +42,12 @@ export function createFriendsState(input: {
 		input.persist(list);
 	}
 
+	function changeAvatar(friendId: string, avatarId: string | null) {
+		if (!list.some((friend) => friend.id === friendId)) return;
+		list = list.map((friend) => (friend.id === friendId ? { ...friend, avatarId } : friend));
+		input.persist(list);
+	}
+
 	function handleRequestReceived(request: Friend) {
 		freshRequestIds.add(request.id);
 		if (ownStatus.quiet) return;
@@ -64,7 +70,8 @@ export function createFriendsState(input: {
 			},
 			onRequests: (next) => (requests = next),
 			onRequestReceived: handleRequestReceived,
-			onFriendAdded: addFriend
+			onFriendAdded: addFriend,
+			onFriendAvatar: changeAvatar
 		});
 	});
 

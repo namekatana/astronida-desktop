@@ -1,5 +1,7 @@
 import type { Channel } from 'phoenix';
 import { presenceStatusFrom, type PresenceStatus } from '$lib/presence/status';
+import { knownAvatars } from '$lib/profile/known-avatars.svelte';
+import { profileChangesFrom, profileDetails } from '$lib/profile/profile-details.svelte';
 import { pushTo, type PushOutcome } from '$lib/realtime/push';
 import { phoenixSocket } from '$lib/realtime/socket';
 import type { Friend, FriendRelation, UserSearchResult } from './friends';
@@ -8,6 +10,7 @@ interface ProfilePayload {
 	id: string;
 	username: string;
 	display_name: string;
+	avatar_id?: string | null;
 }
 
 interface SearchResultPayload extends ProfilePayload {
@@ -38,7 +41,15 @@ interface FriendsSession {
 let session: FriendsSession | null = null;
 
 function toFriend(profile: ProfilePayload, channelId: string | null = null): Friend {
-	return { id: profile.id, username: profile.username, name: profile.display_name, channelId };
+	const avatarId = typeof profile.avatar_id === 'string' ? profile.avatar_id : null;
+	knownAvatars.learn(profile.id, avatarId);
+	return {
+		id: profile.id,
+		username: profile.username,
+		name: profile.display_name,
+		avatarId,
+		channelId
+	};
 }
 
 export function subscribeToFriends(input: {
@@ -47,6 +58,7 @@ export function subscribeToFriends(input: {
 	onRequests: (requests: Friend[]) => void;
 	onRequestReceived: (request: Friend) => void;
 	onFriendAdded: (friend: Friend) => void;
+	onFriendAvatar: (userId: string, avatarId: string | null) => void;
 }): () => void {
 	const channel = phoenixSocket().channel(`friends:${input.userId}`);
 	let online = new Map<string, PresenceStatus>();
@@ -86,6 +98,14 @@ export function subscribeToFriends(input: {
 		dropRequest(friend.id);
 		publishOnline();
 		input.onFriendAdded(friend);
+	});
+	channel.on('friend_avatar', (payload: { user_id: string; avatar_id: string | null }) => {
+		knownAvatars.learn(payload.user_id, payload.avatar_id ?? null);
+		input.onFriendAvatar(payload.user_id, payload.avatar_id ?? null);
+	});
+	channel.on('friend_profile', (payload: unknown) => {
+		const update = profileChangesFrom(payload);
+		if (update?.userId) profileDetails.apply(update.userId, update.changes);
 	});
 	channel.join().receive('ok', (reply: JoinReply) => {
 		online = new Map(

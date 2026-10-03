@@ -18,7 +18,14 @@
 		? ''
 		: 'opacity-50'}"
 >
-	<Avatar name={member.name} size={32} online={member.online} status={member.status} />
+	<Avatar
+		name={member.name}
+		size={32}
+		userId={member.id}
+		avatarId={member.avatarId}
+		online={member.online}
+		status={member.status}
+	/>
 
 	<span class="min-w-0 flex-1 {badged ? 'pr-8' : ''}">
 		<span

@@ -1,16 +1,23 @@
 <script lang="ts">
+	import { fade } from 'svelte/transition';
 	import { ownStatus } from '$lib/presence/own-status.svelte';
 	import { statusDotClass } from '$lib/presence/status';
+	import { createAvatarSource } from '$lib/profile/avatar-source.svelte';
 	import { initials } from '$lib/ui/initials';
 
 	interface Props {
+		userId: string;
+		avatarId: string | null;
 		username: string | null;
 		onprofile: (source: HTMLElement | null) => void;
 	}
 
-	let { username, onprofile }: Props = $props();
+	let { userId, avatarId, username, onprofile }: Props = $props();
 
 	let avatarElement = $state<HTMLSpanElement | null>(null);
+
+	const picture = createAvatarSource(() => ({ userId, avatarId, variant: 'small' }));
+	const showInitials = $derived(avatarId === null || picture.failed);
 </script>
 
 <button
@@ -22,9 +29,18 @@
 >
 	<span bind:this={avatarElement} data-avatar class="relative h-8 w-8">
 		<span
-			class="flex h-full w-full items-center justify-center rounded-full bg-surface-raised text-[12px] font-medium text-ink"
+			class="relative flex h-full w-full items-center justify-center rounded-full bg-surface-raised text-[12px] font-medium text-ink"
 		>
-			{initials(username ?? '?')}
+			{#if showInitials}{initials(username ?? '?')}{/if}
+			{#if picture.url}
+				<img
+					src={picture.url}
+					alt=""
+					draggable="false"
+					transition:fade={{ duration: 150 }}
+					class="absolute inset-0 h-full w-full rounded-full object-cover"
+				/>
+			{/if}
 		</span>
 		<span
 			data-avatar-dot

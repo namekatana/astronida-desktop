@@ -1,21 +1,26 @@
 <script lang="ts">
 	import { fade, type TransitionConfig } from 'svelte/transition';
 	import { ownStatus } from '$lib/presence/own-status.svelte';
-	import type { ProfileCard, ProfileRelation } from '$lib/profile/profile';
+	import type { ProfileCard, ProfileEditing, ProfileRelation } from '$lib/profile/profile';
 	import type { IconName } from '$lib/ui/icons';
 	import { initials } from '$lib/ui/initials';
 	import { materialize } from '$lib/ui/materialize';
+	import { settle } from '$lib/ui/settle';
+	import DrawnCheck from './DrawnCheck.svelte';
 	import Icon from './Icon.svelte';
 	import ProfileAvatar from './ProfileAvatar.svelte';
+	import ProfileBanner from './ProfileBanner.svelte';
+	import ProfileBio from './ProfileBio.svelte';
 	import StatusPicker from './StatusPicker.svelte';
 
 	interface Props {
 		card: ProfileCard;
 		cometDelay: number | null;
 		animated: boolean;
+		editing?: ProfileEditing | null;
 	}
 
-	let { card, cometDelay, animated }: Props = $props();
+	let { card, cometDelay, animated, editing = null }: Props = $props();
 
 	let avatar = $state<ReturnType<typeof ProfileAvatar>>();
 
@@ -31,6 +36,12 @@
 		};
 
 	const still: TransitionConfig = { duration: 0 };
+
+	const noticeColors: Record<ProfileEditing['noticeTone'], string> = {
+		hint: 'text-muted',
+		danger: 'text-danger',
+		done: 'text-ink-secondary'
+	};
 
 	function bannerIn(node: Element): TransitionConfig {
 		return animated ? fade(node, { duration: 220 }) : still;
@@ -49,86 +60,124 @@
 	}
 </script>
 
-{#snippet action(label: string, icon: IconName | null, primary: boolean)}
-	<button
-		type="button"
-		class="pressable flex h-9 items-center gap-2 rounded-full px-4 text-[13px] font-semibold duration-150 {primary
-			? 'bg-ink text-bg hover:bg-ink-hover'
-			: 'bg-white/[0.08] text-ink hover:bg-white/[0.12]'}"
-	>
-		{#if icon}
-			<Icon name={icon} size={15} />
-		{/if}
-		{label}
-	</button>
-{/snippet}
+<div class="w-full" in:bannerIn out:bannerOut>
+	<ProfileBanner
+		userId={card.target.id}
+		bannerId={card.bannerId}
+		preview={editing?.banner}
+		onpick={editing?.onbannerclick}
+	/>
+</div>
 
-<div
-	class="h-24 w-full shrink-0 rounded-[12px] bg-white/[0.06] [corner-shape:squircle]"
-	in:bannerIn
-	out:bannerOut
-></div>
-
-<div class="-mt-11">
+<div class="pointer-events-none -mt-11">
 	<ProfileAvatar
 		bind:this={avatar}
+		userId={card.target.id}
+		avatarId={card.avatarId}
 		name={card.target.name}
-		online={card.online}
+		online={card.online && !editing}
 		status={card.status}
 		{cometDelay}
+		preview={editing?.avatar}
+		onpick={editing?.onavatarclick}
 	/>
 </div>
 
 <div class="flex w-full flex-col items-center px-2.5" in:bodyIn out:bodyOut>
 	<h2
-		class="mt-3 max-w-full truncate px-6 text-[22px] leading-7 font-bold tracking-[-0.015em] text-ink"
+		class="mt-3 max-w-full truncate px-6 text-[22px] leading-7 font-bold tracking-[-0.015em] text-ink transition-opacity duration-200 ease-soft {editing
+			? 'opacity-40'
+			: ''}"
 	>
 		@{card.target.username}
 	</h2>
 
 	{#if card.relation === 'self'}
-		<div class="mt-2">
-			<StatusPicker status={card.status} onchoose={(status) => ownStatus.choose(status)} />
+		<div class="mt-2 grid justify-items-center">
+			<div
+				inert={editing !== null}
+				class="col-start-1 row-start-1 transition-[opacity,filter] duration-200 ease-soft {editing
+					? 'opacity-0 blur-[2px]'
+					: ''}"
+			>
+				<StatusPicker status={card.status} onchoose={(status) => ownStatus.choose(status)} />
+			</div>
+			<div
+				aria-live="polite"
+				class="col-start-1 row-start-1 grid h-7 grid-cols-1 items-center justify-items-center text-[13px] transition-[opacity,filter] duration-200 ease-soft {editing
+					? ''
+					: 'opacity-0 blur-[2px]'}"
+			>
+				{#key `${editing?.noticeTone}:${editing?.notice}`}
+					<p
+						class="col-start-1 row-start-1 flex items-center gap-1.5 {noticeColors[
+							editing?.noticeTone ?? 'hint'
+						]}"
+						in:settle
+						out:settle={{ duration: 100 }}
+					>
+						{#if editing?.noticeTone === 'done'}
+							<DrawnCheck size={14} />
+						{/if}
+						{editing?.notice ?? ''}
+					</p>
+				{/key}
+			</div>
 		</div>
 	{/if}
 
-	{#if card.voice}
-		<p
-			class="mt-1 flex h-5 max-w-full min-w-0 items-center gap-1.5 px-6 text-[13px] text-ink-secondary"
-		>
-			<Icon name="voice" size={14} class="text-online" />
-			<span class="truncate">{card.voice.channelName} · {card.voice.serverName}</span>
-		</p>
-	{/if}
-
-	<div class="mt-4 flex items-center gap-2">
-		{#if card.relation === 'self'}
-			{@render action('Изменить профиль', null, false)}
-		{:else}
-			{@const primary = primaryActions[card.relation]}
-			{@render action(primary.label, primary.icon, true)}
-			<button
-				type="button"
-				aria-label="Ещё"
-				class="pressable flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.08] text-ink duration-150 hover:bg-white/[0.12]"
+	<div
+		inert={editing !== null}
+		class="flex w-full flex-col items-center transition-opacity duration-200 ease-soft {editing
+			? 'opacity-40'
+			: ''}"
+	>
+		{#if card.voice}
+			<p
+				class="mt-1 flex h-5 max-w-full min-w-0 items-center gap-1.5 px-6 text-[13px] text-ink-secondary"
 			>
-				<Icon name="dots" size={16} />
-			</button>
+				<Icon name="voice" size={14} class="text-online" />
+				<span class="truncate">{card.voice.channelName} · {card.voice.serverName}</span>
+			</p>
+		{/if}
+
+		{#if card.relation !== 'self'}
+			{@const primary = primaryActions[card.relation]}
+			<div class="mt-4 flex items-center gap-2">
+				<button
+					type="button"
+					class="pressable flex h-9 items-center gap-2 rounded-full bg-ink px-4 text-[13px] font-semibold text-bg duration-150 hover:bg-ink-hover"
+				>
+					<Icon name={primary.icon} size={15} />
+					{primary.label}
+				</button>
+				<button
+					type="button"
+					aria-label="Ещё"
+					class="pressable flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.08] text-ink duration-150 hover:bg-white/[0.12]"
+				>
+					<Icon name="dots" size={16} />
+				</button>
+			</div>
 		{/if}
 	</div>
 
-	<div class="mt-5 grid w-full gap-2">
-		<section class="rounded-[14px] bg-white/[0.05] px-3.5 py-3 [corner-shape:squircle]">
-			<h3 class="text-[12px] font-semibold text-muted">О себе</h3>
-			<p class="mt-1 text-[13px] text-muted">Описание пусто</p>
-		</section>
+	<div class="mt-5 grid w-full min-w-0 grid-cols-1 gap-4">
+		<ProfileBio
+			bio={card.bio}
+			draft={editing?.bio ?? null}
+			locked={editing?.locked ?? false}
+			oninput={editing?.onbioinput}
+		/>
 
 		{#if card.mutualServers.length > 0}
-			<section class="rounded-[14px] bg-white/[0.05] px-3.5 py-3 [corner-shape:squircle]">
-				<h3 class="text-[12px] font-semibold text-muted">
+			<section class="min-w-0">
+				<h3 class="px-1 pb-1.5 text-[12px] font-semibold text-muted">
 					Общие серверы — {card.mutualServers.length}
 				</h3>
-				<div class="mt-2 flex flex-wrap gap-1.5">
+				<div
+					class="flex flex-wrap gap-1.5 rounded-[14px] bg-white/[0.05] px-3 py-3 [corner-shape:squircle]"
+				>
 					{#each card.mutualServers as server (server.id)}
 						<span
 							class="flex h-6 max-w-full min-w-0 items-center gap-1.5 rounded-full bg-white/[0.05] pr-2.5 pl-[3px] text-[12px] text-ink-secondary"

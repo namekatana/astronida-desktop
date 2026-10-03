@@ -20,7 +20,14 @@
 		? ''
 		: 'opacity-50'}"
 >
-	<Avatar name={member.name} size={28} online={member.online} status={member.status} />
+	<Avatar
+		name={member.name}
+		size={28}
+		userId={member.id}
+		avatarId={member.avatarId}
+		online={member.online}
+		status={member.status}
+	/>
 
 	<span
 		class="min-w-0 truncate text-[13px] transition-colors duration-150 {active

@@ -3,17 +3,42 @@
 	import { quintOut } from 'svelte/easing';
 	import { prefersReducedMotion } from 'svelte/motion';
 	import type { TransitionConfig } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
 	import { statusDotClass, statusTextClass, type UserStatus } from '$lib/presence/status';
+	import { createAvatarSource } from '$lib/profile/avatar-source.svelte';
+	import type { AvatarPreview } from '$lib/profile/profile';
 	import { initials } from '$lib/ui/initials';
+	import Icon from './Icon.svelte';
 
 	interface Props {
+		userId: string;
+		avatarId: string | null;
 		name: string;
 		online: boolean;
 		status: UserStatus;
 		cometDelay: number | null;
+		preview?: AvatarPreview;
+		onpick?: (anchor: HTMLElement) => void;
 	}
 
-	let { name, online, status, cometDelay }: Props = $props();
+	let {
+		userId,
+		avatarId,
+		name,
+		online,
+		status,
+		cometDelay,
+		preview = { kind: 'current' },
+		onpick
+	}: Props = $props();
+
+	const picture = createAvatarSource(() => ({ userId, avatarId, variant: 'large' }));
+	const shownUrl = $derived(
+		preview.kind === 'draft' ? preview.url : preview.kind === 'none' ? null : picture.url
+	);
+	const showInitials = $derived(
+		preview.kind === 'none' || (preview.kind === 'current' && (avatarId === null || picture.failed))
+	);
 
 	const stageSize = 120;
 	const center = stageSize / 2;
@@ -131,15 +156,46 @@
 
 <div
 	data-avatar-stage
-	class="relative -my-4 flex h-[120px] w-[120px] shrink-0 items-center justify-center"
+	class="pointer-events-none relative -my-4 flex h-[120px] w-[120px] shrink-0 items-center justify-center"
 >
-	<span data-avatar class="relative block h-[88px] w-[88px]">
+	<span data-avatar class="group/avatar pointer-events-auto relative block h-[88px] w-[88px]">
 		<span
 			data-avatar-face
-			class="flex h-full w-full items-center justify-center rounded-full bg-[#38383c] text-[30px] font-medium text-ink ring-[6px] ring-surface"
+			class="relative flex h-full w-full items-center justify-center rounded-full bg-[#38383c] text-[30px] font-medium text-ink ring-[6px] ring-surface"
 		>
-			<span data-avatar-initials class="block">{initials(name)}</span>
+			<span
+				data-avatar-initials
+				class="block transition-opacity duration-150 {onpick
+					? 'group-hover/avatar:opacity-0'
+					: ''} {showInitials ? '' : 'invisible'}"
+			>
+				{initials(name)}
+			</span>
+			{#if shownUrl}
+				<img
+					src={shownUrl}
+					alt=""
+					draggable="false"
+					transition:fade={{ duration: 150 }}
+					class="absolute inset-0 h-full w-full rounded-full object-cover"
+				/>
+			{/if}
 		</span>
+		{#if onpick}
+			<button
+				type="button"
+				aria-label="Изменить фото"
+				onclick={(event) => onpick(event.currentTarget)}
+				transition:fade={{ duration: 150 }}
+				class="group absolute inset-0 flex items-center justify-center rounded-full text-ink transition-colors duration-150 hover:bg-black/45 focus-visible:bg-black/45"
+			>
+				<Icon
+					name="camera"
+					size={22}
+					class="opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
+				/>
+			</button>
+		{/if}
 		<span
 			bind:this={dot}
 			data-avatar-dot

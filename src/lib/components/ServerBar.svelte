@@ -14,6 +14,8 @@
 	interface Props {
 		servers: Server[];
 		selectedId: string | null;
+		userId: string;
+		avatarId: string | null;
 		username: string | null;
 		unreadServerIds: ReadonlySet<string>;
 		homeUnread: boolean;
@@ -27,6 +29,8 @@
 	let {
 		servers,
 		selectedId,
+		userId,
+		avatarId,
 		username,
 		unreadServerIds,
 		homeUnread,
@@ -215,7 +219,7 @@
 		<div class="my-auto h-5 w-px bg-surface-line"></div>
 
 		<div class="flex shrink-0 items-center gap-1 pr-2 pl-2">
-			<ProfileButton {username} {onprofile} />
+			<ProfileButton {userId} {avatarId} {username} {onprofile} />
 			<UpdateButton />
 
 			<button

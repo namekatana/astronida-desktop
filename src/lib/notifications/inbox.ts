@@ -1,6 +1,11 @@
 import type { Channel } from 'phoenix';
 import { fromPayload, type Message, type MessagePayload } from '$lib/messages/messages';
 import { userStatusFrom, type UserStatus } from '$lib/presence/status';
+import {
+	profileChangesFrom,
+	profileDetails,
+	type ProfileDetails
+} from '$lib/profile/profile-details.svelte';
 import { pushTo } from '$lib/realtime/push';
 import { phoenixSocket } from '$lib/realtime/socket';
 
@@ -70,9 +75,18 @@ export function subscribeToInbox(input: {
 	onMessageDeleted: (channelId: string, messageId: string) => void;
 	onStatus: (status: UserStatus) => void;
 	onStatusRestored: (status: UserStatus | null) => void;
+	onAvatarChanged: (avatarId: string | null) => void;
+	onProfileChanged: (changes: Partial<ProfileDetails>) => void;
 }): () => void {
 	const channel = phoenixSocket().channel(`inbox:${input.userId}`);
 
+	channel.on('profile_updated', (payload: unknown) => {
+		const update = profileChangesFrom(payload);
+		if (update) input.onProfileChanged(update.changes);
+	});
+	channel.on('avatar_changed', (payload: { avatar_id?: unknown }) => {
+		input.onAvatarChanged(typeof payload?.avatar_id === 'string' ? payload.avatar_id : null);
+	});
 	channel.on('direct_message', (payload: MessagePayload) => {
 		input.onDirectMessage(payload.channel_id, fromPayload(payload));
 	});
@@ -92,6 +106,7 @@ export function subscribeToInbox(input: {
 		if (status) input.onStatus(status);
 	});
 	channel.join().receive('ok', (reply: SnapshotPayload) => {
+		profileDetails.markStale();
 		input.onSnapshot(toSnapshot(reply));
 		input.onStatusRestored(userStatusFrom(reply.status));
 	});

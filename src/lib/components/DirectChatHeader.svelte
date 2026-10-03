@@ -20,7 +20,14 @@
 		onclick={(event) => onopenprofile?.(avatarIn(event.currentTarget))}
 		class="-my-1 flex rounded-full transition-[filter] duration-150 hover:brightness-125"
 	>
-		<Avatar name={friend.name} size={24} online={friend.online} status={friend.status} />
+		<Avatar
+			name={friend.name}
+			size={24}
+			userId={friend.id}
+			avatarId={friend.avatarId}
+			online={friend.online}
+			status={friend.status}
+		/>
 	</button>
 	<h1 class="min-w-0 truncate text-[15px] leading-6 font-semibold">@{friend.username}</h1>
 	{@render trailing?.()}

@@ -1,3 +1,4 @@
+import { knownAvatars } from '$lib/profile/known-avatars.svelte';
 import { supabase } from '$lib/supabase/client';
 import { retryOnFreshToken } from '$lib/supabase/retry';
 
@@ -5,6 +6,7 @@ export interface Friend {
 	id: string;
 	username: string;
 	name: string;
+	avatarId?: string | null;
 	channelId: string | null;
 }
 
@@ -46,7 +48,7 @@ export async function loadFriends(userId: string): Promise<Friend[]> {
 			supabase
 				.from('friendships')
 				.select(
-					'user_a, user_b, a:profiles!friendships_user_a_fkey (username, display_name), b:profiles!friendships_user_b_fkey (username, display_name)'
+					'user_a, user_b, a:profiles!friendships_user_a_fkey (username, display_name, avatar_id), b:profiles!friendships_user_b_fkey (username, display_name, avatar_id)'
 				)
 				.or(`user_a.eq.${userId},user_b.eq.${userId}`)
 		),
@@ -60,10 +62,12 @@ export async function loadFriends(userId: string): Promise<Friend[]> {
 		const id = mine ? row.user_b : row.user_a;
 		const profile = mine ? row.b : row.a;
 		if (!profile) return [];
+		knownAvatars.learn(id, profile.avatar_id);
 		return {
 			id,
 			username: profile.username,
 			name: profile.display_name,
+			avatarId: profile.avatar_id,
 			channelId: channelByFriend.get(id) ?? null
 		};
 	});

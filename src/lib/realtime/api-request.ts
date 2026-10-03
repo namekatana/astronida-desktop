@@ -46,9 +46,11 @@ function errorOf(response: ApiResponse): string | null {
 
 export function failureMessage(
 	response: ApiResponse | null,
-	messages: { limit: string; failed: string }
+	messages: { limit: string; failed: string; rateLimited?: string }
 ): string {
-	if (response?.status === 429) return 'Слишком часто, попробуйте через минуту';
+	if (response?.status === 429) {
+		return messages.rateLimited ?? 'Слишком часто, попробуйте через минуту';
+	}
 	if (response && errorOf(response) === 'limit_reached') return messages.limit;
 	return messages.failed;
 }

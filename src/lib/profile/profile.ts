@@ -1,14 +1,18 @@
 import type { Workspace } from '$lib/cache/workspace-cache';
 import type { Friend } from '$lib/friends/friends';
+import { memberStatuses } from '$lib/presence/member-statuses.svelte';
 import type { ServerPresence } from '$lib/presence/presence';
 import type { UserStatus } from '$lib/presence/status';
 import type { Member } from '$lib/servers/members';
 import type { Server } from '$lib/servers/servers';
+import { knownAvatars } from './known-avatars.svelte';
+import type { ProfileDetails } from './profile-details.svelte';
 
 export interface ProfileTarget {
 	id: string;
 	username: string;
 	name: string;
+	avatarId?: string | null;
 }
 
 export type ProfileRelation = 'self' | 'friend' | 'incoming' | 'none';
@@ -25,6 +29,23 @@ export interface ProfileCard {
 	status: UserStatus;
 	voice: ProfileVoice | null;
 	mutualServers: Server[];
+	avatarId: string | null;
+	bannerId: string | null;
+	bio: string | null;
+}
+
+export type AvatarPreview = { kind: 'current' } | { kind: 'none' } | { kind: 'draft'; url: string };
+
+export interface ProfileEditing {
+	avatar: AvatarPreview;
+	banner: AvatarPreview;
+	bio: string;
+	locked: boolean;
+	notice: string;
+	noticeTone: 'hint' | 'danger' | 'done';
+	onavatarclick: (anchor: HTMLElement) => void;
+	onbannerclick: (anchor: HTMLElement) => void;
+	onbioinput: (value: string) => void;
 }
 
 export function avatarIn(element: Element | null): HTMLElement | null {
@@ -66,6 +87,8 @@ export function describeProfile(input: {
 	target: ProfileTarget;
 	selfId: string;
 	selfStatus: UserStatus;
+	selfAvatarId: string | null;
+	detailsOf: (userId: string) => ProfileDetails;
 	friends: Member[];
 	requests: Friend[];
 	servers: Server[];
@@ -75,28 +98,33 @@ export function describeProfile(input: {
 	const { target, selfId } = input;
 	const relation = relationOf(target.id, selfId, input.friends, input.requests);
 	const friend = input.friends.find((known) => known.id === target.id);
-	const sharedStatus = input.servers
-		.map((server) => input.presenceByServer[server.id]?.statuses[target.id])
-		.find((status) => status !== undefined);
-	const online = relation === 'self' || (friend?.online ?? false) || sharedStatus !== undefined;
+	const sharedStatus = memberStatuses.of(target.id);
+	const online = relation === 'self' || (friend?.online ?? false) || sharedStatus !== null;
 	const status =
 		relation === 'self'
 			? input.selfStatus
 			: friend?.online
 				? (friend.status ?? 'online')
 				: (sharedStatus ?? 'online');
+	const details = input.detailsOf(target.id);
+	const mutualIds = new Set(details.mutualServerIds ?? []);
 	const mutualServers =
-		relation === 'self'
-			? []
-			: input.servers.filter((server) =>
-					input.workspaces[server.id]?.members.some((member) => member.id === target.id)
-				);
+		relation === 'self' ? [] : input.servers.filter((server) => mutualIds.has(server.id));
 	return {
 		target,
 		relation,
 		online,
 		status,
 		voice: voiceOf(target.id, input.servers, input.presenceByServer, input.workspaces),
-		mutualServers
+		mutualServers,
+		avatarId: relation === 'self' ? input.selfAvatarId : avatarOf(target, friend),
+		bannerId: details.bannerId,
+		bio: details.bio
 	};
+}
+
+function avatarOf(target: ProfileTarget, friend: Member | undefined): string | null {
+	if (knownAvatars.has(target.id)) return knownAvatars.of(target.id);
+	if (friend?.avatarId !== undefined) return friend.avatarId;
+	return target.avatarId ?? null;
 }
