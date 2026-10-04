@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { quintOut } from 'svelte/easing';
 	import { prefersReducedMotion } from 'svelte/motion';
-	import type { TransitionConfig } from 'svelte/transition';
 	import { fade } from 'svelte/transition';
 	import { statusDotClass, statusTextClass, type UserStatus } from '$lib/presence/status';
 	import { createAvatarSource } from '$lib/profile/avatar-source.svelte';
@@ -50,7 +48,7 @@
 	const landingMs = 580;
 	const mergeMs = 420;
 	const headScale = 0.6;
-	const fillMs = 460;
+	const recolorMs = 420;
 	const pulseMs = 420;
 	const pulseScale = 1.18;
 	const softEasing = 'cubic-bezier(0.22, 1, 0.36, 1)';
@@ -67,23 +65,19 @@
 	let comet = $state<SVGSVGElement | null>(null);
 	let dot = $state<HTMLSpanElement | null>(null);
 	let shownStatus = $state(untrack(() => status));
-	let baseStatus = $state(untrack(() => status));
 	let firstFlight = true;
 
 	let latestStatus = untrack(() => status);
 
 	export function showStatusNow() {
 		if (!dot) return;
+		dot.style.transition = 'none';
 		dot.classList.remove(...Object.values(statusDotClass));
 		dot.classList.add(statusDotClass[latestStatus]);
-		for (const fill of dot.children) {
-			if (fill instanceof HTMLElement) fill.style.visibility = 'hidden';
-		}
 	}
 
 	function recolor(next: UserStatus) {
 		if (next === shownStatus) return;
-		baseStatus = shownStatus;
 		shownStatus = next;
 		if (prefersReducedMotion.current) return;
 		dot?.animate([{ scale: '1' }, { scale: `${pulseScale}` }, { scale: '1' }], {
@@ -92,25 +86,11 @@
 		});
 	}
 
-	function fillIn(_node: Element): TransitionConfig {
-		if (prefersReducedMotion.current) return { duration: 150, css: (t) => `opacity: ${t}` };
-		return {
-			duration: fillMs,
-			easing: quintOut,
-			css: (t) => `transform: scale(${t}); opacity: ${Math.min(1, 0.5 + t)}`
-		};
-	}
-
 	$effect(() => {
 		const next = status;
 		latestStatus = next;
 		if (next === untrack(() => shownStatus)) return;
-		if (!cometPlanned) {
-			untrack(() => recolor(next));
-			return;
-		}
-		const landing = setTimeout(() => recolor(next), landingMs);
-		return () => clearTimeout(landing);
+		untrack(() => recolor(next));
 	});
 
 	$effect(() => {
@@ -199,14 +179,13 @@
 		<span
 			bind:this={dot}
 			data-avatar-dot
-			class="absolute right-0.5 bottom-0.5 h-5 w-5 overflow-hidden rounded-full border-4 border-surface transition-[opacity,scale] duration-200 ease-soft {statusDotClass[
-				baseStatus
+			class="absolute right-0.5 bottom-0.5 h-5 w-5 rounded-full border-4 border-surface {statusDotClass[
+				shownStatus
 			]} {online ? 'scale-100 opacity-100' : 'scale-50 opacity-0'}"
-		>
-			{#key shownStatus}
-				<span class="absolute inset-0 rounded-full {statusDotClass[shownStatus]}" in:fillIn></span>
-			{/key}
-		</span>
+			style:transition={prefersReducedMotion.current
+				? 'opacity 200ms, scale 200ms'
+				: `opacity 200ms ${softEasing}, scale 200ms ${softEasing}, background-color ${recolorMs}ms ${softEasing}`}
+		></span>
 	</span>
 
 	{#if cometPlanned}

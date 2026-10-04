@@ -31,13 +31,8 @@
 	const rowStride = 42;
 	const overscanRows = 8;
 
-	const skeletonRows = [
-		{ opacity: 1, width: 58 },
-		{ opacity: 0.8, width: 44 },
-		{ opacity: 0.6, width: 66 },
-		{ opacity: 0.4, width: 50 },
-		{ opacity: 0.22, width: 38 }
-	];
+	const skeletonWidths = [58, 44, 66, 50, 38, 62, 47, 55];
+	const skeletonMinimumRows = 5;
 
 	// svelte-ignore state_referenced_locally
 	const list = createMemberList({ serverId, preview, onPreview: onpreview });
@@ -47,8 +42,44 @@
 	let scrollTop = $state(0);
 	let viewportHeight = $state(0);
 
-	const online = $derived(list.counts.online);
-	const offline = $derived(list.counts.offline ?? 0);
+	const serverOnline = $derived(list.counts.online);
+	const serverOffline = $derived(list.counts.offline ?? 0);
+	const strayIndex = $derived.by(() => {
+		if (selfStatus === 'invisible') return null;
+		for (let index = serverOnline; index < serverOnline + serverOffline; index++) {
+			if (list.rowAt(index)?.id === selfId) return index;
+		}
+		return null;
+	});
+	function sortsBefore(row: MemberRow, other: MemberRow): boolean {
+		const rank = row.id === ownerId ? 0 : 1;
+		const otherRank = other.id === ownerId ? 0 : 1;
+		if (rank !== otherRank) return rank < otherRank;
+		if (row.username !== other.username) return row.username < other.username;
+		return row.id < other.id;
+	}
+
+	const selfSlot = $derived.by(() => {
+		const self = strayIndex === null ? null : list.rowAt(strayIndex);
+		if (!self) return 0;
+		for (let index = 0; index < serverOnline; index++) {
+			const row = list.rowAt(index);
+			if (!row || !sortsBefore(row, self)) return index;
+		}
+		return serverOnline;
+	});
+	const skeletonRows = $derived.by(() => {
+		const count = Math.max(
+			skeletonMinimumRows,
+			Math.floor((viewportHeight - paddingTop * 2 - headerHeight) / rowStride)
+		);
+		return Array.from({ length: count }, (_, index) => ({
+			width: skeletonWidths[index % skeletonWidths.length],
+			opacity: 1 - (index / count) * 0.85
+		}));
+	});
+	const online = $derived(strayIndex === null ? serverOnline : serverOnline + 1);
+	const offline = $derived(strayIndex === null ? serverOffline : serverOffline - 1);
 	const showsOffline = $derived(list.counts.offline !== null && offline > 0);
 	const total = $derived(online + (showsOffline ? offline : 0));
 	const onlineHeader = $derived(online > 0 ? headerHeight : 0);
@@ -81,10 +112,18 @@
 		return { first, last: Math.max(first, last) };
 	});
 
+	function shownRowAt(index: number): MemberRow | null {
+		if (strayIndex === null) return list.rowAt(index);
+		if (index === selfSlot) return list.rowAt(strayIndex);
+		if (index < online) return list.rowAt(index < selfSlot ? index : index - 1);
+		const serverIndex = index - 1;
+		return list.rowAt(serverIndex >= strayIndex ? serverIndex + 1 : serverIndex);
+	}
+
 	const slots = $derived.by(() => {
 		const visible: { index: number; row: MemberRow | null }[] = [];
 		for (let index = range.first; index <= range.last; index++) {
-			visible.push({ index, row: list.rowAt(index) });
+			visible.push({ index, row: shownRowAt(index) });
 		}
 		return visible;
 	});
@@ -149,7 +188,12 @@
 
 	<SmoothScroll scrollbar bind:viewport class="min-h-0 flex-1" contentClass="relative px-2.5">
 		{#if skeleton.current}
-			<div aria-hidden="true" class="py-3" in:fade={{ duration: 150 }} out:fade={{ duration: 120 }}>
+			<div
+				aria-hidden="true"
+				class="pointer-events-none absolute inset-x-2.5 top-0 py-3"
+				in:fade={{ duration: 150 }}
+				out:fade={{ duration: 120 }}
+			>
 				<div class="flex h-7 items-center px-2">
 					<span class="skeleton h-2 w-16 rounded-full"></span>
 				</div>
