@@ -61,6 +61,7 @@
 	import type { MemberListPreview } from '$lib/servers/member-list.svelte';
 	import { knownAvatars } from '$lib/profile/known-avatars.svelte';
 	import { profileDetails } from '$lib/profile/profile-details.svelte';
+	import { widgetsFrom, type ProfileWidget } from '$lib/profile/widgets';
 	import { describeProfile, type ProfileTarget } from '$lib/profile/profile';
 	import { inviteLinkOf, joinByInvite, prefetchInviteLink } from '$lib/servers/invites';
 	import type { Server } from '$lib/servers/servers';
@@ -88,7 +89,8 @@
 	// svelte-ignore state_referenced_locally
 	profileDetails.set(data.userId, {
 		bannerId: data.account.bannerId ?? null,
-		bio: data.account.bio ?? null
+		bio: data.account.bio ?? null,
+		widgets: widgetsFrom(data.account.widgets ?? null) ?? null
 	});
 	// svelte-ignore state_referenced_locally
 	let selectedServerId = $state<string | null>(
@@ -195,7 +197,8 @@
 			knownAvatars.learn(data.userId, avatarId);
 			profileDetails.set(data.userId, {
 				bannerId: account.bannerId ?? null,
-				bio: account.bio ?? null
+				bio: account.bio ?? null,
+				widgets: widgetsFrom(account.widgets ?? null) ?? null
 			});
 			friends.list = account.friends;
 		});
@@ -392,6 +395,7 @@
 			avatarId,
 			bannerId: details.bannerId,
 			bio: details.bio,
+			widgets: details.widgets,
 			servers,
 			friends: list
 		});
@@ -410,6 +414,11 @@
 
 	function changeBio(next: string | null) {
 		profileDetails.set(data.userId, { bio: next });
+		persistAccount(friends.list);
+	}
+
+	function changeWidgets(next: ProfileWidget[] | null) {
+		profileDetails.set(data.userId, { widgets: next });
 		persistAccount(friends.list);
 	}
 
@@ -765,6 +774,12 @@
 			onavatarchange={changeAvatar}
 			onbannerchange={changeBanner}
 			onbiochange={changeBio}
+			onwidgetschange={changeWidgets}
+			ownedServers={servers.filter((server) => server.ownerId === data.userId)}
+			onopenserver={(server) => {
+				profile = null;
+				handleServerJoined(server);
+			}}
 		/>
 	{/if}
 
@@ -973,7 +988,12 @@
 						in:enterSideProfile
 						out:leaveSideProfile
 					>
-						<ProfilePanel card={sideCard} animated onback={closeSideProfile} />
+						<ProfilePanel
+							card={sideCard}
+							animated
+							onback={closeSideProfile}
+							onopenserver={handleServerJoined}
+						/>
 					</div>
 				{:else}
 					<div
@@ -994,7 +1014,11 @@
 								/>
 							{/key}
 						{:else if chatPartnerCard}
-							<ProfilePanel card={chatPartnerCard} animated={false} />
+							<ProfilePanel
+								card={chatPartnerCard}
+								animated={false}
+								onopenserver={handleServerJoined}
+							/>
 						{:else}
 							<ActiveFriendsPanel active={activeFriends} onopenprofile={openProfile} />
 						{/if}

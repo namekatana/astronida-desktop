@@ -1,14 +1,16 @@
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { supabase } from '$lib/supabase/client';
 import { asRecord } from '$lib/ui/record';
+import { widgetsFrom, type ProfileWidget } from './widgets';
 
 export interface ProfileDetails {
 	bannerId: string | null;
 	bio: string | null;
+	widgets: ProfileWidget[] | null;
 	mutualServerIds: string[] | null;
 }
 
-const empty: ProfileDetails = { bannerId: null, bio: null, mutualServerIds: null };
+const empty: ProfileDetails = { bannerId: null, bio: null, widgets: null, mutualServerIds: null };
 const rereadAfterMs = 5 * 60_000;
 
 const known = new SvelteMap<string, ProfileDetails>();
@@ -40,6 +42,11 @@ export function profileChangesFrom(
 		if (bannerId === undefined) return null;
 		changes.bannerId = bannerId;
 	}
+	if ('widgets' in record) {
+		const widgets = widgetsFrom(record.widgets);
+		if (widgets === undefined) return null;
+		changes.widgets = widgets;
+	}
 	if (Object.keys(changes).length === 0) return null;
 	const userId = typeof record.user_id === 'string' ? record.user_id : null;
 	return { userId, changes };
@@ -54,7 +61,7 @@ function bumpVersion(userId: string): number {
 async function fetchDetails(userId: string) {
 	const version = bumpVersion(userId);
 	const [{ data, error }, memberships] = await Promise.all([
-		supabase.from('profiles').select('banner_id, bio').eq('id', userId).maybeSingle(),
+		supabase.from('profiles').select('banner_id, bio, widgets').eq('id', userId).maybeSingle(),
 		supabase.from('server_members').select('server_id').eq('user_id', userId)
 	]);
 	if (versions.get(userId) !== version) return;
@@ -65,7 +72,12 @@ async function fetchDetails(userId: string) {
 	const mutualServerIds = memberships.error
 		? (known.get(userId)?.mutualServerIds ?? null)
 		: (memberships.data ?? []).map((row) => row.server_id);
-	known.set(userId, { bannerId: data.banner_id, bio: data.bio, mutualServerIds });
+	known.set(userId, {
+		bannerId: data.banner_id,
+		bio: data.bio,
+		widgets: widgetsFrom(data.widgets) ?? null,
+		mutualServerIds
+	});
 }
 
 function load(userId: string) {

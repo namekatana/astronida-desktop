@@ -2,6 +2,8 @@
 	import { fade, type TransitionConfig } from 'svelte/transition';
 	import { ownStatus } from '$lib/presence/own-status.svelte';
 	import type { ProfileCard, ProfileEditing, ProfileRelation } from '$lib/profile/profile';
+	import { widgetTileClass } from '$lib/profile/widget-tile';
+	import type { Server } from '$lib/servers/servers';
 	import type { IconName } from '$lib/ui/icons';
 	import { initials } from '$lib/ui/initials';
 	import { materialize } from '$lib/ui/materialize';
@@ -10,7 +12,7 @@
 	import Icon from './Icon.svelte';
 	import ProfileAvatar from './ProfileAvatar.svelte';
 	import ProfileBanner from './ProfileBanner.svelte';
-	import ProfileBio from './ProfileBio.svelte';
+	import ProfileWidgets from './ProfileWidgets.svelte';
 	import StatusPicker from './StatusPicker.svelte';
 
 	interface Props {
@@ -18,9 +20,10 @@
 		cometDelay: number | null;
 		animated: boolean;
 		editing?: ProfileEditing | null;
+		onopenserver?: (server: Server) => void;
 	}
 
-	let { card, cometDelay, animated, editing = null }: Props = $props();
+	let { card, cometDelay, animated, editing = null, onopenserver }: Props = $props();
 
 	let avatar = $state<ReturnType<typeof ProfileAvatar>>();
 
@@ -162,22 +165,16 @@
 		{/if}
 	</div>
 
-	<div class="mt-5 grid w-full min-w-0 grid-cols-1 gap-4">
-		<ProfileBio
-			bio={card.bio}
-			draft={editing?.bio ?? null}
-			locked={editing?.locked ?? false}
-			oninput={editing?.onbioinput}
-		/>
+	<div class="mt-5 grid w-full min-w-0 grid-cols-1 gap-2.5">
+		<ProfileWidgets bio={card.bio} widgets={card.widgets} {editing} {onopenserver} />
 
 		{#if card.mutualServers.length > 0}
-			<section class="min-w-0">
-				<h3 class="px-1 pb-1.5 text-[12px] font-semibold text-muted">
+			<section class="min-w-0 px-3.5 pt-3 pb-3.5 {widgetTileClass}">
+				<h3 class="flex h-5 items-center gap-1.5 text-[12px] font-semibold text-ink-secondary">
+					<Icon name="users" size={13} class="text-muted" />
 					Общие серверы — {card.mutualServers.length}
 				</h3>
-				<div
-					class="flex flex-wrap gap-1.5 rounded-[14px] bg-white/[0.05] px-3 py-3 [corner-shape:squircle]"
-				>
+				<div class="mt-2 flex flex-wrap gap-1.5">
 					{#each card.mutualServers as server (server.id)}
 						<span
 							class="flex h-6 max-w-full min-w-0 items-center gap-1.5 rounded-full bg-white/[0.05] pr-2.5 pl-[3px] text-[12px] text-ink-secondary"

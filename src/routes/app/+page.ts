@@ -18,7 +18,7 @@ async function fetchAccount(userId: string): Promise<CachedAccount> {
 		retryOnFreshToken(() =>
 			supabase
 				.from('profiles')
-				.select('username, display_name, avatar_id, banner_id, bio')
+				.select('username, display_name, avatar_id, banner_id, bio, widgets')
 				.eq('id', userId)
 				.single()
 		),
@@ -31,6 +31,7 @@ async function fetchAccount(userId: string): Promise<CachedAccount> {
 		avatarId: profile.data?.avatar_id ?? null,
 		bannerId: profile.data?.banner_id ?? null,
 		bio: profile.data?.bio ?? null,
+		widgets: profile.data?.widgets ?? null,
 		servers,
 		friends
 	};

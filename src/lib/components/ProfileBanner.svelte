@@ -1,7 +1,10 @@
 <script lang="ts">
+	import { prefersReducedMotion } from 'svelte/motion';
 	import { fade } from 'svelte/transition';
+	import { startSpoilerSky, type SpoilerSky } from '$lib/media/spoiler-sky';
 	import { createBannerSource } from '$lib/profile/banner-source.svelte';
 	import type { AvatarPreview } from '$lib/profile/profile';
+	import { windowFocus } from '$lib/ui/window-focus.svelte';
 	import Icon from './Icon.svelte';
 
 	interface Props {
@@ -13,16 +16,50 @@
 
 	let { userId, bannerId, preview = { kind: 'current' }, onpick }: Props = $props();
 
+	let skyHost = $state<HTMLDivElement | null>(null);
+	let skyCanvas = $state<HTMLCanvasElement | null>(null);
+
 	const picture = createBannerSource(() => ({ userId, bannerId }));
 	const shownUrl = $derived(
 		preview.kind === 'draft' ? preview.url : preview.kind === 'none' ? null : picture.url
 	);
+	const withoutPicture = $derived(
+		preview.kind === 'none' || (preview.kind === 'current' && bannerId === null)
+	);
+
+	let sky = $state<SpoilerSky | null>(null);
+
+	$effect(() => {
+		const host = skyHost;
+		const canvas = skyCanvas;
+		if (!host || !canvas) return;
+		const started = startSpoilerSky(host, canvas, { reducedMotion: prefersReducedMotion.current });
+		sky = started;
+		return () => {
+			started.stop();
+			sky = null;
+		};
+	});
+
+	$effect(() => {
+		sky?.setActive(windowFocus.active);
+	});
 </script>
 
 <div
 	data-banner
-	class="relative h-24 w-full shrink-0 overflow-hidden rounded-[12px] bg-white/[0.06] [corner-shape:squircle]"
+	class="relative aspect-[4/1] w-full shrink-0 overflow-hidden rounded-[12px] bg-white/[0.06] [corner-shape:squircle]"
 >
+	{#if withoutPicture}
+		<div
+			bind:this={skyHost}
+			aria-hidden="true"
+			transition:fade={{ duration: 200 }}
+			class="absolute inset-0 bg-[radial-gradient(120%_140%_at_50%_120%,rgba(255,255,255,0.07),transparent_60%),linear-gradient(180deg,#121216,#0c0c0f)]"
+		>
+			<canvas bind:this={skyCanvas} class="absolute inset-0 h-full w-full"></canvas>
+		</div>
+	{/if}
 	{#if shownUrl}
 		<img
 			src={shownUrl}

@@ -16,16 +16,36 @@
 		type ImageEditor
 	} from '$lib/profile/image-editor.svelte';
 	import type { AvatarPreview, ProfileCard, ProfileEditing } from '$lib/profile/profile';
+	import { createWidgetDrag } from '$lib/profile/widget-drag.svelte';
+	import { rowsFor } from '$lib/profile/widget-grid';
+	import {
+		copyWidgets,
+		createWidget,
+		defaultWidgets,
+		linksMinimumPx,
+		sameWidgets,
+		saveWidgets,
+		widgetTypes,
+		type ProfileLink,
+		type ProfileWidget,
+		type ShelfState,
+		type WidgetType
+	} from '$lib/profile/widgets';
 	import { materialize } from '$lib/ui/materialize';
 	import { pop } from '$lib/ui/pop';
+	import { initials } from '$lib/ui/initials';
 	import { settle } from '$lib/ui/settle';
+	import type { Server } from '$lib/servers/servers';
+	import type { SmoothScrollController } from '$lib/ui/smooth-scroll';
 	import DrawnCheck from './DrawnCheck.svelte';
 	import Icon from './Icon.svelte';
 	import ImageCropper from './ImageCropper.svelte';
+	import LinkEditor from './LinkEditor.svelte';
 	import MenuItem from './MenuItem.svelte';
 	import Orbit from './Orbit.svelte';
 	import ProfileContent from './ProfileContent.svelte';
 	import SmoothScroll from './SmoothScroll.svelte';
+	import WidgetShelf from './WidgetShelf.svelte';
 
 	interface Props {
 		card: ProfileCard;
@@ -34,9 +54,22 @@
 		onavatarchange: (avatarId: string | null) => void;
 		onbannerchange: (bannerId: string | null) => void;
 		onbiochange: (bio: string | null) => void;
+		onwidgetschange: (widgets: ProfileWidget[] | null) => void;
+		ownedServers: Server[];
+		onopenserver: (server: Server) => void;
 	}
 
-	let { card, source, onclose, onavatarchange, onbannerchange, onbiochange }: Props = $props();
+	let {
+		card,
+		source,
+		onclose,
+		onavatarchange,
+		onbannerchange,
+		onbiochange,
+		onwidgetschange,
+		ownedServers,
+		onopenserver
+	}: Props = $props();
 
 	type PhotoKind = 'avatar' | 'banner';
 
@@ -64,9 +97,39 @@
 	let bioDraft = $state('');
 	let bioSaving = $state(false);
 	let bioError = $state<string | null>(null);
+	let widgetsDraft = $state<ProfileWidget[]>([]);
+	let widgetsSaving = $state(false);
+	let widgetsError = $state<string | null>(null);
+	let linkEditor = $state<{ index: number | null; left: number; top: number } | null>(null);
+	let serverMenu = $state<{ left: number; top: number } | null>(null);
+	let serverMenuElement = $state<HTMLDivElement | null>(null);
+	let previousBio = '';
+	let previousWidgets: ProfileWidget[] = [];
+	let lastChange: 'bio' | 'widgets' = 'widgets';
+	let scrollViewport = $state<HTMLDivElement>();
+	let scrollController = $state<SmoothScrollController>();
 	let savedTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const menuWidth = 200;
+	const linkEditorWidth = 280;
+	const linkEditorHeight = 150;
+	const shelfWidth = 252;
+	const shelfGap = 8;
+
+	const overflowNotice = 'Не помещается — увеличьте виджет или уберите другой';
+
+	const drag = createWidgetDrag({
+		widgets: () => widgetsDraft,
+		update: (next) => {
+			previousWidgets = widgetsDraft;
+			lastChange = 'widgets';
+			widgetsDraft = next;
+			widgetsError = null;
+		},
+		create: (type) => createWidget(type, ownedServers[0]?.id ?? null),
+		locked: () => busy || saved,
+		scroll: () => ({ viewport: scrollViewport, controller: scrollController })
+	});
 	const frames: Record<PhotoKind, CropFrame> = {
 		avatar: { width: 280, height: 280, radius: 140, rotatable: true },
 		banner: {
@@ -103,13 +166,29 @@
 		avatarEditor.step === 'crop' ? 'avatar' : bannerEditor.step === 'crop' ? 'banner' : null
 	);
 	const croppedSource = $derived(cropping ? editorOf(cropping).source : null);
-	const busy = $derived(avatarEditor.busy || bannerEditor.busy || bioSaving);
-	const bioChanged = $derived(normalizeBio(bioDraft) !== (card.bio ?? null));
+	const busy = $derived(avatarEditor.busy || bannerEditor.busy || bioSaving || widgetsSaving);
+	const hasBioWidget = $derived(widgetsDraft.some((widget) => widget.type === 'bio'));
+	const bioToSave = $derived(hasBioWidget ? bioDraft : '');
+	const bioChanged = $derived(normalizeBio(bioToSave) !== (card.bio ?? null));
+	const widgetsChanged = $derived(!sameWidgets(widgetsDraft, card.widgets ?? defaultWidgets));
+	const placedWidgets = $derived(widgetsDraft.map((widget) => widget.type));
+	const shelfStates = $derived(
+		Object.fromEntries(widgetTypes.map((type) => [type, shelfStateOf(type)])) as Record<
+			WidgetType,
+			ShelfState
+		>
+	);
+	const editedLinks = $derived.by(() => {
+		const widget = widgetsDraft.find((candidate) => candidate.type === 'links');
+		return widget?.type === 'links' ? widget.links : [];
+	});
 	const stage = $derived(editing ? (cropping ? 'crop' : 'edit') : 'view');
 	const control = $derived(
 		stage === 'view' ? 'edit' : saved ? 'done' : busy ? 'busy' : 'confirm'
 	);
-	const editorError = $derived(avatarEditor.error ?? bannerEditor.error ?? bioError);
+	const editorError = $derived(
+		avatarEditor.error ?? bannerEditor.error ?? bioError ?? widgetsError
+	);
 	const editingState = $derived<ProfileEditing | null>(
 		editing
 			? {
@@ -119,16 +198,147 @@
 					locked: busy || saved,
 					onbioinput: (value) => {
 						if (busy || saved) return;
+						previousBio = bioDraft;
+						lastChange = 'bio';
 						bioDraft = limitBioLines(value);
 						bioError = null;
 					},
 					notice: saved ? 'Изменения сохранены' : (editorError ?? editingHint),
 					noticeTone: saved ? 'done' : editorError !== null ? 'danger' : 'hint',
 					onavatarclick: (anchor) => pickPhoto('avatar', anchor),
-					onbannerclick: (anchor) => pickPhoto('banner', anchor)
+					onbannerclick: (anchor) => pickPhoto('banner', anchor),
+					widgets: {
+						list: widgetsDraft,
+						drag,
+						ownedServers,
+						onremove: removeWidget,
+						onlinkedit: openLinkEditor,
+						onserverpick: openServerMenu,
+						onoverflow: revertOverflow
+					}
 				}
 			: null
 	);
+
+	function placementFor(type: WidgetType): ProfileWidget[] | null {
+		const created = createWidget(type, ownedServers[0]?.id ?? null);
+		for (let index = widgetsDraft.length; index >= 0; index--) {
+			const next = [...widgetsDraft];
+			next.splice(index, 0, created);
+			if (drag.fits(next)) return next;
+		}
+		return null;
+	}
+
+	function shelfStateOf(type: WidgetType): ShelfState {
+		if (placedWidgets.includes(type)) return 'placed';
+		if (type === 'server' && ownedServers.length === 0) return 'no-server';
+		return placementFor(type) ? 'available' : 'full';
+	}
+
+	function addWidget(type: WidgetType) {
+		if (busy || saved || shelfStates[type] !== 'available') return;
+		const next = placementFor(type);
+		if (!next) return;
+		widgetsDraft = next;
+		widgetsError = null;
+	}
+
+	function revertOverflow(type: WidgetType) {
+		if (type === 'bio' && lastChange === 'bio') bioDraft = previousBio;
+		else widgetsDraft = previousWidgets;
+		widgetsError = overflowNotice;
+	}
+
+	function menuPosition(anchor: HTMLElement): { left: number; top: number } | null {
+		if (!dialog) return null;
+		const target = anchor.getBoundingClientRect();
+		const frame = dialog.getBoundingClientRect();
+		return {
+			left: Math.min(
+				Math.max(target.left + target.width / 2 - frame.left - menuWidth / 2, 8),
+				frame.width - menuWidth - 8
+			),
+			top: target.bottom - frame.top + 8
+		};
+	}
+
+	function openServerMenu(anchor: HTMLElement) {
+		if (busy || saved) return;
+		photoMenu = null;
+		linkEditor = null;
+		serverMenu = menuPosition(anchor);
+	}
+
+	function pickServer(serverId: string) {
+		widgetsDraft = widgetsDraft.map((widget) =>
+			widget.type === 'server'
+				? {
+						...widget,
+						serverId,
+						inviteCode: widget.serverId === serverId ? widget.inviteCode : null
+					}
+				: widget
+		);
+		widgetsError = null;
+		serverMenu = null;
+	}
+
+	function removeWidget(type: WidgetType) {
+		if (busy || saved) return;
+		widgetsDraft = widgetsDraft.filter((widget) => widget.type !== type);
+		widgetsError = null;
+		if (type === 'links') linkEditor = null;
+	}
+
+	function openLinkEditor(anchor: HTMLElement, index: number | null) {
+		if (busy || saved || !dialog) return;
+		const target = anchor.getBoundingClientRect();
+		const frame = dialog.getBoundingClientRect();
+		const left = Math.min(
+			Math.max(target.left + target.width / 2 - frame.left - linkEditorWidth / 2, 8),
+			frame.width - linkEditorWidth - 8
+		);
+		const below = target.bottom - frame.top + 6;
+		const top =
+			below + linkEditorHeight > frame.height
+				? Math.max(target.top - frame.top - linkEditorHeight - 6, 8)
+				: below;
+		photoMenu = null;
+		linkEditor = { index, left, top };
+	}
+
+	function changeLinks(change: (links: ProfileLink[]) => ProfileLink[]) {
+		widgetsDraft = widgetsDraft.map((widget) =>
+			widget.type === 'links' ? { ...widget, links: change(widget.links) } : widget
+		);
+		widgetsError = null;
+		linkEditor = null;
+	}
+
+	function saveLink(link: ProfileLink): string | null {
+		const index = linkEditor?.index ?? null;
+		const current = widgetsDraft.find((widget) => widget.type === 'links');
+		if (current?.type !== 'links') return null;
+		const links =
+			index === null
+				? [...current.links, link]
+				: current.links.map((known, at) => (at === index ? link : known));
+		const height = Math.max(current.height, rowsFor(linksMinimumPx(links.length)));
+		const next = widgetsDraft.map((widget) =>
+			widget.type === 'links' ? { ...widget, links, height } : widget
+		);
+		if (!drag.fits(next)) return 'Нет места — увеличьте виджет';
+		widgetsDraft = next;
+		widgetsError = null;
+		linkEditor = null;
+		return null;
+	}
+
+	function deleteLink() {
+		const index = linkEditor?.index ?? null;
+		changeLinks((links) => links.filter((_, at) => at !== index));
+	}
 
 	function previewOf(editor: ImageEditor<AvatarImages> | ImageEditor<Blob>): AvatarPreview {
 		const draft = editor.draft;
@@ -150,20 +360,28 @@
 	function startEditing() {
 		resetEditors();
 		bioDraft = card.bio ?? '';
+		previousBio = bioDraft;
 		bioError = null;
+		widgetsDraft = copyWidgets(card.widgets ?? defaultWidgets);
+		previousWidgets = widgetsDraft;
+		lastChange = 'widgets';
+		widgetsError = null;
 		editing = true;
 	}
 
 	function stopEditing() {
 		resetEditors();
 		bioError = null;
+		widgetsError = null;
+		linkEditor = null;
+		serverMenu = null;
 		photoMenu = null;
 		saved = false;
 		editing = false;
 	}
 
 	function cancel() {
-		if (busy || saved) return;
+		if (busy || saved || drag.busy) return;
 		if (cropping) {
 			cropExit = 'cancel';
 			editorOf(cropping).cancelCrop();
@@ -233,7 +451,7 @@
 	async function saveBioDraft(): Promise<boolean> {
 		if (!bioChanged) return true;
 		bioSaving = true;
-		const result = await saveBio(bioDraft);
+		const result = await saveBio(bioToSave);
 		bioSaving = false;
 		if (!result.ok) {
 			bioError = result.message;
@@ -243,17 +461,33 @@
 		return true;
 	}
 
+	async function saveWidgetsDraft(): Promise<boolean> {
+		if (!widgetsChanged) return true;
+		widgetsSaving = true;
+		const result = await saveWidgets(widgetsDraft);
+		widgetsSaving = false;
+		if (!result.ok) {
+			widgetsError = result.message;
+			return false;
+		}
+		onwidgetschange(result.widgets);
+		return true;
+	}
+
 	async function save() {
+		if (drag.busy) return;
 		const photosUnchanged =
 			avatarEditor.draft.kind === 'unchanged' && bannerEditor.draft.kind === 'unchanged';
-		if (photosUnchanged && !bioChanged) {
+		if (photosUnchanged && !bioChanged && !widgetsChanged) {
 			stopEditing();
 			return;
 		}
+		linkEditor = null;
 		const outcomes = await Promise.all([
 			saveEditor(avatarEditor, onavatarchange),
 			saveEditor(bannerEditor, onbannerchange),
-			saveBioDraft()
+			saveBioDraft(),
+			saveWidgetsDraft()
 		]);
 		if (outcomes.includes(false)) return;
 		saved = true;
@@ -474,6 +708,30 @@
 		return { ...materialize(node, { blur: 4, duration: 280 }), delay: 140 };
 	}
 
+	function shelfIn(_node: Element): TransitionConfig {
+		if (prefersReducedMotion.current) return { duration: 150, css: (t) => `opacity: ${t}` };
+		return {
+			duration: 380,
+			delay: 60,
+			easing: quintOut,
+			css: (t, u) =>
+				`opacity: ${t}; transform: translateX(${-24 * u}px); filter: blur(${4 * u}px)`
+		};
+	}
+
+	function shelfOut(_node: Element): TransitionConfig {
+		if (prefersReducedMotion.current) return { duration: 100, css: (t) => `opacity: ${t}` };
+		return {
+			duration: 180,
+			easing: cubicOut,
+			css: (t, u) => `opacity: ${t}; transform: translateX(${-16 * u}px)`
+		};
+	}
+
+	$effect(() => {
+		return () => drag.destroy();
+	});
+
 	$effect(() => {
 		const hidden = origin;
 		if (!hidden) return;
@@ -525,6 +783,29 @@
 	});
 
 	$effect(() => {
+		const menu = serverMenuElement;
+		if (!serverMenu || !menu) return;
+		const offPointer = on(document, 'pointerdown', (event) => {
+			if (!menu.contains(event.target as Node)) serverMenu = null;
+		});
+		const offKey = on(
+			document,
+			'keydown',
+			(event) => {
+				if (event.key !== 'Escape') return;
+				event.preventDefault();
+				event.stopPropagation();
+				serverMenu = null;
+			},
+			{ capture: true }
+		);
+		return () => {
+			offPointer();
+			offKey();
+		};
+	});
+
+	$effect(() => {
 		return () => {
 			if (savedTimer) clearTimeout(savedTimer);
 		};
@@ -552,7 +833,8 @@
 		tabindex="-1"
 		in:growFromSource
 		out:shrinkToSource
-		class="pointer-events-auto relative flex h-[452px] max-h-full min-h-0 w-full max-w-[400px] flex-col outline-none will-change-transform"
+		class="pointer-events-auto relative flex h-[640px] max-h-full min-h-0 w-full max-w-[440px] flex-col outline-none will-change-transform transition-[translate] duration-[420ms] ease-soft motion-reduce:transition-none"
+		style:translate={editing ? `${-(shelfWidth + shelfGap) / 2}px 0` : '0 0'}
 	>
 		<div
 			class="panel panel-floating absolute inset-0"
@@ -560,13 +842,19 @@
 			out:fade={{ duration: 100 }}
 		></div>
 
-		<SmoothScroll class="relative min-h-0 flex-1" contentClass="flex flex-col items-center p-1.5 pb-4">
+		<SmoothScroll
+			bind:viewport={scrollViewport}
+			bind:controller={scrollController}
+			class="relative min-h-0 flex-1"
+			contentClass="flex flex-col items-center p-1.5 pb-4"
+		>
 			<ProfileContent
 				bind:this={content}
 				{card}
 				cometDelay={cometDelayMs}
 				animated
 				editing={editingState}
+				{onopenserver}
 			/>
 		</SmoothScroll>
 
@@ -600,6 +888,57 @@
 						destructive
 						onclick={removePhoto}
 					/>
+				</div>
+			</div>
+		{/if}
+
+		{#if linkEditor}
+			<LinkEditor
+				link={linkEditor.index === null ? null : (editedLinks[linkEditor.index] ?? null)}
+				left={linkEditor.left}
+				top={linkEditor.top}
+				width={linkEditorWidth}
+				onsave={saveLink}
+				ondelete={deleteLink}
+				onclose={() => (linkEditor = null)}
+			/>
+		{/if}
+
+		{#if serverMenu}
+			<div
+				bind:this={serverMenuElement}
+				role="menu"
+				aria-label="Мой сервер"
+				in:pop={{ y: -4, duration: 180 }}
+				out:fade={{ duration: 100 }}
+				class="panel panel-floating absolute z-30 origin-top p-1.5"
+				style:left="{serverMenu.left}px"
+				style:top="{serverMenu.top}px"
+				style:width="{menuWidth}px"
+			>
+				<div class="flex max-h-[240px] flex-col gap-0.5 overflow-y-auto">
+					{#each ownedServers as server (server.id)}
+						{@const chosen = widgetsDraft.some(
+							(widget) => widget.type === 'server' && widget.serverId === server.id
+						)}
+						<button
+							type="button"
+							role="menuitemradio"
+							aria-checked={chosen}
+							onclick={() => pickServer(server.id)}
+							class="flex h-9 min-w-0 items-center gap-2.5 rounded-[10px] px-2.5 text-left text-[13px] text-ink transition-colors duration-150 [corner-shape:squircle] hover:bg-white/[0.06]"
+						>
+							<span
+								class="flex h-6 w-6 shrink-0 items-center justify-center rounded-[7px] bg-surface-raised text-[10px] font-semibold [corner-shape:squircle]"
+							>
+								{initials(server.name)}
+							</span>
+							<span class="min-w-0 flex-1 truncate">{server.name}</span>
+							{#if chosen}
+								<Icon name="check" size={14} class="text-ink-secondary" />
+							{/if}
+						</button>
+					{/each}
 				</div>
 			</div>
 		{/if}
@@ -677,6 +1016,24 @@
 			class="hidden"
 			onchange={(event) => takeFile(event.currentTarget)}
 		/>
+
+		{#if editing}
+			<div
+				class="absolute top-0 h-full"
+				style:left="calc(100% + {shelfGap}px)"
+				style:width="{shelfWidth}px"
+				in:shelfIn
+				out:shelfOut
+			>
+				<WidgetShelf
+					{drag}
+					states={shelfStates}
+					locked={busy || saved || stage === 'crop'}
+					bio={normalizeBio(bioDraft)}
+					onadd={addWidget}
+				/>
+			</div>
+		{/if}
 	</div>
 	<div class="grow-[3]"></div>
 </div>

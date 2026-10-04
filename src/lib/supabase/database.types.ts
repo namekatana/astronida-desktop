@@ -356,6 +356,7 @@ export type Database = {
 					id: string;
 					updated_at: string;
 					username: string;
+					widgets: Json | null;
 				};
 				Insert: {
 					avatar_id?: string | null;
@@ -366,6 +367,7 @@ export type Database = {
 					id: string;
 					updated_at?: string;
 					username: string;
+					widgets?: Json | null;
 				};
 				Update: {
 					avatar_id?: string | null;
@@ -376,6 +378,7 @@ export type Database = {
 					id?: string;
 					updated_at?: string;
 					username?: string;
+					widgets?: Json | null;
 				};
 				Relationships: [];
 			};

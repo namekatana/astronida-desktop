@@ -7,6 +7,8 @@ import type { Member } from '$lib/servers/members';
 import type { Server } from '$lib/servers/servers';
 import { knownAvatars } from './known-avatars.svelte';
 import type { ProfileDetails } from './profile-details.svelte';
+import type { WidgetDrag } from './widget-drag.svelte';
+import type { ProfileWidget, WidgetType } from './widgets';
 
 export interface ProfileTarget {
 	id: string;
@@ -32,6 +34,7 @@ export interface ProfileCard {
 	avatarId: string | null;
 	bannerId: string | null;
 	bio: string | null;
+	widgets: ProfileWidget[] | null;
 }
 
 export type AvatarPreview = { kind: 'current' } | { kind: 'none' } | { kind: 'draft'; url: string };
@@ -46,6 +49,17 @@ export interface ProfileEditing {
 	onavatarclick: (anchor: HTMLElement) => void;
 	onbannerclick: (anchor: HTMLElement) => void;
 	onbioinput: (value: string) => void;
+	widgets: WidgetEditing;
+}
+
+export interface WidgetEditing {
+	list: ProfileWidget[];
+	drag: WidgetDrag;
+	ownedServers: Server[];
+	onremove: (type: WidgetType) => void;
+	onlinkedit: (anchor: HTMLElement, index: number | null) => void;
+	onserverpick: (anchor: HTMLElement) => void;
+	onoverflow: (type: WidgetType) => void;
 }
 
 export function avatarIn(element: Element | null): HTMLElement | null {
@@ -119,7 +133,8 @@ export function describeProfile(input: {
 		mutualServers,
 		avatarId: relation === 'self' ? input.selfAvatarId : avatarOf(target, friend),
 		bannerId: details.bannerId,
-		bio: details.bio
+		bio: details.bio,
+		widgets: details.widgets
 	};
 }
 

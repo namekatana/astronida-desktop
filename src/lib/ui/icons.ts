@@ -45,7 +45,12 @@ export type IconName =
 	| 'voiceVideo'
 	| 'system'
 	| 'pencil'
-	| 'rotate';
+	| 'rotate'
+	| 'minus'
+	| 'arrow-up-right'
+	| 'note'
+	| 'widgets'
+	| 'grip';
 
 export const iconPaths: Record<IconName, string> = {
 	text: 'M8 2.5c3.3 0 6 2.2 6 5s-2.7 5-6 5c-.7 0-1.3-.1-1.9-.3L3 13.5l.6-2.7C2.6 9.9 2 8.8 2 7.5c0-2.8 2.7-5 6-5Z',
@@ -112,5 +117,11 @@ export const iconPaths: Record<IconName, string> = {
 	pencil:
 		'M10.6 2.9a1.6 1.6 0 0 1 2.25 2.25L5.6 12.4l-3.1.85.85-3.1Z M9.35 4.15l2.25 2.25 M9.25 13.25h4.25',
 	rotate:
-		'M6.75 6.5h5.5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-5.5a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1Z M9.5 3.5A6 6 0 0 0 3 8.5 M1.5 7 3 8.5 4.5 7'
+		'M6.75 6.5h5.5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-5.5a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1Z M9.5 3.5A6 6 0 0 0 3 8.5 M1.5 7 3 8.5 4.5 7',
+	minus: 'M3.5 8h9',
+	'arrow-up-right': 'M5 11 11 5 M6.5 5H11v4.5',
+	note: 'M3 4h10 M3 8h10 M3 12h6',
+	widgets:
+		'M3 2.5h3a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V3a.5.5 0 0 1 .5-.5Z M10 2.5h3a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5V3a.5.5 0 0 1 .5-.5Z M3 9.5h10a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5v-3a.5.5 0 0 1 .5-.5Z',
+	grip: 'M4.5 6.25h.01 M8 6.25h.01 M11.5 6.25h.01 M4.5 9.75h.01 M8 9.75h.01 M11.5 9.75h.01'
 };

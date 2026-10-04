@@ -12,6 +12,7 @@ export interface CachedAccount {
 	avatarId?: string | null;
 	bannerId?: string | null;
 	bio?: string | null;
+	widgets?: unknown;
 	servers: Server[];
 	friends: Friend[];
 }

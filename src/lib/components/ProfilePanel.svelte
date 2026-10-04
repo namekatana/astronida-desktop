@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { TransitionConfig } from 'svelte/transition';
 	import type { ProfileCard } from '$lib/profile/profile';
+	import type { Server } from '$lib/servers/servers';
 	import { settle } from '$lib/ui/settle';
 	import Icon from './Icon.svelte';
 	import ProfileContent from './ProfileContent.svelte';
@@ -10,9 +11,10 @@
 		card: ProfileCard;
 		animated: boolean;
 		onback?: () => void;
+		onopenserver?: (server: Server) => void;
 	}
 
-	let { card, animated, onback }: Props = $props();
+	let { card, animated, onback, onopenserver }: Props = $props();
 
 	function appear(node: Element): TransitionConfig {
 		return animated ? settle(node) : { duration: 0 };
@@ -26,7 +28,7 @@
 	<SmoothScroll scrollbar class="min-h-0 flex-1" contentClass="grid p-1.5 pb-4">
 		{#key card.target.id}
 			<div class="col-start-1 row-start-1 flex min-w-0 flex-col items-center" in:appear>
-				<ProfileContent {card} cometDelay={null} animated={false} />
+				<ProfileContent {card} cometDelay={null} animated={false} {onopenserver} />
 			</div>
 		{/key}
 	</SmoothScroll>
