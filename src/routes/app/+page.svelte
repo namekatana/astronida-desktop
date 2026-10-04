@@ -5,6 +5,7 @@
 	import { signOut } from '$lib/auth/auth';
 	import { auth } from '$lib/auth/session.svelte';
 	import { workspaceCache } from '$lib/cache/workspace-cache';
+	import { connection } from '$lib/realtime/connection.svelte';
 	import type { Category, Channel, ChannelKind } from '$lib/channels/channels';
 	import ActiveFriendsPanel from '$lib/components/ActiveFriendsPanel.svelte';
 	import AddFriendDialog from '$lib/components/AddFriendDialog.svelte';
@@ -129,6 +130,24 @@
 		memberPreviews[serverId] = preview;
 		workspaceCache.saveMemberPreview(data.userId, serverId, preview);
 	}
+
+	const presenceStampMs = 30_000;
+
+	function stampLivePresence() {
+		const status = connection.status;
+		if (status !== 'ready' && status !== 'updating') return;
+		workspaceCache.markPresenceLive(data.userId, selectedServerId);
+	}
+
+	function savePresenceOnLeave() {
+		stampLivePresence();
+		workspaceCache.flush();
+	}
+
+	$effect(() => {
+		const timer = setInterval(stampLivePresence, presenceStampMs);
+		return () => clearInterval(timer);
+	});
 
 	const channelsLoading = $derived(selectedServerId !== null && workspace === undefined);
 	const chatSkeleton = createDelayedFlag(() => channelsLoading);
@@ -659,7 +678,7 @@
 	}
 </script>
 
-<svelte:window onkeydown={handleEscape} />
+<svelte:window onkeydown={handleEscape} onpagehide={savePresenceOnLeave} />
 
 <div class="relative flex h-full flex-col">
 	{#if veilVisible}

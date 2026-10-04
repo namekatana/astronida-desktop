@@ -35,6 +35,12 @@ export function createCachedSection(section: string) {
 			persistTimer ??= setTimeout(write, persistDelayMs);
 		},
 
+		flush() {
+			if (!persistTimer) return;
+			clearTimeout(persistTimer);
+			write();
+		},
+
 		cancel
 	};
 }

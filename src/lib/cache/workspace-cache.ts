@@ -31,6 +31,8 @@ interface StoredCache {
 	presence: Record<string, StoredPresence>;
 	friendsOnline: string[];
 	memberPreviews: Record<string, MemberListPreview>;
+	presenceLiveAt: number | null;
+	previewsLiveAt: Record<string, number>;
 }
 
 export interface WorkspaceCache {
@@ -49,8 +51,11 @@ const sectionNames: Section[] = [
 	'workspaces',
 	'presence',
 	'friendsOnline',
-	'memberPreviews'
+	'memberPreviews',
+	'presenceLiveAt',
+	'previewsLiveAt'
 ];
+const presenceFreshMs = 75_000;
 const sections = Object.fromEntries(
 	sectionNames.map((name) => [name, createCachedSection(name)])
 ) as Record<Section, ReturnType<typeof createCachedSection>>;
@@ -60,8 +65,40 @@ const empty = (): StoredCache => ({
 	workspaces: {},
 	presence: {},
 	friendsOnline: [],
-	memberPreviews: {}
+	memberPreviews: {},
+	presenceLiveAt: null,
+	previewsLiveAt: {}
 });
+
+function isFresh(savedAt: unknown): boolean {
+	if (typeof savedAt !== 'number') return false;
+	const age = Date.now() - savedAt;
+	return age >= 0 && age <= presenceFreshMs;
+}
+
+function dropStalePresence(cache: StoredCache): Section[] {
+	if (!isFresh(cache.presenceLiveAt)) {
+		const dropped = (['presence', 'friendsOnline', 'memberPreviews', 'previewsLiveAt'] as const).filter(
+			(section) => Object.keys(cache[section]).length > 0
+		);
+		cache.presence = {};
+		cache.friendsOnline = [];
+		cache.memberPreviews = {};
+		cache.previewsLiveAt = {};
+		return dropped;
+	}
+	const freshIds = Object.keys(cache.memberPreviews).filter((serverId) =>
+		isFresh(cache.previewsLiveAt[serverId])
+	);
+	if (freshIds.length === Object.keys(cache.memberPreviews).length) return [];
+	cache.memberPreviews = Object.fromEntries(
+		freshIds.map((serverId) => [serverId, cache.memberPreviews[serverId]])
+	);
+	cache.previewsLiveAt = Object.fromEntries(
+		freshIds.map((serverId) => [serverId, cache.previewsLiveAt[serverId]])
+	);
+	return ['memberPreviews', 'previewsLiveAt'];
+}
 
 let stored: StoredCache = empty();
 
@@ -108,15 +145,34 @@ async function readSection<K extends Section>(
 
 async function load(userId: string): Promise<StoredCache> {
 	if (storedFor === userId) return stored;
-	const [account, workspaces, presence, friendsOnline, memberPreviews] = await Promise.all([
+	const [
+		account,
+		workspaces,
+		presence,
+		friendsOnline,
+		memberPreviews,
+		presenceLiveAt,
+		previewsLiveAt
+	] = await Promise.all([
 		readSection(userId, 'account', null),
 		readSection(userId, 'workspaces', {}),
 		readSection(userId, 'presence', {}),
 		readSection(userId, 'friendsOnline', []),
-		readSection(userId, 'memberPreviews', {})
+		readSection(userId, 'memberPreviews', {}),
+		readSection(userId, 'presenceLiveAt', null),
+		readSection(userId, 'previewsLiveAt', {})
 	]);
 	storedFor = userId;
-	stored = { account, workspaces, presence, friendsOnline, memberPreviews };
+	stored = {
+		account,
+		workspaces,
+		presence,
+		friendsOnline,
+		memberPreviews,
+		presenceLiveAt,
+		previewsLiveAt
+	};
+	for (const section of dropStalePresence(stored)) scheduleWrite(section);
 	return stored;
 }
 
@@ -145,8 +201,27 @@ export const workspaceCache = {
 				])
 			),
 			friendsOnline: new Set(current.friendsOnline),
-			memberPreviews: current.memberPreviews
+			memberPreviews: Object.fromEntries(
+				Object.entries(current.memberPreviews).map(([serverId, preview]) => [
+					serverId,
+					{ counts: preview.counts, rows: preview.rows }
+				])
+			)
 		};
+	},
+
+	markPresenceLive(userId: string, openServerId: string | null) {
+		const cache = current(userId);
+		const now = Date.now();
+		cache.presenceLiveAt = now;
+		scheduleWrite('presenceLiveAt');
+		if (!openServerId || !cache.memberPreviews[openServerId]) return;
+		cache.previewsLiveAt[openServerId] = now;
+		scheduleWrite('previewsLiveAt');
+	},
+
+	flush() {
+		for (const name of sectionNames) sections[name].flush();
 	},
 
 	savePresence(userId: string, serverId: string, presence: ServerPresence) {
@@ -155,8 +230,11 @@ export const workspaceCache = {
 	},
 
 	saveMemberPreview(userId: string, serverId: string, preview: MemberListPreview) {
-		current(userId).memberPreviews[serverId] = preview;
+		const cache = current(userId);
+		cache.memberPreviews[serverId] = preview;
+		cache.previewsLiveAt[serverId] = Date.now();
 		scheduleWrite('memberPreviews');
+		scheduleWrite('previewsLiveAt');
 	},
 
 	saveFriendsOnline(userId: string, online: Set<string>) {
