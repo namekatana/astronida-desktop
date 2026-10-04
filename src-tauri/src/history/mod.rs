@@ -100,6 +100,60 @@ pub fn history_open(
     })
 }
 
+#[cfg(test)]
+pub(crate) mod testing {
+    use super::{schema, Account, History};
+    use aes_gcm::aead::{KeyInit, OsRng};
+    use aes_gcm::Aes256Gcm;
+    use rusqlite::Connection;
+    use std::path::{Path, PathBuf};
+    use std::sync::Mutex;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    pub struct TestDir(pub PathBuf);
+
+    impl TestDir {
+        pub fn new(name: &str) -> Self {
+            let unique = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|elapsed| elapsed.as_nanos())
+                .unwrap_or_default();
+            let dir = std::env::temp_dir().join(format!(
+                "astronida-history-test-{name}-{}-{unique}",
+                std::process::id()
+            ));
+            std::fs::create_dir_all(&dir).expect("create test dir");
+            Self(dir)
+        }
+
+        pub fn file_size(&self, name: &str) -> u64 {
+            std::fs::metadata(self.0.join(name))
+                .map(|metadata| metadata.len())
+                .unwrap_or(0)
+        }
+    }
+
+    impl Drop for TestDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    pub fn random_cipher() -> Aes256Gcm {
+        Aes256Gcm::new(&Aes256Gcm::generate_key(&mut OsRng))
+    }
+
+    pub fn open(dir: &Path, cipher: Aes256Gcm, fresh_key: bool) -> History {
+        let mut connection = Connection::open(dir.join("history.sqlite")).expect("open sqlite");
+        schema::prepare(&mut connection, &cipher, fresh_key).expect("prepare schema");
+        History(Mutex::new(Some(Account {
+            connection,
+            cipher,
+            dir: dir.to_path_buf(),
+        })))
+    }
+}
+
 #[tauri::command]
 pub fn history_clear(history: State<History>) -> Result<(), String> {
     let account = with_slot(&history, |slot| {
