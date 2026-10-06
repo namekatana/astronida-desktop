@@ -297,6 +297,7 @@ export type Database = {
 					channel_id: string;
 					content: string;
 					created_at: string;
+					edited: boolean;
 					forwarded_from_username: string | null;
 					id: string;
 					pinned: boolean;
@@ -307,6 +308,7 @@ export type Database = {
 					channel_id: string;
 					content: string;
 					created_at?: string;
+					edited?: boolean;
 					forwarded_from_username?: string | null;
 					id?: string;
 					pinned?: boolean;
@@ -317,6 +319,7 @@ export type Database = {
 					channel_id?: string;
 					content?: string;
 					created_at?: string;
+					edited?: boolean;
 					forwarded_from_username?: string | null;
 					id?: string;
 					pinned?: boolean;

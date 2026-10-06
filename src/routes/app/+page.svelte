@@ -245,7 +245,8 @@
 		onChannelActivity: (serverId, activity) => incoming.handleChannelActivity(serverId, activity),
 		onCategoryCreated: workspaces.addCategory,
 		onChannelCreated: workspaces.addChannel,
-		onMessageDeleted: sync.forget
+		onMessageDeleted: sync.forget,
+			onMessageEdited: sync.edit
 	});
 
 	// svelte-ignore state_referenced_locally
@@ -492,6 +493,10 @@
 
 	function handleEscape(event: KeyboardEvent) {
 		if (event.key !== 'Escape' || event.defaultPrevented) return;
+		if (menu.editing) {
+			menu.cancelEdit();
+			return;
+		}
 		if (menu.reply) {
 			menu.clearReply();
 			return;
@@ -503,6 +508,14 @@
 		if (!selectedFriend) return;
 		selectedFriendId = null;
 		lastSelection.friendId = null;
+	}
+
+	function editLastOwnMessage() {
+		const last = openChat.messages.findLast(
+			(message) =>
+				message.author.id === data.userId && message.status === undefined && !message.forwardedFrom
+		);
+		if (last) menu.startEdit(last);
 	}
 
 	function openHome(directChannelId: string | null) {
@@ -934,6 +947,7 @@
 					onloadolder={openChat.loadOlder}
 					oncancel={cancelSend}
 					onreply={menu.startReply}
+					onedit={menu.startEdit}
 					onforward={menu.startForward}
 					onjoinedinvite={handleServerJoined}
 					onopeninvite={openInvite}
@@ -949,6 +963,10 @@
 						onattach={openPhotoSheet}
 						ontyping={openChat.touchTyping}
 						oncancelreply={menu.clearReply}
+						editing={menu.editing}
+						onsaveedit={menu.saveEdit}
+						oncanceledit={menu.cancelEdit}
+						onrequestedit={editLastOwnMessage}
 					/>
 				{/key}
 			{:else if selectedServer && channelsLoading}

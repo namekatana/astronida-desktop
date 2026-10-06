@@ -13,6 +13,7 @@
 		onclose: () => void;
 		oncancel?: () => void;
 		onreply?: () => void;
+		onedit?: () => void;
 		onforward?: () => void;
 		pinned?: boolean;
 		onpin?: () => void;
@@ -30,6 +31,7 @@
 		onclose,
 		oncancel,
 		onreply,
+		onedit,
 		onforward,
 		pinned = false,
 		onpin,
@@ -56,6 +58,11 @@
 
 	function reply() {
 		onreply?.();
+		onclose();
+	}
+
+	function edit() {
+		onedit?.();
 		onclose();
 	}
 
@@ -108,6 +115,9 @@
 
 {#snippet commonItems()}
 	{@render item('reply', 'Ответить', reply)}
+	{#if onedit}
+		{@render item('pencil', 'Изменить', edit)}
+	{/if}
 	{#if onforward}
 		{@render item('forward', 'Переслать', forward)}
 	{/if}

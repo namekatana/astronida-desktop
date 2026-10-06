@@ -88,7 +88,19 @@ export function createPins(input: { chatId: () => string | null; sync: Sync }) {
 		}
 	}
 
+	function edit(channelId: string, messageId: string, content: string) {
+		const known = byChannel[channelId] ?? cachedPinned(channelId);
+		if (!known?.some((message) => message.id === messageId)) return;
+		update(
+			channelId,
+			known.map((message) =>
+				message.id === messageId ? { ...message, text: content, edited: true } : message
+			)
+		);
+	}
+
 	$effect(() => input.sync.onForget(forget));
+	$effect(() => input.sync.onEdit(edit));
 
 	$effect(() => {
 		const channelId = input.chatId();

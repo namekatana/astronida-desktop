@@ -1,6 +1,11 @@
 import { Presence, type Channel as PhoenixChannel } from 'phoenix';
 import { categoryFrom, channelFrom, type Category, type Channel } from '$lib/channels/channels';
-import { fromPayload, type Message, type MessagePayload } from '$lib/messages/messages';
+import {
+	fromPayload,
+	messageEditFrom,
+	type Message,
+	type MessagePayload
+} from '$lib/messages/messages';
 import { knownAvatars } from '$lib/profile/known-avatars.svelte';
 import { profileChangesFrom, profileDetails } from '$lib/profile/profile-details.svelte';
 import { pushTo } from '$lib/realtime/push';
@@ -164,6 +169,7 @@ export function subscribeToServerPresence(input: {
 	onCategoryCreated: (category: Category) => void;
 	onChannelCreated: (channel: Channel) => void;
 	onMessageDeleted: (channelId: string, messageId: string) => void;
+	onMessageEdited: (channelId: string, messageId: string, content: string) => void;
 }): () => void {
 	const channel = phoenixSocket().channel(`server:${input.serverId}`);
 	channels.set(input.serverId, channel);
@@ -189,6 +195,10 @@ export function subscribeToServerPresence(input: {
 		if (typeof payload?.channel_id === 'string' && typeof payload.message_id === 'string') {
 			input.onMessageDeleted(payload.channel_id, payload.message_id);
 		}
+	});
+	channel.on('message_edited', (payload: unknown) => {
+		const edit = messageEditFrom(payload);
+		if (edit) input.onMessageEdited(edit.channelId, edit.messageId, edit.content);
 	});
 	channel.on('category_created', (payload: unknown) => {
 		const category = categoryFrom(payload);

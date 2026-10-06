@@ -85,6 +85,7 @@ export function subscribeToChannel(input: {
 	onMessage: (message: Message) => void;
 	onTyping: (userId: string, username: string | null) => void;
 	onDeleted: (messageId: string) => void;
+	onEdited: (messageId: string, content: string) => void;
 	onReady: () => void;
 }): () => void {
 	const { channel, release } = hold(input.channelId, input.onReady);
@@ -101,7 +102,14 @@ export function subscribeToChannel(input: {
 		if (typeof payload?.message_id === 'string') input.onDeleted(payload.message_id);
 	});
 
+	const editedRef = channel.on('edited', (payload: { message_id?: unknown; content?: unknown }) => {
+		if (typeof payload?.message_id === 'string' && typeof payload.content === 'string') {
+			input.onEdited(payload.message_id, payload.content);
+		}
+	});
+
 	return () => {
+		channel.off('edited', editedRef);
 		channel.off('message', messageRef);
 		channel.off('typing', typingRef);
 		channel.off('deleted', deletedRef);

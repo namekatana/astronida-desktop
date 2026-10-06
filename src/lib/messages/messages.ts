@@ -38,6 +38,7 @@ export interface Message {
 	replyTo?: MessageReply;
 	forwardedFrom?: { username: string };
 	attachments?: MessageAttachment[];
+	edited?: boolean;
 	status?: 'sending' | 'failed';
 	localKey?: string;
 }
@@ -85,6 +86,7 @@ export interface MessagePayload {
 		forwarded_from?: { username: string } | null;
 	} | null;
 	forwarded_from?: { username: string } | null;
+	edited?: boolean;
 	attachments?: AttachmentPayload[];
 }
 
@@ -156,10 +158,24 @@ export function fromPayload(payload: MessagePayload): Message {
 	if (payload.forwarded_from) message.forwardedFrom = { username: payload.forwarded_from.username };
 	const attachments = attachmentsFrom(payload.channel_id, payload.attachments);
 	if (attachments.length > 0) message.attachments = attachments;
+	if (payload.edited) message.edited = true;
 	return message;
 }
 
-type ProfileRow = { username: string; display_name: string; avatar_id: string | null } | null;
+export interface MessageEdit {
+	channelId: string;
+	messageId: string;
+	content: string;
+}
+
+export function messageEditFrom(payload: unknown): MessageEdit | null {
+	const { channel_id, message_id, content } = (payload ?? {}) as Record<string, unknown>;
+	if (typeof channel_id !== 'string' || typeof message_id !== 'string') return null;
+	if (typeof content !== 'string') return null;
+	return { channelId: channel_id, messageId: message_id, content };
+}
+
+type ProfileRow ={ username: string; display_name: string; avatar_id: string | null } | null;
 
 function authorOfRow(authorId: string, profile: ProfileRow): MessageAuthor {
 	if (!profile) return { id: authorId, username: 'unknown', name: '?' };
@@ -197,7 +213,7 @@ async function loadReplyOriginals(ids: string[]): Promise<Map<string, ReplyOrigi
 }
 
 const messageColumns =
-	'id, channel_id, author_id, content, created_at, reply_to_id, forwarded_from_username, profiles (username, display_name, avatar_id), attachments (id, position, width, height, thumbhash, spoiler)';
+	'id, channel_id, author_id, content, created_at, reply_to_id, forwarded_from_username, edited, profiles (username, display_name, avatar_id), attachments (id, position, width, height, thumbhash, spoiler)';
 
 interface AttachmentRow extends AttachmentPayload {
 	position: number | null;
@@ -211,6 +227,7 @@ interface MessageRow {
 	created_at: string;
 	reply_to_id: string | null;
 	forwarded_from_username: string | null;
+	edited: boolean;
 	profiles: ProfileRow;
 	attachments: AttachmentRow[];
 }
@@ -239,6 +256,7 @@ async function messagesFromRows(data: MessageRow[]): Promise<Message[] | null> {
 		}
 		const attachments = attachmentsFrom(row.channel_id, orderedAttachments(row.attachments));
 		if (attachments.length > 0) message.attachments = attachments;
+		if (row.edited) message.edited = true;
 		return message;
 	});
 }

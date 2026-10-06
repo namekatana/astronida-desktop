@@ -84,5 +84,18 @@ export function createSync(feeds: Feeds) {
 		return () => forgetListeners.delete(listener);
 	}
 
-	return { markWarm, warm, receive, synchronize, stop, forget, onForget };
+	type EditListener = (channelId: string, messageId: string, content: string) => void;
+	const editListeners = new Set<EditListener>();
+
+	function edit(channelId: string, messageId: string, content: string) {
+		feeds.edit(channelId, messageId, content);
+		for (const listener of editListeners) listener(channelId, messageId, content);
+	}
+
+	function onEdit(listener: EditListener): () => void {
+		editListeners.add(listener);
+		return () => editListeners.delete(listener);
+	}
+
+	return { markWarm, warm, receive, synchronize, stop, forget, onForget, edit, onEdit };
 }

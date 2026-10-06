@@ -23,6 +23,7 @@
 		onloadolder?: () => void;
 		oncancel?: (messageId: string) => void;
 		onreply?: (message: Message) => void;
+		onedit?: (message: Message) => void;
 		onforward?: (message: Message) => void;
 		onjoinedinvite?: (server: Server) => void;
 		onopeninvite?: (code: string) => void;
@@ -48,6 +49,7 @@
 		onloadolder,
 		oncancel,
 		onreply,
+		onedit,
 		onforward,
 		onjoinedinvite,
 		onopeninvite,
@@ -330,6 +332,9 @@
 		onclose={() => (menu = null)}
 		oncancel={() => oncancel?.(message.id)}
 		onreply={() => onreply?.(message)}
+		onedit={onedit && menu.mode === 'own' && !message.forwardedFrom
+			? () => onedit(message)
+			: undefined}
 		onforward={() => onforward?.(message)}
 		pinned={pinnedIds?.has(message.id) ?? false}
 		onpin={onpin ? () => onpin(message) : undefined}

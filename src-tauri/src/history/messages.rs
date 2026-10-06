@@ -15,7 +15,7 @@ const PAGE_SIZE: i64 = 50;
 
 macro_rules! select_messages {
     () => {
-        "SELECT m.id, m.channel_id, m.author_id, m.content, m.sent_at, p.username, p.display_name, m.reply, m.forwarded_from, m.attachments, p.avatar_id
+        "SELECT m.id, m.channel_id, m.author_id, m.content, m.sent_at, p.username, p.display_name, m.reply, m.forwarded_from, m.attachments, p.avatar_id, m.edited
          FROM messages m LEFT JOIN profiles p ON p.id = m.author_id"
     };
 }
@@ -82,6 +82,8 @@ pub struct HistoryMessage {
     forwarded_from: Option<String>,
     #[serde(default)]
     attachments: Vec<Attachment>,
+    #[serde(default)]
+    edited: bool,
 }
 
 #[derive(Deserialize)]
@@ -126,6 +128,7 @@ fn message_from_row(row: &Row, cipher: &Aes256Gcm) -> rusqlite::Result<Option<Hi
         reply,
         forwarded_from: row.get(8)?,
         attachments,
+        edited: row.get(11)?,
     }))
 }
 
@@ -215,8 +218,8 @@ fn upsert_messages(
         .map_err(describe)?;
     let mut message = transaction
         .prepare_cached(
-            "INSERT INTO messages (id, channel_id, author_id, content, sent_at, reply, forwarded_from, attachments) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-             ON CONFLICT (id) DO UPDATE SET content = excluded.content, sent_at = excluded.sent_at, reply = excluded.reply, forwarded_from = excluded.forwarded_from, attachments = excluded.attachments",
+            "INSERT INTO messages (id, channel_id, author_id, content, sent_at, reply, forwarded_from, attachments, edited) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+             ON CONFLICT (id) DO UPDATE SET content = excluded.content, sent_at = excluded.sent_at, reply = excluded.reply, forwarded_from = excluded.forwarded_from, attachments = excluded.attachments, edited = excluded.edited",
         )
         .map_err(describe)?;
     for item in messages {
@@ -245,7 +248,8 @@ fn upsert_messages(
                 item.sent_at,
                 sealed_reply,
                 item.forwarded_from,
-                sealed_attachments
+                sealed_attachments,
+                item.edited
             ])
             .map_err(describe)?;
     }
@@ -359,16 +363,47 @@ pub fn history_remove_message(
                 params![channel_id, message_id],
             )
             .map_err(describe)?;
-        forget_reply_originals(&transaction, cipher, &channel_id, &message_id)?;
+        rewrite_reply_originals(&transaction, cipher, &channel_id, &message_id, |original| {
+            *original = None;
+        })?;
         transaction.commit().map_err(describe)
     })
 }
 
-fn forget_reply_originals(
+#[tauri::command]
+pub fn history_edit_message(
+    history: State<History>,
+    channel_id: String,
+    message_id: String,
+    content: String,
+) -> Result<(), String> {
+    with_account(&history, |account| {
+        let Account {
+            connection, cipher, ..
+        } = account;
+        let transaction = connection.transaction().map_err(describe)?;
+        let sealed = local_key::seal(cipher, &content, &context(MESSAGE_CONTENT, &message_id))?;
+        transaction
+            .execute(
+                "UPDATE messages SET content = ?3, edited = 1 WHERE channel_id = ?1 AND id = ?2",
+                params![channel_id, message_id, sealed],
+            )
+            .map_err(describe)?;
+        rewrite_reply_originals(&transaction, cipher, &channel_id, &message_id, |original| {
+            if let Some(original) = original {
+                original.content = content.clone();
+            }
+        })?;
+        transaction.commit().map_err(describe)
+    })
+}
+
+fn rewrite_reply_originals(
     transaction: &Transaction,
     cipher: &Aes256Gcm,
     channel_id: &str,
     message_id: &str,
+    change: impl Fn(&mut Option<ReplyOriginal>),
 ) -> Result<(), String> {
     let replies = {
         let mut statement = transaction
@@ -390,7 +425,7 @@ fn forget_reply_originals(
         if reply.id != message_id || reply.original.is_none() {
             continue;
         }
-        reply.original = None;
+        change(&mut reply.original);
         let sealed = seal_reply(cipher, &Some(reply), &context(MESSAGE_REPLY, &id))?;
         update.execute(params![id, sealed]).map_err(describe)?;
     }

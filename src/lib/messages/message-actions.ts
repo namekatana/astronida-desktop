@@ -82,6 +82,24 @@ export async function setMessagePinned(input: {
 	return { ok: false, reason: knownReason(outcome.reason, ['limit_reached', 'rate_limited']) };
 }
 
+export type EditFailure = 'forbidden' | 'invalid' | 'rate_limited' | 'failed';
+
+export async function editMessage(input: {
+	channelId: string;
+	messageId: string;
+	text: string;
+}): Promise<{ ok: true; text: string } | { ok: false; reason: EditFailure }> {
+	const channel = joinedRoom(input.channelId);
+	if (!channel) return { ok: false, reason: 'failed' };
+
+	const outcome = await pushTo<{ content: string }>(channel, 'edit', {
+		message_id: input.messageId,
+		content: input.text.trim()
+	});
+	if (outcome.ok) return { ok: true, text: outcome.reply.content };
+	return { ok: false, reason: knownReason(outcome.reason, ['forbidden', 'invalid', 'rate_limited']) };
+}
+
 export async function deleteMessage(input: {
 	channelId: string;
 	messageId: string;

@@ -23,6 +23,7 @@ pub fn run() {
             history::messages::history_latest_messages,
             history::messages::history_drop_channel,
             history::messages::history_remove_message,
+            history::messages::history_edit_message,
             history::outbox::outbox_list,
             history::outbox::outbox_put,
             history::outbox::outbox_remove,

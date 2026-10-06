@@ -1,5 +1,10 @@
 import type { Channel } from 'phoenix';
-import { fromPayload, type Message, type MessagePayload } from '$lib/messages/messages';
+import {
+	fromPayload,
+	messageEditFrom,
+	type Message,
+	type MessagePayload
+} from '$lib/messages/messages';
 import { userStatusFrom, type UserStatus } from '$lib/presence/status';
 import {
 	profileChangesFrom,
@@ -73,6 +78,7 @@ export function subscribeToInbox(input: {
 	onRead: (channelId: string, messageId: string) => void;
 	onTyping: (channelId: string, userId: string) => void;
 	onMessageDeleted: (channelId: string, messageId: string) => void;
+	onMessageEdited: (channelId: string, messageId: string, content: string) => void;
 	onStatus: (status: UserStatus) => void;
 	onStatusRestored: (status: UserStatus | null) => void;
 	onAvatarChanged: (avatarId: string | null) => void;
@@ -100,6 +106,10 @@ export function subscribeToInbox(input: {
 		if (typeof payload?.channel_id === 'string' && typeof payload.message_id === 'string') {
 			input.onMessageDeleted(payload.channel_id, payload.message_id);
 		}
+	});
+	channel.on('message_edited', (payload: unknown) => {
+		const edit = messageEditFrom(payload);
+		if (edit) input.onMessageEdited(edit.channelId, edit.messageId, edit.content);
 	});
 	channel.on('status', (payload: { status?: unknown }) => {
 		const status = userStatusFrom(payload?.status);

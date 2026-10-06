@@ -18,7 +18,8 @@ const SCHEMA: &str = "
         sent_at TEXT NOT NULL,
         reply BLOB,
         forwarded_from TEXT,
-        attachments BLOB
+        attachments BLOB,
+        edited INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS messages_channel_id ON messages (channel_id, id);
     CREATE TABLE IF NOT EXISTS profiles (
@@ -53,6 +54,12 @@ pub(super) fn prepare(
     ensure_column(connection, "messages", "reply", "BLOB")?;
     ensure_column(connection, "messages", "forwarded_from", "TEXT")?;
     ensure_column(connection, "messages", "attachments", "BLOB")?;
+    ensure_column(
+        connection,
+        "messages",
+        "edited",
+        "INTEGER NOT NULL DEFAULT 0",
+    )?;
     ensure_column(connection, "profiles", "avatar_id", "TEXT")?;
     ensure_column(connection, "outbox", "reply", "BLOB")?;
     ensure_column(connection, "outbox", "attachments", "BLOB")?;

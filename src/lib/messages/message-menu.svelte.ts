@@ -3,8 +3,10 @@ import type { Sync } from '$lib/sync/sync';
 import { toast } from '$lib/ui/toast.svelte';
 import {
 	deleteMessage,
+	editMessage,
 	forwardMessage,
 	type DeleteFailure,
+	type EditFailure,
 	type ForwardResult
 } from './message-actions';
 import type { Message, MessageReply } from './messages';
@@ -22,11 +24,23 @@ const deleteFailureText: Record<DeleteFailure, string> = {
 	failed: 'Не удалось удалить — проверьте соединение'
 };
 
+const editFailureText: Record<EditFailure, string> = {
+	forbidden: 'Нет прав изменить это сообщение',
+	invalid: 'Сообщение не может быть пустым',
+	rate_limited: 'Слишком часто, попробуйте через минуту',
+	failed: 'Не удалось сохранить — проверьте соединение'
+};
+
 export function createMessageMenu(input: { chatId: () => string | null; sync: Sync }) {
 	let replyTarget = $state<{ chatId: string; reply: MessageReply } | null>(null);
 	let forwarding = $state<{ chatId: string; message: Message } | null>(null);
 	let deleting = $state<Deleting | null>(null);
+	let editTarget = $state<{ chatId: string; message: Message } | null>(null);
 	let savingPhotos = false;
+
+	const editing = $derived(
+		editTarget && editTarget.chatId === input.chatId() ? editTarget.message : null
+	);
 
 	const reply = $derived(
 		replyTarget && replyTarget.chatId === input.chatId() ? replyTarget.reply : null
@@ -34,11 +48,39 @@ export function createMessageMenu(input: { chatId: () => string | null; sync: Sy
 
 	$effect(() => {
 		if (replyTarget && replyTarget.chatId !== input.chatId()) replyTarget = null;
+		if (editTarget && editTarget.chatId !== input.chatId()) editTarget = null;
 	});
+
+	function startEdit(message: Message) {
+		const chatId = input.chatId();
+		if (!chatId || message.status !== undefined || message.forwardedFrom) return;
+		replyTarget = null;
+		editTarget = { chatId, message };
+	}
+
+	async function saveEdit(text: string): Promise<string | null> {
+		const target = editTarget;
+		if (!target) return null;
+		const trimmed = text.trim();
+		if (trimmed === target.message.text) {
+			editTarget = null;
+			return null;
+		}
+		const result = await editMessage({
+			channelId: target.chatId,
+			messageId: target.message.id,
+			text: trimmed
+		});
+		if (!result.ok) return editFailureText[result.reason];
+		input.sync.edit(target.chatId, target.message.id, result.text);
+		if (editTarget === target) editTarget = null;
+		return null;
+	}
 
 	function startReply(message: Message) {
 		const chatId = input.chatId();
 		if (!chatId) return;
+		editTarget = null;
 		replyTarget = {
 			chatId,
 			reply: {
@@ -148,6 +190,12 @@ export function createMessageMenu(input: { chatId: () => string | null; sync: Sy
 		get deleting() {
 			return deleting;
 		},
+		get editing() {
+			return editing;
+		},
+		startEdit,
+		saveEdit,
+		cancelEdit: () => (editTarget = null),
 		startReply,
 		clearReply: () => (replyTarget = null),
 		startForward,

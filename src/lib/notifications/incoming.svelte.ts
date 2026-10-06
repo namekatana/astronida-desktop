@@ -79,6 +79,7 @@ export function createIncoming(input: {
 			onRead: (channelId, messageId) => unread.clear(channelId, messageId),
 			onTyping: markTyping,
 			onMessageDeleted: sync.forget,
+				onMessageEdited: sync.edit,
 			onStatus: (status) => ownStatus.adopt(status),
 			onStatusRestored: (status) => ownStatus.restore(status),
 			onAvatarChanged: input.onAvatarChanged,

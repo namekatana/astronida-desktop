@@ -70,6 +70,7 @@ interface HistoryBackend {
 	latestMessages(channelIds: string[]): Promise<Record<string, Message>>;
 	dropChannel(channelId: string): Promise<void>;
 	removeMessage(channelId: string, messageId: string): Promise<void>;
+	editMessage(channelId: string, messageId: string, content: string): Promise<void>;
 	clear(): Promise<void>;
 	outboxList(): Promise<OutboxRecord[]>;
 	outboxPut(record: OutboxRecord): Promise<void>;
@@ -87,6 +88,7 @@ interface StoredMessage {
 	reply?: StoredReply | null;
 	forwardedFrom?: string | null;
 	attachments?: StoredAttachment[];
+	edited?: boolean;
 }
 
 function toStoredAttachment(attachment: MessageAttachment): StoredAttachment {
@@ -165,7 +167,8 @@ function toStored(channelId: string, message: Message): StoredMessage {
 		sentAt: message.sentAt.toISOString(),
 		reply: toStoredReply(message.replyTo),
 		forwardedFrom: message.forwardedFrom?.username ?? null,
-		attachments: message.attachments?.map(toStoredAttachment) ?? []
+		attachments: message.attachments?.map(toStoredAttachment) ?? [],
+		edited: message.edited === true
 	};
 }
 
@@ -184,6 +187,7 @@ function fromStored(stored: StoredMessage): Message {
 			fromStoredAttachment(stored.channelId, attachment)
 		);
 	}
+	if (stored.edited) message.edited = true;
 	return message;
 }
 
@@ -234,6 +238,10 @@ const tauriBackend: HistoryBackend = {
 
 	removeMessage(channelId, messageId) {
 		return invoke('history_remove_message', { channelId, messageId });
+	},
+
+	editMessage(channelId, messageId, content) {
+		return invoke('history_edit_message', { channelId, messageId, content });
 	},
 
 	clear() {
@@ -343,6 +351,19 @@ function createMemoryBackend(): HistoryBackend {
 			for (const row of rows.values()) {
 				if (row.channelId === channelId && row.reply?.id === messageId && row.reply.original) {
 					row.reply = { id: messageId, original: null };
+				}
+			}
+		},
+
+		async editMessage(channelId, messageId, content) {
+			const edited = rows.get(messageId);
+			if (edited?.channelId === channelId) {
+				edited.content = content;
+				edited.edited = true;
+			}
+			for (const row of rows.values()) {
+				if (row.channelId === channelId && row.reply?.id === messageId && row.reply.original) {
+					row.reply = { id: messageId, original: { ...row.reply.original, content } };
 				}
 			}
 		},

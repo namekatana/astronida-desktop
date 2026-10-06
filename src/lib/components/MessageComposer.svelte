@@ -1,6 +1,12 @@
 <script lang="ts">
+	import { tick, untrack } from 'svelte';
 	import { isAcceptedImage } from '$lib/media/compress';
-	import { messageMaxLength, previewText, type MessageReply } from '$lib/messages/messages';
+	import {
+		messageMaxLength,
+		previewText,
+		type Message,
+		type MessageReply
+	} from '$lib/messages/messages';
 	import { hasVisibleContent } from '$lib/ui/visible-text';
 	import Icon from './Icon.svelte';
 
@@ -11,9 +17,24 @@
 		onattach?: (files: File[]) => void;
 		ontyping?: () => void;
 		oncancelreply?: () => void;
+		editing?: Message | null;
+		onsaveedit?: (text: string) => Promise<string | null>;
+		oncanceledit?: () => void;
+		onrequestedit?: () => void;
 	}
 
-	let { placeholder, reply = null, onsend, onattach, ontyping, oncancelreply }: Props = $props();
+	let {
+		placeholder,
+		reply = null,
+		onsend,
+		onattach,
+		ontyping,
+		oncancelreply,
+		editing = null,
+		onsaveedit,
+		oncanceledit,
+		onrequestedit
+	}: Props = $props();
 
 	const noticeDurationMs = 3000;
 
@@ -30,6 +51,38 @@
 
 	$effect(() => {
 		if (reply) textarea?.focus();
+	});
+
+	let lastEditing: Message | null = null;
+	let editedId: string | null = null;
+	let savedDraft = '';
+	let saving = $state(false);
+
+	const shownEditing = $derived.by(() => {
+		if (editing) lastEditing = editing;
+		return editing ?? lastEditing;
+	});
+
+	async function focusAtEnd() {
+		await tick();
+		textarea?.focus();
+		textarea?.setSelectionRange(value.length, value.length);
+	}
+
+	$effect(() => {
+		const current = editing;
+		untrack(() => {
+			if (current && current.id !== editedId) {
+				if (editedId === null) savedDraft = value;
+				editedId = current.id;
+				value = current.text;
+				void focusAtEnd();
+			} else if (!current && editedId !== null) {
+				editedId = null;
+				value = savedDraft;
+				savedDraft = '';
+			}
+		});
 	});
 
 	$effect(() => {
@@ -56,7 +109,11 @@
 		return () => observer.disconnect();
 	});
 
-	const canSend = $derived(hasVisibleContent(value));
+	const canSend = $derived(
+		editing
+			? !saving && (hasVisibleContent(value) || (editing.attachments?.length ?? 0) > 0)
+			: hasVisibleContent(value)
+	);
 	const length = $derived(value.length);
 	const counterColor = $derived(
 		length >= messageMaxLength
@@ -73,7 +130,7 @@
 	}
 
 	export function attach(files: File[]) {
-		if (files.length === 0) return;
+		if (files.length === 0 || editing) return;
 		if (!files.some(isAcceptedImage)) {
 			showNotice('Можно прикрепить только фото');
 			return;
@@ -92,8 +149,19 @@
 		textarea?.focus();
 	}
 
+	async function saveEdit() {
+		saving = true;
+		const error = await onsaveedit?.(value);
+		saving = false;
+		if (error) showNotice(error);
+	}
+
 	function send() {
 		if (!canSend) return;
+		if (editing) {
+			void saveEdit();
+			return;
+		}
 		onsend?.(value.trim());
 		value = '';
 	}
@@ -103,6 +171,11 @@
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
+		if (event.key === 'ArrowUp' && value === '' && !editing && !event.isComposing) {
+			event.preventDefault();
+			onrequestedit?.();
+			return;
+		}
 		if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
 		event.preventDefault();
 		send();
@@ -171,6 +244,30 @@
 		</div>
 	</div>
 
+	<div class="collapsible {editing ? 'is-open' : ''}" inert={!editing}>
+		<div>
+			{#if shownEditing}
+				<div class="flex h-10 items-center gap-3 pl-4">
+					<span class="h-8 w-0.5 shrink-0 rounded-full bg-ink"></span>
+					<div class="min-w-0 flex-1 text-[12px] leading-4">
+						<p class="truncate font-semibold text-ink">Редактирование</p>
+						<p dir="auto" class="truncate text-ink-secondary [unicode-bidi:plaintext]">
+							{previewText(shownEditing.text).replace(/\s+/g, ' ')}
+						</p>
+					</div>
+					<button
+						type="button"
+						aria-label="Отменить редактирование"
+						onclick={oncanceledit}
+						class="pressable flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted duration-150 hover:bg-white/[0.06] hover:text-ink"
+					>
+						<Icon name="close" size={16} />
+					</button>
+				</div>
+			{/if}
+		</div>
+	</div>
+
 	<div class="flex items-end gap-1">
 		<div class="relative min-w-0 flex-1">
 			<div
@@ -217,22 +314,23 @@
 			<button
 				type="button"
 				aria-label="Прикрепить фото"
+				disabled={editing !== null}
 				onclick={() => fileInput?.click()}
-				class="pressable flex h-8 w-8 items-center justify-center rounded-full text-muted duration-150 hover:bg-white/[0.06] hover:text-ink"
+				class="pressable flex h-8 w-8 items-center justify-center rounded-full text-muted duration-150 hover:bg-white/[0.06] hover:text-ink disabled:pointer-events-none disabled:opacity-40"
 			>
 				<Icon name="paperclip" size={18} />
 			</button>
 
 			<button
 				type="button"
-				aria-label="Отправить"
+				aria-label={editing ? 'Сохранить' : 'Отправить'}
 				disabled={!canSend}
 				onclick={send}
 				class="pressable flex h-8 w-8 items-center justify-center rounded-full duration-200 ease-soft {canSend
 					? 'bg-ink text-bg hover:bg-ink-hover active:bg-ink-pressed'
 					: 'bg-white/[0.06] text-muted'}"
 			>
-				<Icon name="arrow-up" />
+				<Icon name={editing ? 'check' : 'arrow-up'} />
 			</button>
 		</div>
 	</div>

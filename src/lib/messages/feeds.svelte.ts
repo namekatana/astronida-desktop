@@ -138,6 +138,27 @@ export function createFeeds() {
 			.catch(() => {});
 	}
 
+	function edit(channelId: string, messageId: string, content: string) {
+		const feed = feeds[channelId];
+		if (feed) {
+			for (const message of feed.messages) {
+				if (message.id === messageId) {
+					message.text = content;
+					message.edited = true;
+				}
+				if (message.replyTo?.id === messageId && message.replyTo.original) {
+					message.replyTo.original.text = content;
+				}
+			}
+		}
+		const latest = storedLatest[channelId];
+		if (latest?.id === messageId) {
+			latest.text = content;
+			latest.edited = true;
+		}
+		history.editMessage(channelId, messageId, content).catch(() => {});
+	}
+
 	function markFailed(channelId: string, messageId: string) {
 		const pending = feeds[channelId]?.messages.find((m) => m.id === messageId);
 		if (pending) pending.status = 'failed';
@@ -255,6 +276,7 @@ export function createFeeds() {
 		addPending,
 		removeMessage,
 		forget,
+		edit,
 		markFailed,
 		seed,
 		open,
