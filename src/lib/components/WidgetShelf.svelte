@@ -9,6 +9,7 @@
 		type ShelfState,
 		type WidgetType
 	} from '$lib/profile/widgets';
+	import { settle } from '$lib/ui/settle';
 	import Icon from './Icon.svelte';
 	import ProfileBio from './ProfileBio.svelte';
 	import ProfileLinks from './ProfileLinks.svelte';
@@ -33,85 +34,127 @@
 	];
 	const sampleServer = { name: 'Astronida', memberCount: 128 };
 
+	const widgetHints: Record<WidgetType, string> = {
+		bio: 'До 190 символов',
+		links: 'До 5 ссылок',
+		server: 'Приглашение на ваш сервер'
+	};
+
 	const stateLabels: Record<Exclude<ShelfState, 'available'>, string> = {
 		placed: 'В профиле',
 		full: 'Нет места',
 		'no-server': 'Нужен свой сервер'
 	};
 
+	const previews = new Map<WidgetType, HTMLElement>();
+
+	function preview(node: HTMLElement, type: WidgetType) {
+		previews.set(type, node);
+		const registered = drag.shelfCard(node, type);
+		return {
+			destroy() {
+				if (previews.get(type) === node) previews.delete(type);
+				registered.destroy();
+			}
+		};
+	}
+
 	const removing = $derived(drag.origin === 'grid' && drag.overShelf);
 
-	function grab(event: PointerEvent & { currentTarget: HTMLElement }, type: WidgetType) {
-		if (locked || states[type] !== 'available') return;
-		drag.start(event, type, 'shelf', event.currentTarget, () => onadd(type));
+	function grab(event: PointerEvent, type: WidgetType) {
+		const source = previews.get(type);
+		if (locked || states[type] !== 'available' || !source) return;
+		drag.start(event, type, 'shelf', source, () => onadd(type));
 	}
 </script>
 
 <div use:drag.shelf class="panel panel-floating relative flex h-full flex-col overflow-hidden">
-	<div class="flex h-14 shrink-0 items-center justify-center">
+	<div class="flex h-14 shrink-0 flex-col items-center justify-center">
 		<h2 class="text-[15px] leading-5 font-semibold text-ink">Виджеты</h2>
+		<p class="text-[12px] leading-4 text-muted">Перетащите в профиль</p>
 	</div>
-	<p class="-mt-2 shrink-0 pb-4 text-center text-[12px] leading-4 text-muted">
-		Перетащите в профиль
-	</p>
 
-	<div class="scrollbar-none flex min-h-0 flex-1 flex-col items-center gap-4 overflow-y-auto pb-4">
+	<div class="scrollbar-none flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3.5 pt-1 pb-4">
 		{#each widgetTypes as type (type)}
 			{@const carried = drag.active === type && drag.origin === 'shelf'}
 			{@const state = carried ? 'available' : states[type]}
-			{@const available = state === 'available'}
-			<div class="relative w-[200px] shrink-0" style:height="{previewHeight}px">
-				{#if carried}
-					<div
-						aria-hidden="true"
-						class="absolute inset-0 rounded-[14px] border border-dashed border-white/20 bg-white/[0.02] [corner-shape:squircle]"
-						in:fade={{ duration: 120 }}
-					></div>
-				{/if}
-
-				<button
-					type="button"
-					use:drag.shelfCard={type}
-					disabled={!available || locked}
-					aria-label={available
-						? `Добавить виджет «${widgetTitles[type]}»`
-						: `${widgetTitles[type]} — ${stateLabels[state as Exclude<ShelfState, 'available'>]}`}
+			{@const available = state === 'available' && !locked}
+			<div class="shrink-0">
+				<div
+					role="presentation"
 					onpointerdown={(event) => grab(event, type)}
-					onclick={(event) => {
-						if (event.detail === 0 && available && !locked) onadd(type);
-					}}
-					class="block h-full w-full origin-center text-left transition-[translate,scale,opacity] duration-200 ease-soft motion-reduce:transition-none {available
-						? 'cursor-grab hover:-translate-y-0.5 hover:scale-[1.02] active:scale-[0.98]'
-						: 'opacity-35'} {carried ? 'opacity-0' : ''}"
+					style:--widget-backdrop="var(--color-surface-deep)"
+					class="group flex items-center justify-center rounded-[14px] bg-surface-deep py-[11px] transition-colors duration-200 ease-soft [corner-shape:squircle] motion-reduce:transition-none {available
+						? 'cursor-grab hover:bg-[color-mix(in_srgb,var(--color-surface-deep)_96%,white)]'
+						: ''}"
 				>
-					<div class="pointer-events-none h-full [&_p]:line-clamp-4" aria-hidden="true">
-						{#if type === 'bio'}
-							<ProfileBio bio={bio ?? sampleBio} />
-						{:else if type === 'links'}
-							<ProfileLinks links={sampleLinks} />
-						{:else}
-							<ProfileServerWidget
-								serverId=""
-								inviteCode={null}
-								compact={false}
-								sample={sampleServer}
-							/>
+					<div class="relative w-[200px] shrink-0" style:height="{previewHeight}px">
+						{#if carried}
+							<div
+								aria-hidden="true"
+								class="absolute inset-0 rounded-[14px] border border-dashed border-white/20 [corner-shape:squircle]"
+								in:fade={{ duration: 120 }}
+							></div>
 						{/if}
+						<div
+							use:preview={type}
+							aria-hidden="true"
+							class="pointer-events-none h-full origin-center transition-[scale,opacity] duration-200 ease-soft motion-reduce:transition-none [&_p]:line-clamp-4 {available
+								? 'group-active:scale-[0.98]'
+								: ''} {carried ? 'opacity-0' : ''}"
+						>
+							{#if type === 'bio'}
+								<ProfileBio bio={bio ?? sampleBio} />
+							{:else if type === 'links'}
+								<ProfileLinks links={sampleLinks} />
+							{:else}
+								<ProfileServerWidget
+									serverId=""
+									inviteCode={null}
+									compact={false}
+									sample={sampleServer}
+								/>
+							{/if}
+						</div>
 					</div>
-				</button>
+				</div>
 
-				{#if !available}
-					<span
-						class="pointer-events-none absolute top-3 right-3.5 flex h-5 items-center gap-1 text-[11px] font-medium text-ink-secondary"
-						in:fade={{ duration: 150 }}
-						out:fade={{ duration: 100 }}
-					>
-						{#if state === 'placed'}
-							<Icon name="check" size={11} />
-						{/if}
-						{stateLabels[state as Exclude<ShelfState, 'available'>]}
-					</span>
-				{/if}
+				<div class="mt-2.5 flex items-center gap-3 px-1">
+					<div class="min-w-0 flex-1">
+						<h3 class="truncate text-[13px] leading-4 font-semibold text-ink">
+							{widgetTitles[type]}
+						</h3>
+						<p class="truncate text-[12px] leading-4 text-muted">{widgetHints[type]}</p>
+					</div>
+					<div class="grid shrink-0 justify-items-end">
+						{#key state}
+							<div
+								class="col-start-1 row-start-1 flex items-center"
+								in:settle
+								out:settle={{ duration: 100 }}
+							>
+								{#if state === 'available'}
+									<button
+										type="button"
+										disabled={locked}
+										aria-label={`Добавить виджет «${widgetTitles[type]}»`}
+										onclick={() => onadd(type)}
+										class="pressable h-6 rounded-full bg-white/[0.08] px-2.5 text-[12px] font-semibold text-ink hover:bg-white/[0.12] disabled:opacity-40"
+									>
+										Добавить
+									</button>
+								{:else}
+									<span class="flex items-center gap-1 text-[12px] font-medium text-muted">
+										{#if state === 'placed'}
+											<Icon name="check" size={11} />
+										{/if}
+										{stateLabels[state]}
+									</span>
+								{/if}
+							</div>
+						{/key}
+					</div>
+				</div>
 			</div>
 		{/each}
 	</div>

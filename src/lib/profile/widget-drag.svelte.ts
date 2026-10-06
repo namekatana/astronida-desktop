@@ -78,7 +78,10 @@ const morphMs = 220;
 const reorderDwellMs = 150;
 const resizeSettleMs = 220;
 const quintOutCurve = 'cubic-bezier(0.22, 1, 0.36, 1)';
-const opaqueCardBackground = 'color-mix(in srgb, var(--color-surface) 95%, white)';
+function opaqueCardBackground(source: HTMLElement): string {
+	const backdrop = getComputedStyle(source).getPropertyValue('--widget-backdrop').trim();
+	return `color-mix(in srgb, ${backdrop || 'var(--color-surface)'} 95%, white)`;
+}
 
 function layoutBox(element: HTMLElement, grid: HTMLElement): Box {
 	const gridBox = grid.getBoundingClientRect();
@@ -129,7 +132,7 @@ function cloneFace(source: HTMLElement, width: number, height: number): GhostFac
 		translate: 'none'
 	});
 	const card = clone.querySelector<HTMLElement>('[data-widget-card]');
-	if (card) card.style.backgroundColor = opaqueCardBackground;
+	if (card) card.style.backgroundColor = opaqueCardBackground(source);
 	Object.assign(face.style, {
 		position: 'absolute',
 		left: '0px',
