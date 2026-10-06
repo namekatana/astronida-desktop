@@ -33,6 +33,7 @@ export interface WidgetResize {
 	width: number;
 	height: number;
 	anchor: ResizeEdge;
+	snapping: boolean;
 	settling: boolean;
 }
 
@@ -77,6 +78,12 @@ const landMs = 320;
 const morphMs = 220;
 const reorderDwellMs = 150;
 const resizeSettleMs = 220;
+const resizeStretchPx = 8;
+const resizeSnapMs = 160;
+
+function stretched(delta: number): number {
+	return (resizeStretchPx * delta) / (Math.abs(delta) + resizeStretchPx * 4);
+}
 const quintOutCurve = 'cubic-bezier(0.22, 1, 0.36, 1)';
 function opaqueCardBackground(source: HTMLElement): string {
 	const backdrop = getComputedStyle(source).getPropertyValue('--widget-backdrop').trim();
@@ -658,27 +665,72 @@ export function createWidgetDrag(options: {
 		const gridWidth = host.clientWidth;
 		const half = (gridWidth - gridGap) / 2;
 		const tallest = spanPx(canvasRows);
-		resizing = { type, width: startWidth, height: startHeight, anchor, settling: false };
+		resizing = {
+			type,
+			width: startWidth,
+			height: startHeight,
+			anchor,
+			snapping: false,
+			settling: false
+		};
 		document.documentElement.style.cursor = edge === 'end' ? 'nwse-resize' : 'nesw-resize';
 		document.documentElement.style.userSelect = 'none';
+		let pointer = { x: startX, y: startY };
+		let pendingFrame = 0;
+		let snappingUntil = 0;
+		const follow = () => {
+			pendingFrame = 0;
+			const deltaX = edge === 'end' ? pointer.x - startX : startX - pointer.x;
+			const pointerWidth = startWidth + deltaX;
+			const pointerHeight = startHeight + pointer.y - startY;
+			const previous = options.widgets().find((widget) => widget.type === type);
+			const snapped = snappedWidth(Math.min(gridWidth, Math.max(half, pointerWidth)), gridWidth);
+			applySize(
+				type,
+				snapped,
+				snappedHeight(Math.min(tallest, pointerHeight), minimumRowsOf(type, snapped))
+			);
+			const committed = options.widgets().find((widget) => widget.type === type);
+			const now = performance.now();
+			if (committed?.width !== previous?.width || committed?.height !== previous?.height) {
+				snappingUntil = now + motionMs(resizeSnapMs);
+			}
+			const width = committed?.width === 2 ? gridWidth : half;
+			const height = spanPx(committed?.height ?? 1);
+			resizing = {
+				type,
+				width: width + stretched(pointerWidth - width),
+				height: height + stretched(pointerHeight - height),
+				anchor,
+				snapping: now < snappingUntil,
+				settling: false
+			};
+		};
 		const offMove = on(window, 'pointermove', (move: PointerEvent) => {
-			const deltaX = edge === 'end' ? move.clientX - startX : startX - move.clientX;
-			const width = Math.min(gridWidth, Math.max(half * 0.85, startWidth + deltaX));
-			const height = Math.min(tallest, Math.max(rowHeight * 0.85, startHeight + move.clientY - startY));
-			resizing = { type, width, height, anchor, settling: false };
-			const snapped = snappedWidth(width, gridWidth);
-			applySize(type, snapped, snappedHeight(height, minimumRowsOf(type, snapped)));
+			pointer = { x: move.clientX, y: move.clientY };
+			if (!pendingFrame) pendingFrame = requestAnimationFrame(follow);
 		});
 		const release = () => {
 			offMove();
 			offUp();
 			offCancel();
+			if (pendingFrame) {
+				cancelAnimationFrame(pendingFrame);
+				follow();
+			}
 			document.documentElement.style.cursor = '';
 			document.documentElement.style.userSelect = '';
 			const final = options.widgets().find((widget) => widget.type === type);
 			const finalWidth = final?.width === 2 ? gridWidth : half;
 			const finalHeight = spanPx(final?.height ?? 1);
-			resizing = { type, width: finalWidth, height: finalHeight, anchor, settling: true };
+			resizing = {
+				type,
+				width: finalWidth,
+				height: finalHeight,
+				anchor,
+				snapping: false,
+				settling: true
+			};
 			setTimeout(() => {
 				if (resizing?.type === type && resizing.settling) resizing = null;
 			}, motionMs(resizeSettleMs) + 20);

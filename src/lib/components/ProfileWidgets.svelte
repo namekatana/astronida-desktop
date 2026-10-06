@@ -40,6 +40,8 @@
 	const glideMs = 260;
 	const removeMs = 160;
 	const settleTransition = 'width 220ms cubic-bezier(0.22, 1, 0.36, 1), height 220ms cubic-bezier(0.22, 1, 0.36, 1)';
+	const snapTransition =
+		'width 160ms cubic-bezier(0.22, 1, 0.36, 1), height 160ms cubic-bezier(0.22, 1, 0.36, 1)';
 	const quintOutCurve = 'cubic-bezier(0.22, 1, 0.36, 1)';
 	const fallbackWidth = 408;
 	const interactive = 'textarea, input, [data-drag-chrome]';
@@ -231,7 +233,11 @@
 				style:justify-self={resize?.anchor ?? null}
 				style:align-self={resize ? 'start' : null}
 				style:z-index={resize ? 10 : null}
-				style:transition={resize?.settling ? settleTransition : null}
+				style:transition={resize?.settling
+					? settleTransition
+					: resize?.snapping
+						? snapTransition
+						: null}
 			>
 				<div data-widget-body class="h-full {hidden ? 'opacity-0' : ''}" inert={hidden}>
 					{#if widget.type === 'bio'}
