@@ -75,6 +75,7 @@
 
 	const cells = new Map<WidgetType, HTMLElement>();
 	const flights = new Map<HTMLElement, Animation>();
+	const growths = new Map<HTMLElement, Animation>();
 	let before = new Map<WidgetType, DOMRect>();
 
 	function gridColumn(placement: WidgetPlacement): string {
@@ -123,13 +124,36 @@
 		};
 	}
 
+	function grow(node: HTMLElement, from: DOMRect, to: DOMRect) {
+		if (Math.abs(from.width - to.width) < 0.5 && Math.abs(from.height - to.height) < 0.5) return;
+		const body = node.querySelector<HTMLElement>('[data-widget-body]');
+		if (body) body.style.overflow = 'clip';
+		const animation = node.animate(
+			[
+				{ width: `${from.width}px`, height: `${from.height}px` },
+				{ width: `${to.width}px`, height: `${to.height}px` }
+			],
+			{ duration: glideMs, easing: quintOutCurve }
+		);
+		growths.set(node, animation);
+		const release = () => {
+			if (growths.get(node) !== animation) return;
+			growths.delete(node);
+			if (body) body.style.overflow = '';
+		};
+		animation.onfinish = release;
+		animation.oncancel = release;
+	}
+
 	function glide() {
 		if (prefersReducedMotion.current) return;
 		for (const [type, node] of cells) {
 			const from = before.get(type);
 			if (!from || drag?.resizing?.type === type) continue;
 			flights.get(node)?.cancel();
+			growths.get(node)?.cancel();
 			const to = node.getBoundingClientRect();
+			grow(node, from, to);
 			const dx = from.left - to.left;
 			const dy = from.top - to.top;
 			if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue;
