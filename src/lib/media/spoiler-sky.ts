@@ -17,6 +17,7 @@ interface Star {
 
 interface SkyOptions {
 	reducedMotion: boolean;
+	areaPerStar?: number;
 	revealed?: () => { origin: ScreenPoint | null } | null;
 	onresize?: (width: number, height: number) => void;
 }
@@ -77,6 +78,7 @@ export function startSpoilerSky(
 	let height = 0;
 	let pixelRatio = 1;
 	let stars: Star[] = [];
+	let laidOut = { width: 0, height: 0 };
 	let onScreen = false;
 	let active = true;
 	let pointer = { x: 0, y: 0 };
@@ -105,16 +107,30 @@ export function startSpoilerSky(
 		};
 	}
 
+	function populate() {
+		const area = options.areaPerStar ?? areaPerStar;
+		const count = Math.round(Math.min(maxStars, Math.max(minStars, (width * height) / area)));
+		stars = Array.from({ length: count }, createStar);
+	}
+
+	function stretchStars() {
+		for (const star of stars) {
+			star.x = (star.x / laidOut.width) * width;
+			star.y = (star.y / laidOut.height) * height;
+		}
+	}
+
 	function resize(nextWidth: number, nextHeight: number) {
 		width = nextWidth;
 		height = nextHeight;
 		pixelRatio = Math.min(window.devicePixelRatio || 1, maxPixelRatio);
 		canvas.width = Math.max(1, Math.round(width * pixelRatio));
 		canvas.height = Math.max(1, Math.round(height * pixelRatio));
-		const count = Math.round(
-			Math.min(maxStars, Math.max(minStars, (width * height) / areaPerStar))
-		);
-		stars = Array.from({ length: count }, createStar);
+		if (width > 0 && height > 0) {
+			if (stars.length === 0) populate();
+			else stretchStars();
+			laidOut = { width, height };
+		}
 		options.onresize?.(width, height);
 		draw(performance.now());
 	}

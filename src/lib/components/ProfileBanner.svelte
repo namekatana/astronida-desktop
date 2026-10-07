@@ -16,6 +16,8 @@
 
 	let { userId, bannerId, preview = { kind: 'current' }, onpick }: Props = $props();
 
+	const bannerAreaPerStar = 1800;
+
 	let skyHost = $state<HTMLDivElement | null>(null);
 	let skyCanvas = $state<HTMLCanvasElement | null>(null);
 
@@ -33,7 +35,10 @@
 		const host = skyHost;
 		const canvas = skyCanvas;
 		if (!host || !canvas) return;
-		const started = startSpoilerSky(host, canvas, { reducedMotion: prefersReducedMotion.current });
+		const started = startSpoilerSky(host, canvas, {
+			reducedMotion: prefersReducedMotion.current,
+			areaPerStar: bannerAreaPerStar
+		});
 		sky = started;
 		return () => {
 			started.stop();
