@@ -18,6 +18,7 @@ export function createIncoming(input: {
 	isTextChannel: (serverId: string, channelId: string) => boolean;
 	requestCount: () => number;
 	onOpenHome: (directChannelId: string | null) => void;
+	onDirectMessage: (channelId: string, message: Message) => void;
 	onAvatarChanged: (avatarId: string | null) => void;
 	onProfileChanged: (changes: Partial<ProfileDetails>) => void;
 }) {
@@ -34,6 +35,7 @@ export function createIncoming(input: {
 
 	function handleDirectMessage(channelId: string, message: Message) {
 		clearTyping(channelId, message.author.id);
+		input.onDirectMessage(channelId, message);
 		sync.receive(channelId, message);
 		if (isViewing(channelId)) {
 			markRead(channelId, message.id);
@@ -79,7 +81,7 @@ export function createIncoming(input: {
 			onRead: (channelId, messageId) => unread.clear(channelId, messageId),
 			onTyping: markTyping,
 			onMessageDeleted: sync.forget,
-				onMessageEdited: sync.edit,
+			onMessageEdited: sync.edit,
 			onStatus: (status) => ownStatus.adopt(status),
 			onStatusRestored: (status) => ownStatus.restore(status),
 			onAvatarChanged: input.onAvatarChanged,

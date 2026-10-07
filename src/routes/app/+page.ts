@@ -1,6 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import { auth } from '$lib/auth/session.svelte';
 import { workspaceCache, type CachedAccount, type Workspace } from '$lib/cache/workspace-cache';
+import { loadConversations } from '$lib/direct/conversations';
 import { loadFriends } from '$lib/friends/friends';
 import { history, type HistoryPage } from '$lib/history/history';
 import { lastSelection } from '$lib/ui/last-selection.svelte';
@@ -14,7 +15,7 @@ import { supabase } from '$lib/supabase/client';
 import { retryOnFreshToken } from '$lib/supabase/retry';
 
 async function fetchAccount(userId: string): Promise<CachedAccount> {
-	const [profile, servers, friends] = await Promise.all([
+	const [profile, servers, friends, conversations] = await Promise.all([
 		retryOnFreshToken(() =>
 			supabase
 				.from('profiles')
@@ -23,7 +24,8 @@ async function fetchAccount(userId: string): Promise<CachedAccount> {
 				.single()
 		),
 		loadServers(),
-		loadFriends(userId)
+		loadFriends(userId),
+		loadConversations(userId)
 	]);
 	const account = {
 		username: profile.data?.username ?? null,
@@ -33,7 +35,8 @@ async function fetchAccount(userId: string): Promise<CachedAccount> {
 		bio: profile.data?.bio ?? null,
 		widgets: profile.data?.widgets ?? null,
 		servers,
-		friends
+		friends,
+		conversations
 	};
 	workspaceCache.saveAccount(userId, account);
 	return account;
@@ -49,10 +52,9 @@ function lastOpenChatId(
 		const channel = workspaces[serverId]?.channels.find((candidate) => candidate.id === channelId);
 		return channel?.kind === 'text' ? channel.id : null;
 	}
-	const friend = (account.friends ?? []).find(
-		(candidate) => candidate.id === lastSelection.friendId
-	);
-	return friend?.channelId ?? null;
+	const partners = [...(account.friends ?? []), ...(account.conversations ?? [])];
+	const partner = partners.find((candidate) => candidate.id === lastSelection.friendId);
+	return partner?.channelId ?? null;
 }
 
 const avatarPreloadLimitMs = 300;
@@ -63,7 +65,7 @@ function visibleAvatars(
 ): { avatarId: string; variant: AvatarVariant }[] {
 	const serverId = lastSelection.serverId;
 	const members = serverId ? (previews[serverId]?.rows ?? []) : [];
-	const people = [...(account.friends ?? []), ...members];
+	const people = [...(account.friends ?? []), ...(account.conversations ?? []), ...members];
 	const others = people.flatMap((person) =>
 		person.avatarId ? [{ avatarId: person.avatarId, variant: 'small' as const }] : []
 	);

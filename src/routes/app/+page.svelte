@@ -38,7 +38,10 @@
 	import VoiceDock from '$lib/components/VoiceDock.svelte';
 	import { findActiveFriends } from '$lib/friends/active-friends';
 	import { acceptFriendRequest, declineFriendRequest } from '$lib/friends/channel';
+	import { openDirect } from '$lib/direct/conversations';
+	import { createConversations } from '$lib/direct/conversations.svelte';
 	import type { Friend } from '$lib/friends/friends';
+	import type { Member } from '$lib/servers/members';
 	import { createFriendsState } from '$lib/friends/friends-state.svelte';
 	import { history } from '$lib/history/history';
 	import type { CompressedImage } from '$lib/media/compress';
@@ -172,11 +175,23 @@
 		persist: (list) => persistAccount(list)
 	});
 
+	// svelte-ignore state_referenced_locally
+	const conversations = createConversations({
+		userId: data.userId,
+		initial: data.account.conversations ?? [],
+		feeds,
+		friendIds: () => friends.ids,
+		persist: () => persistAccount(friends.list)
+	});
+
 	const selectedServer = $derived(servers.find((server) => server.id === selectedServerId) ?? null);
 	const selectedChannel = $derived(channels.find((c) => c.id === selectedChannelId) ?? null);
-	const selectedFriend = $derived.by(() => {
+	const selectedFriend = $derived.by((): (Friend & Member) | null => {
 		if (selectedServer || !selectedFriendId) return null;
-		return friends.withPresence.find((friend) => friend.id === selectedFriendId) ?? null;
+		const friend = friends.withPresence.find((known) => known.id === selectedFriendId);
+		if (friend) return friend;
+		const partner = conversations.find(selectedFriendId);
+		return partner ? { ...partner, online: false, owner: false } : null;
 	});
 	const openChatId = $derived(selectedChannel?.id ?? selectedFriend?.channelId ?? null);
 
@@ -201,6 +216,7 @@
 				widgets: widgetsFrom(account.widgets ?? null) ?? null
 			});
 			friends.list = account.friends;
+			conversations.list = account.conversations ?? [];
 		});
 	});
 
@@ -246,7 +262,7 @@
 		onCategoryCreated: workspaces.addCategory,
 		onChannelCreated: workspaces.addChannel,
 		onMessageDeleted: sync.forget,
-			onMessageEdited: sync.edit
+		onMessageEdited: sync.edit
 	});
 
 	// svelte-ignore state_referenced_locally
@@ -299,6 +315,10 @@
 		isTextChannel: workspaces.isTextChannel,
 		requestCount: () => friends.requests.length,
 		onOpenHome: openHome,
+		onDirectMessage: (channelId, message) => {
+			if (friends.list.some((friend) => friend.channelId === channelId)) return;
+			conversations.learnFromMessage(channelId, message.author);
+		},
 		onAvatarChanged: (next) => {
 			if (next !== avatarId) changeAvatar(next);
 		},
@@ -398,7 +418,8 @@
 			bio: details.bio,
 			widgets: details.widgets,
 			servers,
-			friends: list
+			friends: list,
+			conversations: conversations.list
 		});
 	}
 
@@ -434,6 +455,7 @@
 			return;
 		}
 		sideClosingInPlace = false;
+		directError = null;
 		sideProfile = { target: known, place };
 	}
 
@@ -521,13 +543,45 @@
 	function openHome(directChannelId: string | null) {
 		selectedServerId = null;
 		if (!directChannelId) return;
-		const friend = friends.list.find((known) => known.channelId === directChannelId);
-		if (friend) selectFriend(friend.id);
+		const partner =
+			friends.list.find((known) => known.channelId === directChannelId) ??
+			conversations.findByChannel(directChannelId);
+		if (partner) selectFriend(partner.id);
+	}
+
+	function chatPartner(userId: string): Friend | undefined {
+		return friends.list.find((friend) => friend.id === userId) ?? conversations.find(userId);
 	}
 
 	function prefetchFriend(friendId: string) {
-		const channelId = friends.list.find((friend) => friend.id === friendId)?.channelId;
+		const channelId = chatPartner(friendId)?.channelId;
 		if (channelId) void sync.warm(channelId);
+	}
+
+	let directOpening = $state<string | null>(null);
+	let directError = $state<{ userId: string; message: string } | null>(null);
+
+	function showDirectChat(userId: string) {
+		selectedServerId = null;
+		selectFriend(userId);
+	}
+
+	async function messageUser(target: ProfileTarget) {
+		if (chatPartner(target.id)?.channelId) {
+			showDirectChat(target.id);
+			return;
+		}
+		if (directOpening) return;
+		directOpening = target.id;
+		directError = null;
+		const result = await openDirect(target.id);
+		directOpening = null;
+		if (!result.ok) {
+			directError = { userId: target.id, message: result.message };
+			return;
+		}
+		conversations.remember(result.partner);
+		showDirectChat(result.partner.id);
 	}
 
 	function prefetchChannel(channelId: string) {
@@ -866,12 +920,13 @@
 		{:else}
 			<FriendsPanel
 				friends={friends.withPresence}
+				conversations={conversations.members}
 				requests={friends.requests}
 				freshRequestIds={friends.freshRequestIds}
 				freshFriendIds={friends.freshFriendIds}
 				selectedFriendId={selectedFriend?.id ?? null}
-				unreadByFriend={friends.unreadCounts}
-				activityByFriend={friends.activity}
+				unreadByFriend={{ ...friends.unreadCounts, ...conversations.unreadCounts }}
+				activityByFriend={{ ...friends.activity, ...conversations.activity }}
 				bind:width={panelWidths.channels}
 				onselect={selectFriend}
 				onprefetch={prefetchFriend}
@@ -1011,6 +1066,9 @@
 							animated
 							onback={closeSideProfile}
 							onopenserver={handleServerJoined}
+							onmessage={() => messageUser(sideCard.target)}
+							messageBusy={directOpening === sideCard.target.id}
+							messageError={directError?.userId === sideCard.target.id ? directError.message : null}
 						/>
 					</div>
 				{:else}

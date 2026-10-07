@@ -19,6 +19,7 @@
 
 	interface Props {
 		friends: Member[];
+		conversations: Member[];
 		requests: Friend[];
 		freshRequestIds: ReadonlySet<string>;
 		freshFriendIds: ReadonlySet<string>;
@@ -36,6 +37,7 @@
 
 	let {
 		friends,
+		conversations,
 		requests,
 		freshRequestIds,
 		freshFriendIds,
@@ -62,8 +64,8 @@
 	}
 
 	type FriendListItem =
-		| { kind: 'heading'; key: string; label: string; count: number }
-		| { kind: 'friend'; key: string; member: Member };
+		| { kind: 'heading'; key: string; label: string; count: number; first: boolean }
+		| { kind: 'friend'; key: string; member: Member; presenceKnown: boolean };
 
 	const moveDuration = 280;
 
@@ -71,21 +73,29 @@
 
 	const listItems = $derived.by((): FriendListItem[] => {
 		const groups = [
-			{ label: 'В сети', members: friends.filter((f) => f.online) },
-			{ label: 'Не в сети', members: friends.filter((f) => !f.online) }
+			{ key: 'conversations', label: 'Сообщения', members: conversations, presenceKnown: false },
+			{ key: 'online', label: 'В сети', members: friends.filter((f) => f.online), presenceKnown: true },
+			{
+				key: 'offline',
+				label: 'Не в сети',
+				members: friends.filter((f) => !f.online),
+				presenceKnown: true
+			}
 		].filter((group) => group.members.length > 0);
 
 		return groups.flatMap((group, position): FriendListItem[] => [
 			{
 				kind: 'heading',
-				key: `heading:${position}`,
+				key: `heading:${group.key}`,
 				label: group.label,
-				count: group.members.length
+				count: group.members.length,
+				first: position === 0
 			},
 			...group.members.map((member): FriendListItem => ({
 				kind: 'friend',
 				key: member.id,
-				member
+				member,
+				presenceKnown: group.presenceKnown
 			}))
 		]);
 	});
@@ -254,7 +264,7 @@
 					out:leave={item}
 				>
 					{#if item.kind === 'heading'}
-						{@render heading(item.label, item.count, item.key === 'heading:0')}
+						{@render heading(item.label, item.count, item.first)}
 					{:else}
 						<button
 							type="button"
@@ -269,6 +279,7 @@
 								activity={activityByFriend[item.member.id]}
 								active={item.member.id === selectedFriendId}
 								badged={(unreadByFriend[item.member.id] ?? 0) > 0}
+								presenceKnown={item.presenceKnown}
 							/>
 							{#if (unreadByFriend[item.member.id] ?? 0) > 0}
 								<span

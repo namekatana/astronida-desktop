@@ -15,6 +15,7 @@ export interface CachedAccount {
 	widgets?: unknown;
 	servers: Server[];
 	friends: Friend[];
+	conversations?: Friend[];
 }
 
 export interface Workspace {

@@ -2,14 +2,13 @@ import { untrack } from 'svelte';
 import { SvelteSet } from 'svelte/reactivity';
 import { workspaceCache } from '$lib/cache/workspace-cache';
 import type { Feeds } from '$lib/messages/feeds.svelte';
-import { previewText } from '$lib/messages/messages';
-import { typingIn } from '$lib/messages/typing.svelte';
 import { requestAttention, showNotification } from '$lib/notifications/notify';
 import { playFriendRequestSound } from '$lib/notifications/sounds';
 import { ownStatus } from '$lib/presence/own-status.svelte';
 import type { PresenceStatus } from '$lib/presence/status';
 import { unread } from '$lib/notifications/unread.svelte';
 import { windowFocus } from '$lib/ui/window-focus.svelte';
+import { chatActivity } from './activity';
 import { subscribeToFriends } from './channel';
 import type { Friend, FriendActivity } from './friends';
 
@@ -98,21 +97,14 @@ export function createFriendsState(input: {
 	const activity = $derived(
 		Object.fromEntries(
 			list.flatMap((friend): [string, FriendActivity][] => {
-				const channelId = friend.channelId;
-				if (!channelId) return [];
-				if (typingIn(channelId).includes(friend.id)) return [[friend.id, { kind: 'typing' }]];
-				const latest = input.feeds.latestOf(channelId);
-				if (!latest) return [];
-				return [
-					[
-						friend.id,
-						{
-							kind: 'message',
-							text: previewText(latest.text),
-							own: latest.author.id === input.userId
-						}
-					]
-				];
+				if (!friend.channelId) return [];
+				const current = chatActivity({
+					feeds: input.feeds,
+					selfId: input.userId,
+					partnerId: friend.id,
+					channelId: friend.channelId
+				});
+				return current ? [[friend.id, current]] : [];
 			})
 		)
 	);

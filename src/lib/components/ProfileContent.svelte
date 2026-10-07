@@ -4,12 +4,14 @@
 	import type { ProfileCard, ProfileEditing, ProfileRelation } from '$lib/profile/profile';
 	import { widgetTileClass } from '$lib/profile/widget-tile';
 	import type { Server } from '$lib/servers/servers';
+	import { createDelayedFlag } from '$lib/ui/delayed-flag.svelte';
 	import type { IconName } from '$lib/ui/icons';
 	import { initials } from '$lib/ui/initials';
 	import { materialize } from '$lib/ui/materialize';
 	import { settle } from '$lib/ui/settle';
 	import DrawnCheck from './DrawnCheck.svelte';
 	import Icon from './Icon.svelte';
+	import Orbit from './Orbit.svelte';
 	import ProfileAvatar from './ProfileAvatar.svelte';
 	import ProfileBanner from './ProfileBanner.svelte';
 	import ProfileWidgets from './ProfileWidgets.svelte';
@@ -21,22 +23,35 @@
 		animated: boolean;
 		editing?: ProfileEditing | null;
 		onopenserver?: (server: Server) => void;
+		onmessage?: () => void;
+		messageBusy?: boolean;
+		messageError?: string | null;
 	}
 
-	let { card, cometDelay, animated, editing = null, onopenserver }: Props = $props();
+	let {
+		card,
+		cometDelay,
+		animated,
+		editing = null,
+		onopenserver,
+		onmessage,
+		messageBusy = false,
+		messageError = null
+	}: Props = $props();
 
 	let avatar = $state<ReturnType<typeof ProfileAvatar>>();
+
+	const messageSpinnerDelayMs = 150;
+	const messageSpinner = createDelayedFlag(() => messageBusy, messageSpinnerDelayMs);
 
 	export function showStatusNow() {
 		avatar?.showStatusNow();
 	}
 
-	const primaryActions: Record<Exclude<ProfileRelation, 'self'>, { label: string; icon: IconName }> =
-		{
-			friend: { label: 'Написать', icon: 'text' },
-			incoming: { label: 'Принять запрос', icon: 'user-check' },
-			none: { label: 'Добавить в друзья', icon: 'user-plus' }
-		};
+	const friendActions: Partial<Record<ProfileRelation, { label: string; icon: IconName }>> = {
+		incoming: { label: 'Принять запрос', icon: 'user-check' },
+		none: { label: 'Добавить в друзья', icon: 'user-plus' }
+	};
 
 	const still: TransitionConfig = { duration: 0 };
 
@@ -145,15 +160,35 @@
 		{/if}
 
 		{#if card.relation !== 'self'}
-			{@const primary = primaryActions[card.relation]}
+			{@const friendAction = friendActions[card.relation]}
 			<div class="mt-4 flex items-center gap-2">
-				<button
-					type="button"
-					class="pressable flex h-9 items-center gap-2 rounded-full bg-ink px-4 text-[13px] font-semibold text-bg duration-150 hover:bg-ink-hover"
-				>
-					<Icon name={primary.icon} size={15} />
-					{primary.label}
-				</button>
+				{#if onmessage}
+					<button
+						type="button"
+						disabled={messageBusy}
+						onclick={onmessage}
+						class="pressable flex h-9 items-center gap-2 rounded-full bg-ink px-4 text-[13px] font-semibold text-bg duration-150 hover:bg-ink-hover disabled:opacity-50"
+					>
+						<span class="grid h-4 w-4 place-items-center">
+							{#if messageSpinner.current}
+								<Orbit size={16} class="col-start-1 row-start-1" />
+							{:else}
+								<Icon name="text" size={15} class="col-start-1 row-start-1" />
+							{/if}
+						</span>
+						Написать
+					</button>
+				{/if}
+				{#if friendAction}
+					<button
+						type="button"
+						aria-label={friendAction.label}
+						title={friendAction.label}
+						class="pressable flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.08] text-ink duration-150 hover:bg-white/[0.12]"
+					>
+						<Icon name={friendAction.icon} size={16} />
+					</button>
+				{/if}
 				<button
 					type="button"
 					aria-label="Ещё"
@@ -161,6 +196,11 @@
 				>
 					<Icon name="dots" size={16} />
 				</button>
+			</div>
+			<div class="collapsible {messageError ? 'is-open' : ''}" inert={!messageError}>
+				<div>
+					<p class="px-4 pt-2 text-center text-[12px] leading-4 text-danger">{messageError ?? ''}</p>
+				</div>
 			</div>
 		{/if}
 	</div>

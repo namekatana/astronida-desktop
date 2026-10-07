@@ -8,13 +8,15 @@
 		activity?: FriendActivity;
 		active?: boolean;
 		badged?: boolean;
+		presenceKnown?: boolean;
 	}
 
-	let { member, activity, active = false, badged = false }: Props = $props();
+	let { member, activity, active = false, badged = false, presenceKnown = true }: Props = $props();
 </script>
 
 <div
-	class="flex h-12 items-center gap-2.5 rounded-lg px-2.5 transition-[background-color,opacity] duration-200 hover:bg-white/[0.04] {member.online
+	class="flex h-12 items-center gap-2.5 rounded-lg px-2.5 transition-[background-color,opacity] duration-200 hover:bg-white/[0.04] {member.online ||
+	!presenceKnown
 		? ''
 		: 'opacity-50'}"
 >

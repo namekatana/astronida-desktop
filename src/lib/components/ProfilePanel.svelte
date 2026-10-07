@@ -12,9 +12,20 @@
 		animated: boolean;
 		onback?: () => void;
 		onopenserver?: (server: Server) => void;
+		onmessage?: () => void;
+		messageBusy?: boolean;
+		messageError?: string | null;
 	}
 
-	let { card, animated, onback, onopenserver }: Props = $props();
+	let {
+		card,
+		animated,
+		onback,
+		onopenserver,
+		onmessage,
+		messageBusy = false,
+		messageError = null
+	}: Props = $props();
 
 	function appear(node: Element): TransitionConfig {
 		return animated ? settle(node) : { duration: 0 };
@@ -28,7 +39,15 @@
 	<SmoothScroll scrollbar class="min-h-0 flex-1" contentClass="grid p-1.5 pb-4">
 		{#key card.target.id}
 			<div class="col-start-1 row-start-1 flex min-w-0 flex-col items-center" in:appear>
-				<ProfileContent {card} cometDelay={null} animated={false} {onopenserver} />
+				<ProfileContent
+					{card}
+					cometDelay={null}
+					animated={false}
+					{onopenserver}
+					{onmessage}
+					{messageBusy}
+					{messageError}
+				/>
 			</div>
 		{/key}
 	</SmoothScroll>
