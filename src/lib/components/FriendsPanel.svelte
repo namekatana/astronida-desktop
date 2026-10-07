@@ -203,11 +203,16 @@
 											? 'request-fresh'
 											: ''} {answering.has(request.id) ? 'opacity-50' : ''}"
 									>
-										<Avatar name={request.name} size={32} />
+										<Avatar
+											name={request.name}
+											size={32}
+											userId={request.id}
+											avatarId={request.avatarId}
+										/>
 										<span class="min-w-0 flex-1">
 											<span class="block truncate text-[13px] text-ink">@{request.username}</span>
 											<span class="block truncate text-[11px] text-muted">
-												хочет добавить вас в друзья
+												Хочет добавить вас в друзья
 											</span>
 										</span>
 										<div class="flex shrink-0 items-center gap-1.5">
