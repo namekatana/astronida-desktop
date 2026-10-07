@@ -48,7 +48,7 @@
 	const landingMs = 580;
 	const mergeMs = 420;
 	const headScale = 0.6;
-	const recolorMs = 420;
+	const recolorMs = 200;
 	const pulseMs = 420;
 	const pulseScale = 1.18;
 	const softEasing = 'cubic-bezier(0.22, 1, 0.36, 1)';
@@ -90,7 +90,12 @@
 		const next = status;
 		latestStatus = next;
 		if (next === untrack(() => shownStatus)) return;
-		untrack(() => recolor(next));
+		if (!cometPlanned || prefersReducedMotion.current) {
+			untrack(() => recolor(next));
+			return;
+		}
+		const landing = setTimeout(() => recolor(next), landingMs);
+		return () => clearTimeout(landing);
 	});
 
 	$effect(() => {
