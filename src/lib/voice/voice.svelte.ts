@@ -28,6 +28,7 @@ const retryBaseMs = 1000;
 const retryMaxMs = 5_000;
 const credentialsReuseMs = 40_000;
 const reconnectingToneTiming = { firstAfterMs: 1_000, everyMs: 2_500 };
+const afterJoinToneTiming = { firstAfterMs: 2_000, everyMs: 2_500 };
 const keyResyncGapMs = 5_000;
 
 let micMuted = $state(false);
@@ -145,8 +146,7 @@ function scheduleReconnect(target: VoiceConnection) {
 	const current = attempt;
 	cancelRetry();
 	releaseTransport();
-	status = 'reconnecting';
-	startReconnectingTone();
+	enterReconnecting();
 	resetLiveState();
 
 	const delay = Math.min(retryBaseMs * 2 ** retryCount, retryMaxMs) + Math.random() * 500;
@@ -171,8 +171,15 @@ function scheduleReconnect(target: VoiceConnection) {
 	pendingRetry = start;
 }
 
-function startReconnectingTone() {
-	stopReconnectingTone ??= repeatToggleSound('voice-reconnecting', reconnectingToneTiming);
+function enterReconnecting() {
+	const joining = status === 'connecting';
+	if (joining) playToggleSound('voice-connected');
+	status = 'reconnecting';
+	startReconnectingTone(joining ? afterJoinToneTiming : reconnectingToneTiming);
+}
+
+function startReconnectingTone(timing: typeof reconnectingToneTiming) {
+	stopReconnectingTone ??= repeatToggleSound('voice-reconnecting', timing);
 }
 
 function silenceReconnectingTone() {
@@ -278,8 +285,7 @@ async function syncKey(target: VoiceConnection, owner: VoiceTransport) {
 
 function handleTransportState(state: TransportState, target: VoiceConnection) {
 	if (state.kind === 'reconnecting') {
-		status = 'reconnecting';
-		startReconnectingTone();
+		enterReconnecting();
 		return;
 	}
 	if (state.kind === 'connected') {
