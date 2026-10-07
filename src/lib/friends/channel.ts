@@ -28,6 +28,7 @@ interface JoinReply {
 	online: string[];
 	statuses?: Record<string, unknown>;
 	incoming: ProfilePayload[];
+	outgoing?: string[];
 }
 
 export type SearchOutcome =
@@ -36,6 +37,7 @@ export type SearchOutcome =
 interface FriendsSession {
 	channel: Channel;
 	dropRequest: (userId: string) => void;
+	markOutgoing: (userId: string) => void;
 }
 
 let session: FriendsSession | null = null;
@@ -59,13 +61,26 @@ export function subscribeToFriends(input: {
 	onRequestReceived: (request: Friend) => void;
 	onFriendAdded: (friend: Friend) => void;
 	onFriendAvatar: (userId: string, avatarId: string | null) => void;
+	onOutgoing: (userIds: Set<string>) => void;
 }): () => void {
 	const channel = phoenixSocket().channel(`friends:${input.userId}`);
 	let online = new Map<string, PresenceStatus>();
 	let requests: Friend[] = [];
+	let outgoing = new Set<string>();
 
 	const publishOnline = () => input.onOnline(new Map(online));
 	const publishRequests = () => input.onRequests([...requests]);
+	const publishOutgoing = () => input.onOutgoing(new Set(outgoing));
+
+	function markOutgoing(userId: string) {
+		if (outgoing.has(userId)) return;
+		outgoing.add(userId);
+		publishOutgoing();
+	}
+
+	function dropOutgoing(userId: string) {
+		if (outgoing.delete(userId)) publishOutgoing();
+	}
 
 	function markPresence(userId: string, isOnline: boolean, status: unknown) {
 		if (isOnline) online.set(userId, presenceStatusFrom(status));
@@ -96,6 +111,7 @@ export function subscribeToFriends(input: {
 		const friend = toFriend(payload.user, payload.channel_id);
 		markPresence(friend.id, payload.online, payload.status);
 		dropRequest(friend.id);
+		dropOutgoing(friend.id);
 		publishOnline();
 		input.onFriendAdded(friend);
 	});
@@ -112,11 +128,13 @@ export function subscribeToFriends(input: {
 			reply.online.map((userId) => [userId, presenceStatusFrom(reply.statuses?.[userId])])
 		);
 		requests = reply.incoming.map((profile) => toFriend(profile));
+		outgoing = new Set(reply.outgoing ?? []);
 		publishOnline();
 		publishRequests();
+		publishOutgoing();
 	});
 
-	session = { channel, dropRequest };
+	session = { channel, dropRequest, markOutgoing };
 
 	return () => {
 		if (session?.channel === channel) session = null;
@@ -144,9 +162,34 @@ export async function searchUsers(query: string): Promise<SearchOutcome> {
 	};
 }
 
-export async function sendFriendRequest(userId: string): Promise<FriendRelation | null> {
+export type FriendRequestOutcome =
+	| { ok: true; relation: FriendRelation }
+	| { ok: false; reason: 'limit_reached' | 'rate_limited' | 'not_found' | 'failed' };
+
+export const friendRequestFailureText: Record<
+	Extract<FriendRequestOutcome, { ok: false }>['reason'],
+	string
+> = {
+	limit_reached: 'Слишком много отправленных запросов',
+	rate_limited: 'Слишком часто, попробуйте через минуту',
+	not_found: 'Пользователь не найден',
+	failed: 'Не удалось отправить — проверьте соединение'
+};
+
+export async function requestFriendship(userId: string): Promise<FriendRequestOutcome> {
 	const outcome = await push<{ relation: FriendRelation }>('request', { user_id: userId });
-	return outcome.ok ? outcome.reply.relation : null;
+	if (!outcome.ok) {
+		const known = ['limit_reached', 'rate_limited', 'not_found'] as const;
+		const reason = known.find((candidate) => candidate === outcome.reason) ?? 'failed';
+		return { ok: false, reason };
+	}
+	if (outcome.reply.relation === 'outgoing') session?.markOutgoing(userId);
+	return { ok: true, relation: outcome.reply.relation };
+}
+
+export async function sendFriendRequest(userId: string): Promise<FriendRelation | null> {
+	const outcome = await requestFriendship(userId);
+	return outcome.ok ? outcome.relation : null;
 }
 
 export async function acceptFriendRequest(userId: string): Promise<boolean> {

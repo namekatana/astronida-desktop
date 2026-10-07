@@ -14,7 +14,8 @@
 		onopenserver?: (server: Server) => void;
 		onmessage?: () => void;
 		messageBusy?: boolean;
-		messageError?: string | null;
+		onfriendaction?: () => Promise<boolean>;
+		actionError?: string | null;
 	}
 
 	let {
@@ -24,7 +25,8 @@
 		onopenserver,
 		onmessage,
 		messageBusy = false,
-		messageError = null
+		onfriendaction,
+		actionError = null
 	}: Props = $props();
 
 	function appear(node: Element): TransitionConfig {
@@ -46,7 +48,8 @@
 					{onopenserver}
 					{onmessage}
 					{messageBusy}
-					{messageError}
+					{onfriendaction}
+					{actionError}
 				/>
 			</div>
 		{/key}

@@ -5,7 +5,6 @@
 	import { widgetTileClass } from '$lib/profile/widget-tile';
 	import type { Server } from '$lib/servers/servers';
 	import { createDelayedFlag } from '$lib/ui/delayed-flag.svelte';
-	import type { IconName } from '$lib/ui/icons';
 	import { initials } from '$lib/ui/initials';
 	import { materialize } from '$lib/ui/materialize';
 	import { settle } from '$lib/ui/settle';
@@ -25,7 +24,8 @@
 		onopenserver?: (server: Server) => void;
 		onmessage?: () => void;
 		messageBusy?: boolean;
-		messageError?: string | null;
+		onfriendaction?: () => Promise<boolean>;
+		actionError?: string | null;
 	}
 
 	let {
@@ -36,22 +36,61 @@
 		onopenserver,
 		onmessage,
 		messageBusy = false,
-		messageError = null
+		onfriendaction,
+		actionError = null
 	}: Props = $props();
 
 	let avatar = $state<ReturnType<typeof ProfileAvatar>>();
 
-	const messageSpinnerDelayMs = 150;
-	const messageSpinner = createDelayedFlag(() => messageBusy, messageSpinnerDelayMs);
+	const spinnerDelayMs = 150;
+	const messageSpinner = createDelayedFlag(() => messageBusy, spinnerDelayMs);
+
+	let friendBusy = $state(false);
+	let justSent = $state(false);
+	const friendSpinner = createDelayedFlag(() => friendBusy, spinnerDelayMs);
 
 	export function showStatusNow() {
 		avatar?.showStatusNow();
 	}
 
-	const friendActions: Partial<Record<ProfileRelation, { label: string; icon: IconName }>> = {
-		incoming: { label: 'Принять запрос', icon: 'user-check' },
-		none: { label: 'Добавить в друзья', icon: 'user-plus' }
+	type FriendGlyph = 'add' | 'accept' | 'sent' | 'spinner';
+
+	const friendLabels: Record<Exclude<FriendGlyph, 'spinner'>, string> = {
+		add: 'Добавить в друзья',
+		accept: 'Принять запрос',
+		sent: 'Запрос отправлен'
 	};
+
+	const friendGlyphs: Partial<Record<ProfileRelation, Exclude<FriendGlyph, 'spinner'>>> = {
+		none: 'add',
+		incoming: 'accept',
+		outgoing: 'sent'
+	};
+
+	const restingGlyph = $derived(friendGlyphs[card.relation]);
+	const friendGlyph = $derived<FriendGlyph | undefined>(
+		friendSpinner.current ? 'spinner' : restingGlyph
+	);
+
+	async function runFriendAction() {
+		if (!onfriendaction || friendBusy || restingGlyph === 'sent') return;
+		justSent = true;
+		friendBusy = true;
+		await onfriendaction();
+		friendBusy = false;
+	}
+
+	function glyphIn(node: Element): TransitionConfig {
+		return materialize(node, { scale: 0.85, blur: 2, duration: 220 });
+	}
+
+	function glyphOut(node: Element): TransitionConfig {
+		return materialize(node, { scale: 0.85, blur: 2, duration: 120 });
+	}
+
+	function friendButtonOut(node: Element): TransitionConfig {
+		return materialize(node, { scale: 0.9, blur: 2, duration: 160 });
+	}
 
 	const still: TransitionConfig = { duration: 0 };
 
@@ -160,7 +199,6 @@
 		{/if}
 
 		{#if card.relation !== 'self'}
-			{@const friendAction = friendActions[card.relation]}
 			<div class="mt-4 flex items-center gap-2">
 				{#if onmessage}
 					<button
@@ -179,14 +217,31 @@
 						Написать
 					</button>
 				{/if}
-				{#if friendAction}
+				{#if restingGlyph && friendGlyph}
+					{@const sent = restingGlyph === 'sent'}
 					<button
 						type="button"
-						aria-label={friendAction.label}
-						title={friendAction.label}
-						class="pressable flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.08] text-ink duration-150 hover:bg-white/[0.12]"
+						aria-label={friendLabels[restingGlyph]}
+						aria-disabled={sent}
+						aria-busy={friendBusy}
+						title={friendLabels[restingGlyph]}
+						onclick={runFriendAction}
+						out:friendButtonOut
+						class="grid h-9 w-9 place-items-center rounded-full bg-white/[0.08] duration-150 {sent
+							? 'cursor-default text-muted transition-colors'
+							: 'pressable text-ink hover:bg-white/[0.12]'}"
 					>
-						<Icon name={friendAction.icon} size={16} />
+						{#key friendGlyph}
+							<span class="col-start-1 row-start-1 flex" in:glyphIn out:glyphOut>
+								{#if friendGlyph === 'spinner'}
+									<Orbit size={16} />
+								{:else if friendGlyph === 'sent'}
+									<DrawnCheck size={16} duration={justSent ? 320 : 0} delay={60} />
+								{:else}
+									<Icon name={friendGlyph === 'accept' ? 'user-check' : 'user-plus'} size={16} />
+								{/if}
+							</span>
+						{/key}
 					</button>
 				{/if}
 				<button
@@ -197,9 +252,16 @@
 					<Icon name="dots" size={16} />
 				</button>
 			</div>
-			<div class="collapsible {messageError ? 'is-open' : ''}" inert={!messageError}>
-				<div>
-					<p class="px-4 pt-2 text-center text-[12px] leading-4 text-danger">{messageError ?? ''}</p>
+			<div class="collapsible {actionError ? 'is-open' : ''}" inert={!actionError}>
+				<div class="grid">
+					{#key actionError}
+						<p
+							in:settle
+							class="col-start-1 row-start-1 px-4 pt-2 text-center text-[12px] leading-4 text-danger"
+						>
+							{actionError ?? ''}
+						</p>
+					{/key}
 				</div>
 			</div>
 		{/if}

@@ -26,6 +26,7 @@ export function createFriendsState(input: {
 		new Map([...input.online].map((userId) => [userId, 'online' as const]))
 	);
 	let requests = $state<Friend[]>([]);
+	let outgoingIds = $state<ReadonlySet<string>>(new Set());
 	const freshRequestIds = new SvelteSet<string>();
 	const freshFriendIds = new SvelteSet<string>();
 
@@ -70,7 +71,8 @@ export function createFriendsState(input: {
 			onRequests: (next) => (requests = next),
 			onRequestReceived: handleRequestReceived,
 			onFriendAdded: addFriend,
-			onFriendAvatar: changeAvatar
+			onFriendAvatar: changeAvatar,
+			onOutgoing: (next) => (outgoingIds = next)
 		});
 	});
 
@@ -127,6 +129,9 @@ export function createFriendsState(input: {
 		},
 		get requests() {
 			return requests;
+		},
+		get outgoingIds() {
+			return outgoingIds;
 		},
 		get ids() {
 			return ids;

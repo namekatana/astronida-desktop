@@ -37,7 +37,12 @@
 	import ServerBar from '$lib/components/ServerBar.svelte';
 	import VoiceDock from '$lib/components/VoiceDock.svelte';
 	import { findActiveFriends } from '$lib/friends/active-friends';
-	import { acceptFriendRequest, declineFriendRequest } from '$lib/friends/channel';
+	import {
+		acceptFriendRequest,
+		declineFriendRequest,
+		friendRequestFailureText,
+		requestFriendship
+	} from '$lib/friends/channel';
 	import { openDirect } from '$lib/direct/conversations';
 	import { createConversations } from '$lib/direct/conversations.svelte';
 	import type { Friend } from '$lib/friends/friends';
@@ -65,7 +70,11 @@
 	import { knownAvatars } from '$lib/profile/known-avatars.svelte';
 	import { profileDetails } from '$lib/profile/profile-details.svelte';
 	import { widgetsFrom, type ProfileWidget } from '$lib/profile/widgets';
-	import { describeProfile, type ProfileTarget } from '$lib/profile/profile';
+	import {
+		describeProfile,
+		type ProfileRelation,
+		type ProfileTarget
+	} from '$lib/profile/profile';
 	import { inviteLinkOf, joinByInvite, prefetchInviteLink } from '$lib/servers/invites';
 	import type { Server } from '$lib/servers/servers';
 	import { createWorkspaces } from '$lib/servers/workspaces.svelte';
@@ -359,6 +368,7 @@
 			detailsOf: profileDetails.of,
 			friends: friends.withPresence,
 			requests: friends.requests,
+			outgoingIds: friends.outgoingIds,
 			servers,
 			presenceByServer: presence.byServer,
 			workspaces: workspaces.all
@@ -455,7 +465,7 @@
 			return;
 		}
 		sideClosingInPlace = false;
-		directError = null;
+		profileError = null;
 		sideProfile = { target: known, place };
 	}
 
@@ -559,7 +569,31 @@
 	}
 
 	let directOpening = $state<string | null>(null);
-	let directError = $state<{ userId: string; message: string } | null>(null);
+	let profileError = $state<{ userId: string; text: string } | null>(null);
+
+	function errorFor(userId: string): string | null {
+		return profileError?.userId === userId ? profileError.text : null;
+	}
+
+	async function befriend(target: ProfileTarget, relation: ProfileRelation): Promise<boolean> {
+		profileError = null;
+		if (relation === 'incoming') {
+			const accepted = await acceptFriendRequest(target.id);
+			if (!accepted) {
+				profileError = {
+					userId: target.id,
+					text: 'Не удалось принять запрос — проверьте соединение'
+				};
+			}
+			return accepted;
+		}
+		const outcome = await requestFriendship(target.id);
+		if (!outcome.ok) {
+			profileError = { userId: target.id, text: friendRequestFailureText[outcome.reason] };
+			return false;
+		}
+		return true;
+	}
 
 	function showDirectChat(userId: string) {
 		selectedServerId = null;
@@ -573,11 +607,11 @@
 		}
 		if (directOpening) return;
 		directOpening = target.id;
-		directError = null;
+		profileError = null;
 		const result = await openDirect(target.id);
 		directOpening = null;
 		if (!result.ok) {
-			directError = { userId: target.id, message: result.message };
+			profileError = { userId: target.id, text: result.message };
 			return;
 		}
 		conversations.remember(result.partner);
@@ -1068,7 +1102,8 @@
 							onopenserver={handleServerJoined}
 							onmessage={() => messageUser(sideCard.target)}
 							messageBusy={directOpening === sideCard.target.id}
-							messageError={directError?.userId === sideCard.target.id ? directError.message : null}
+							onfriendaction={() => befriend(sideCard.target, sideCard.relation)}
+							actionError={errorFor(sideCard.target.id)}
 						/>
 					</div>
 				{:else}
@@ -1094,6 +1129,8 @@
 								card={chatPartnerCard}
 								animated={false}
 								onopenserver={handleServerJoined}
+								onfriendaction={() => befriend(chatPartnerCard.target, chatPartnerCard.relation)}
+								actionError={errorFor(chatPartnerCard.target.id)}
 							/>
 						{:else}
 							<ActiveFriendsPanel active={activeFriends} onopenprofile={openProfile} />

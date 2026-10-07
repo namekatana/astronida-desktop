@@ -17,7 +17,7 @@ export interface ProfileTarget {
 	avatarId?: string | null;
 }
 
-export type ProfileRelation = 'self' | 'friend' | 'incoming' | 'none';
+export type ProfileRelation = 'self' | 'friend' | 'incoming' | 'outgoing' | 'none';
 
 export interface ProfileVoice {
 	channelName: string;
@@ -72,11 +72,13 @@ function relationOf(
 	targetId: string,
 	selfId: string,
 	friends: Member[],
-	requests: Friend[]
+	requests: Friend[],
+	outgoingIds: ReadonlySet<string>
 ): ProfileRelation {
 	if (targetId === selfId) return 'self';
 	if (friends.some((friend) => friend.id === targetId)) return 'friend';
 	if (requests.some((request) => request.id === targetId)) return 'incoming';
+	if (outgoingIds.has(targetId)) return 'outgoing';
 	return 'none';
 }
 
@@ -105,12 +107,13 @@ export function describeProfile(input: {
 	detailsOf: (userId: string) => ProfileDetails;
 	friends: Member[];
 	requests: Friend[];
+	outgoingIds: ReadonlySet<string>;
 	servers: Server[];
 	presenceByServer: Record<string, ServerPresence>;
 	workspaces: Record<string, Workspace>;
 }): ProfileCard {
 	const { target, selfId } = input;
-	const relation = relationOf(target.id, selfId, input.friends, input.requests);
+	const relation = relationOf(target.id, selfId, input.friends, input.requests, input.outgoingIds);
 	const friend = input.friends.find((known) => known.id === target.id);
 	const sharedStatus = memberStatuses.of(target.id);
 	const online = relation === 'self' || (friend?.online ?? false) || sharedStatus !== null;
