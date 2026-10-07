@@ -54,7 +54,7 @@ export function createServersPresence(input: {
 			onCategoryCreated: input.onCategoryCreated,
 			onChannelCreated: input.onChannelCreated,
 			onMessageDeleted: input.onMessageDeleted,
-				onMessageEdited: input.onMessageEdited
+			onMessageEdited: input.onMessageEdited
 		});
 	}
 

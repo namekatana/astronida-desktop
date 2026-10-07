@@ -81,9 +81,9 @@ export function createOpenChat(input: {
 				if (!stale && userId !== input.userId) markTyping(channelId, userId, username);
 			},
 			onEdited: (messageId, content) => {
-					if (!stale) sync.edit(channelId, messageId, content);
-				},
-				onDeleted: (messageId) => {
+				if (!stale) sync.edit(channelId, messageId, content);
+			},
+			onDeleted: (messageId) => {
 				if (!stale) sync.forget(channelId, messageId);
 			},
 			onReady: () => {
