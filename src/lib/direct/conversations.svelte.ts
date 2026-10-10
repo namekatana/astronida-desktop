@@ -106,6 +106,9 @@ export function createConversations(input: {
 		set list(next: Friend[]) {
 			partners = next;
 		},
+		get visible() {
+			return visible;
+		},
 		get members() {
 			return members;
 		},

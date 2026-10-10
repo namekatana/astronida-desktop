@@ -20,19 +20,23 @@
 		serverId: string;
 		serverName: string;
 		friends: Friend[];
+		conversations: Friend[];
 		canManage: boolean;
 		oninvite: (channelId: string, link: string) => void;
 		onclose: () => void;
 	}
 
-	let { serverId, serverName, friends, canManage, oninvite, onclose }: Props = $props();
+	let { serverId, serverName, friends, conversations, canManage, oninvite, onclose }: Props =
+		$props();
 
 	const memberIds = new SvelteSet<string>();
-	const friendIdList = $derived(friends.map((friend) => friend.id).join(','));
+	const candidateIdList = $derived(
+		[...friends, ...conversations].map((person) => person.id).join(',')
+	);
 
 	$effect(() => {
 		const target = serverId;
-		const ids = friendIdList ? friendIdList.split(',') : [];
+		const ids = candidateIdList ? candidateIdList.split(',') : [];
 		let current = true;
 		void membersAmong(target, ids).then((members) => {
 			if (!current) return;
@@ -73,10 +77,19 @@
 		linkState.status === 'failed' || (linkState.status === 'loading' && slowLoading)
 	);
 
-	const shownFriends = $derived.by(() => {
-		const sorted = [...friends].sort((a, b) => a.username.localeCompare(b.username));
-		return query ? sorted.filter((friend) => friend.username.includes(query)) : sorted;
-	});
+	const matchesQuery = (person: Friend) => !query || person.username.includes(query);
+
+	const shownGroups = $derived(
+		[
+			{
+				label: 'Друзья',
+				people: [...friends]
+					.sort((a, b) => a.username.localeCompare(b.username))
+					.filter(matchesQuery)
+			},
+			{ label: 'Сообщения', people: conversations.filter(matchesQuery) }
+		].filter((group) => group.people.length > 0)
+	);
 
 	$effect(() => {
 		const target = serverId;
@@ -144,7 +157,7 @@
 	<div class="px-4">
 		<SearchField
 			bind:value={query}
-			placeholder="Поиск друзей"
+			placeholder="Поиск"
 			transform={normalizeUsernameQuery}
 		/>
 	</div>
@@ -153,26 +166,30 @@
 		class="mt-1 h-[244px] [mask-image:linear-gradient(to_bottom,transparent,black_10px,black_calc(100%-10px),transparent)]"
 		contentClass="flex min-h-full flex-col px-2 py-2"
 	>
-		{#if shownFriends.length > 0}
-			<h3 class="px-3 pt-2 pb-1 text-[12px] font-semibold text-muted">Друзья</h3>
+		{#each shownGroups as group, groupIndex (group.label)}
+			<h3
+				class="px-3 pb-1 text-[12px] font-semibold text-muted {groupIndex > 0 ? 'pt-4' : 'pt-2'}"
+			>
+				{group.label}
+			</h3>
 			<ul class="flex flex-col gap-0.5">
-				{#each shownFriends as friend (friend.id)}
+				{#each group.people as person (person.id)}
 					<li
 						onanimationend={(event) => {
-							if (event.target === event.currentTarget) flashing.delete(friend.id);
+							if (event.target === event.currentTarget) flashing.delete(person.id);
 						}}
 						class="flex h-11 items-center gap-3 rounded-[10px] px-2.5 transition-colors duration-150 [corner-shape:squircle] hover:bg-white/[0.04] {flashing.has(
-							friend.id
+							person.id
 						)
 							? 'invite-flash'
 							: ''}"
 					>
-						<Avatar name={friend.name} size={32} />
-						<span class="min-w-0 flex-1 truncate text-[14px] text-ink">@{friend.username}</span>
+						<Avatar name={person.name} userId={person.id} avatarId={person.avatarId} size={32} />
+						<span class="min-w-0 flex-1 truncate text-[14px] text-ink">@{person.username}</span>
 						<span class="grid shrink-0 justify-items-end">
-							{#key memberIds.has(friend.id) || invited.has(friend.id)}
+							{#key memberIds.has(person.id) || invited.has(person.id)}
 								<span class="col-start-1 row-start-1 flex" in:settle out:settle={{ duration: 100 }}>
-									{@render action(friend)}
+									{@render action(person)}
 								</span>
 							{/key}
 						</span>
@@ -181,7 +198,7 @@
 			</ul>
 		{:else}
 			<div class="flex flex-1 flex-col items-center justify-center gap-1 px-6 text-center">
-				{#if friends.length === 0}
+				{#if friends.length === 0 && conversations.length === 0}
 					<p class="text-[13px] text-ink">Пока некого пригласить</p>
 					<p class="text-[12px] leading-5 text-muted">Отправьте ссылку ниже</p>
 				{:else}
@@ -189,7 +206,7 @@
 					<p class="text-[12px] leading-5 text-muted">Проверьте имя пользователя</p>
 				{/if}
 			</div>
-		{/if}
+		{/each}
 	</SmoothScroll>
 
 	<div class="px-4 pt-1 pb-4">
