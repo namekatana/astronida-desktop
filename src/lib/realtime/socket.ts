@@ -1,7 +1,6 @@
 import { PUBLIC_PHOENIX_URL } from '$env/static/public';
 import { Socket } from 'phoenix';
-import { untrack } from 'svelte';
-import { auth } from '$lib/auth/session.svelte';
+import { accessToken } from '$lib/auth/access-token';
 import { supabase } from '$lib/supabase/client';
 import { apiUrl } from './api-url';
 import { connection } from './connection.svelte';
@@ -27,9 +26,9 @@ let spareRefreshTimer: ReturnType<typeof setInterval> | null = null;
 let stopWatchingToken: (() => void) | null = null;
 
 async function fetchTicket(): Promise<string> {
-	const token = untrack(() => auth.session?.access_token);
-	if (!token) return '';
 	try {
+		const token = await accessToken();
+		if (!token) return '';
 		const response = await fetch(ticketUrl, {
 			method: 'POST',
 			headers: { Authorization: `Bearer ${token}` },

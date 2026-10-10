@@ -1,4 +1,4 @@
-import { auth } from '$lib/auth/session.svelte';
+import { accessToken } from '$lib/auth/access-token';
 import { apiUrl } from './api-url';
 
 const requestTimeoutMs = 10_000;
@@ -24,9 +24,9 @@ async function requestApi(
 	path: string,
 	init: { method: string; headers?: Record<string, string>; body?: string }
 ): Promise<ApiResponse | null> {
-	const token = auth.session?.access_token;
-	if (!token) return null;
 	try {
+		const token = await accessToken();
+		if (!token) return null;
 		const response = await fetch(apiUrl(path), {
 			...init,
 			headers: { ...init.headers, Authorization: `Bearer ${token}` },
