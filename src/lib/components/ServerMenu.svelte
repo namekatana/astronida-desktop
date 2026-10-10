@@ -9,9 +9,10 @@
 	interface Props {
 		oncreatecategory: () => void;
 		oncreatechannel: (kind: ChannelKind) => void;
+		onopensettings?: () => void;
 	}
 
-	let { oncreatecategory, oncreatechannel }: Props = $props();
+	let { oncreatecategory, oncreatechannel, onopensettings }: Props = $props();
 
 	let open = $state(false);
 	let root = $state<HTMLDivElement | null>(null);
@@ -63,6 +64,11 @@
 					onclick={() => pick(() => oncreatechannel('voice'))}
 				/>
 			</div>
+			{#if onopensettings}
+				{@const openSettings = onopensettings}
+				<div class="mx-1.5 my-1.5 h-px bg-surface-line"></div>
+				<MenuItem icon="gear" label="Настройки сервера" onclick={() => pick(openSettings)} />
+			{/if}
 		</div>
 	{/if}
 </div>

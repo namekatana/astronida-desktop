@@ -21,7 +21,19 @@
 	import FriendsPanel from '$lib/components/FriendsPanel.svelte';
 	import HomeEmptyState from '$lib/components/HomeEmptyState.svelte';
 	import InviteDialog from '$lib/components/InviteDialog.svelte';
+	import BanMemberDialog from '$lib/components/BanMemberDialog.svelte';
+	import ServerSettingsDialog from '$lib/components/ServerSettingsDialog.svelte';
+	import KickMemberDialog from '$lib/components/KickMemberDialog.svelte';
+	import MemberMenu from '$lib/components/MemberMenu.svelte';
 	import MemberPanel from '$lib/components/MemberPanel.svelte';
+	import Toast from '$lib/components/Toast.svelte';
+	import {
+		canModerate,
+		type MemberMenuRequest,
+		type MemberModeration,
+		type ModerationTarget
+	} from '$lib/servers/moderation-target';
+	import { toast } from '$lib/ui/toast.svelte';
 	import MessageComposer from '$lib/components/MessageComposer.svelte';
 	import MessageList from '$lib/components/MessageList.svelte';
 	import MessageSkeleton from '$lib/components/MessageSkeleton.svelte';
@@ -75,7 +87,12 @@
 		type ProfileRelation,
 		type ProfileTarget
 	} from '$lib/profile/profile';
-	import { inviteLinkOf, joinByInvite, prefetchInviteLink } from '$lib/servers/invites';
+	import {
+		forgetServerInvites,
+		inviteLinkOf,
+		joinByInvite,
+		prefetchInviteLink
+	} from '$lib/servers/invites';
 	import type { Server } from '$lib/servers/servers';
 	import { createWorkspaces } from '$lib/servers/workspaces.svelte';
 	import { createSync } from '$lib/sync/sync';
@@ -271,7 +288,8 @@
 		onCategoryCreated: workspaces.addCategory,
 		onChannelCreated: workspaces.addChannel,
 		onMessageDeleted: sync.forget,
-		onMessageEdited: sync.edit
+		onMessageEdited: sync.edit,
+		onRemoved: leaveRemovedServer
 	});
 
 	// svelte-ignore state_referenced_locally
@@ -636,6 +654,81 @@
 		serverDialog = null;
 	}
 
+	function leaveRemovedServer(serverId: string) {
+		const server = servers.find((known) => known.id === serverId);
+		if (!server) return;
+		const channelIds = workspaces.all[serverId]?.channels.map((channel) => channel.id) ?? [];
+		if (voice.connected?.serverId === serverId) voice.disconnect();
+		servers = servers.filter((known) => known.id !== serverId);
+		if (selectedServerId === serverId) selectedServerId = null;
+		if (memberMenu?.serverId === serverId) memberMenu = null;
+		if (moderating?.serverId === serverId) moderating = null;
+		if (serverSettings?.id === serverId) serverSettings = null;
+		workspaces.forget(serverId);
+		workspaceCache.forgetServer(data.userId, serverId);
+		forgetServerInvites(serverId);
+		persistAccount(friends.list);
+		for (const channelId of channelIds) void history.dropChannel(channelId).catch(() => {});
+		toast.show(`Вы больше не участник «${server.name}»`);
+	}
+
+	let memberMenu = $state<MemberMenuRequest | null>(null);
+	let moderating = $state<{
+		action: 'kick' | 'ban';
+		target: ModerationTarget;
+		serverId: string;
+		serverName: string;
+	} | null>(null);
+	let serverSettings = $state<Server | null>(null);
+
+	function moderationTargetOf(person: ProfileTarget): ModerationTarget {
+		return {
+			id: person.id,
+			username: person.username,
+			name: person.name,
+			avatarId: person.avatarId ?? null
+		};
+	}
+
+	function openMemberMenu(person: ProfileTarget, source: HTMLElement | null, event: MouseEvent) {
+		if (!selectedServer) return;
+		memberMenu = {
+			target: moderationTargetOf(person),
+			serverId: selectedServer.id,
+			x: event.clientX,
+			y: event.clientY,
+			source
+		};
+	}
+
+	function mayModerate(serverId: string, targetId: string): boolean {
+		const ownerId = servers.find((server) => server.id === serverId)?.ownerId;
+		return canModerate({ selfId: data.userId, ownerId, targetId });
+	}
+
+	function startModeration(action: 'kick' | 'ban', target: ModerationTarget, serverId: string) {
+		const server = servers.find((known) => known.id === serverId);
+		if (!server) return;
+		moderating = { action, target, serverId, serverName: server.name };
+	}
+
+	function finishModeration() {
+		if (!moderating) return;
+		const { action, target } = moderating;
+		moderating = null;
+		toast.show(
+			action === 'kick'
+				? `@${target.username} удалён с сервера`
+				: `@${target.username} заблокирован`
+		);
+	}
+
+	const voiceModeration: MemberModeration = {
+		allowed: (userId) => selectedServer !== null && mayModerate(selectedServer.id, userId),
+		onkick: (target) => selectedServer && startModeration('kick', target, selectedServer.id),
+		onban: (target) => selectedServer && startModeration('ban', target, selectedServer.id)
+	};
+
 	const joiningInvites = new Set<string>();
 
 	async function openInvite(code: string) {
@@ -818,6 +911,7 @@
 			serverId={selectedServer.id}
 			serverName={selectedServer.name}
 			friends={friends.list}
+			conversations={conversations.visible}
 			canManage={selectedServer.ownerId === data.userId}
 			oninvite={(channelId, link) => sending.send(channelId, link)}
 			onclose={() => (inviting = false)}
@@ -844,6 +938,42 @@
 			onconfirm={menu.confirmDelete}
 			onclose={menu.closeDelete}
 		/>
+	{/if}
+
+	{#if memberMenu}
+		{@const request = memberMenu}
+		<MemberMenu
+			target={request.target}
+			x={request.x}
+			y={request.y}
+			canModerate={mayModerate(request.serverId, request.target.id)}
+			onclose={() => (memberMenu = null)}
+			onprofile={() => openProfile(request.target, request.source)}
+			onkick={() => startModeration('kick', request.target, request.serverId)}
+			onban={() => startModeration('ban', request.target, request.serverId)}
+		/>
+	{/if}
+
+	{#if moderating?.action === 'kick'}
+		<KickMemberDialog
+			serverId={moderating.serverId}
+			serverName={moderating.serverName}
+			target={moderating.target}
+			ondone={finishModeration}
+			onclose={() => (moderating = null)}
+		/>
+	{:else if moderating?.action === 'ban'}
+		<BanMemberDialog
+			serverId={moderating.serverId}
+			serverName={moderating.serverName}
+			target={moderating.target}
+			ondone={finishModeration}
+			onclose={() => (moderating = null)}
+		/>
+	{/if}
+
+	{#if serverSettings}
+		<ServerSettingsDialog server={serverSettings} onclose={() => (serverSettings = null)} />
 	{/if}
 
 	{#if photoSheet && openChatId}
@@ -950,6 +1080,10 @@
 				oninvite={() => (inviting = true)}
 				onprefetchinvite={() => prefetchInviteLink(selectedServer.id)}
 				onopenprofile={openProfile}
+				moderation={voiceModeration}
+				onopensettings={selectedServer.ownerId === data.userId
+					? () => (serverSettings = selectedServer)
+					: undefined}
 			/>
 		{:else}
 			<FriendsPanel
@@ -1042,6 +1176,7 @@
 					onopeninvite={openInvite}
 					onopenphoto={openPhoto}
 					onopenprofile={openProfile}
+					onauthormenu={selectedChannel ? openMemberMenu : undefined}
 				/>
 				{#key openChatId}
 					<MessageComposer
@@ -1080,8 +1215,9 @@
 					<span class="text-[13px] text-muted">Создай первый канал — через «⋯» у названия сервера</span>
 				</div>
 			{:else}
-				<div class="flex flex-1 items-center justify-center">
+				<div class="relative flex flex-1 items-center justify-center">
 					<HomeEmptyState />
+					<Toast />
 				</div>
 			{/if}
 		</main>
@@ -1122,6 +1258,7 @@
 									preview={memberPreviews[selectedServer.id] ?? null}
 									onpreview={(next) => saveMemberPreview(selectedServer.id, next)}
 									onopenprofile={openProfile}
+									onmembermenu={openMemberMenu}
 								/>
 							{/key}
 						{:else if chatPartnerCard}

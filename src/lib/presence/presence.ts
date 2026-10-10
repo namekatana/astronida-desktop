@@ -170,12 +170,17 @@ export function subscribeToServerPresence(input: {
 	onChannelCreated: (channel: Channel) => void;
 	onMessageDeleted: (channelId: string, messageId: string) => void;
 	onMessageEdited: (channelId: string, messageId: string, content: string) => void;
+	onRemoved: () => void;
 }): () => void {
 	const channel = phoenixSocket().channel(`server:${input.serverId}`);
 	channels.set(input.serverId, channel);
 
 	const presence = new Presence(channel);
 	let joinedOnce = false;
+	let leaving = false;
+	channel.onClose(() => {
+		if (!leaving) input.onRemoved();
+	});
 	presence.onSync(() => input.onSync(collect(presence)));
 	channel.on(
 		'voice_key_rotated',
@@ -219,7 +224,8 @@ export function subscribeToServerPresence(input: {
 		const update = profileChangesFrom(payload);
 		if (update?.userId) profileDetails.apply(update.userId, update.changes);
 	});
-	channel.join().receive('ok', (reply: { voice_url: string; crowded?: unknown }) => {
+	const joining = channel.join();
+	joining.receive('ok', (reply: { voice_url: string; crowded?: unknown }) => {
 		voiceUrls.set(input.serverId, reply.voice_url);
 		if (joinedOnce) rejoinedAt.set(input.serverId, Date.now());
 		joinedOnce = true;
@@ -234,8 +240,12 @@ export function subscribeToServerPresence(input: {
 			if (result.ok) input.onVoiceRejoined(announcement.channelId, result.value);
 		});
 	});
+	joining.receive('error', (reply: { reason?: unknown }) => {
+		if (reply?.reason === 'forbidden') input.onRemoved();
+	});
 
 	return () => {
+		leaving = true;
 		if (channels.get(input.serverId) === channel) channels.delete(input.serverId);
 		voiceUrls.delete(input.serverId);
 		crowdedServers.delete(input.serverId);

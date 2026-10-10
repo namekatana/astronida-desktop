@@ -2,6 +2,7 @@
 	import type { Channel } from '$lib/channels/channels';
 	import { avatarIn } from '$lib/profile/profile';
 	import type { Member } from '$lib/servers/members';
+	import type { MemberModeration } from '$lib/servers/moderation-target';
 	import type { VoiceOccupant } from '$lib/voice/occupant';
 	import { describeStats } from '$lib/voice/quality';
 	import Avatar from './Avatar.svelte';
@@ -22,6 +23,7 @@
 		onprefetch?: () => void;
 		element?: HTMLButtonElement;
 		onopenprofile?: (member: Member, source: HTMLElement | null) => void;
+		moderation?: MemberModeration;
 	}
 
 	let {
@@ -31,7 +33,8 @@
 		onclick,
 		onprefetch,
 		element = $bindable(),
-		onopenprofile
+		onopenprofile,
+		moderation
 	}: Props = $props();
 
 	const occupied = $derived(occupants.length > 0);
@@ -156,6 +159,7 @@
 			y={menu.y}
 			onclose={() => (menu = null)}
 			onprofile={(occupant) => onopenprofile?.(occupant, source)}
+			{moderation}
 		/>
 	{/if}
 </div>

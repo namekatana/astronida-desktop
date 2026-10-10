@@ -295,6 +295,7 @@ export type Database = {
 				Row: {
 					author_id: string;
 					channel_id: string;
+					client_id: string | null;
 					content: string;
 					created_at: string;
 					edited: boolean;
@@ -306,6 +307,7 @@ export type Database = {
 				Insert: {
 					author_id: string;
 					channel_id: string;
+					client_id?: string | null;
 					content: string;
 					created_at?: string;
 					edited?: boolean;
@@ -317,6 +319,7 @@ export type Database = {
 				Update: {
 					author_id?: string;
 					channel_id?: string;
+					client_id?: string | null;
 					content?: string;
 					created_at?: string;
 					edited?: boolean;
@@ -422,21 +425,31 @@ export type Database = {
 			};
 			server_members: {
 				Row: {
+					invite_code: string | null;
 					joined_at: string;
 					server_id: string;
 					user_id: string;
 				};
 				Insert: {
+					invite_code?: string | null;
 					joined_at?: string;
 					server_id: string;
 					user_id: string;
 				};
 				Update: {
+					invite_code?: string | null;
 					joined_at?: string;
 					server_id?: string;
 					user_id?: string;
 				};
 				Relationships: [
+					{
+						foreignKeyName: 'server_members_invite_code_fkey';
+						columns: ['invite_code'];
+						isOneToOne: false;
+						referencedRelation: 'server_invites';
+						referencedColumns: ['code'];
+					},
 					{
 						foreignKeyName: 'server_members_server_id_fkey';
 						columns: ['server_id'];

@@ -29,6 +29,7 @@
 		onopeninvite?: (code: string) => void;
 		onopenphoto?: (message: Message, index: number, element: HTMLElement) => void;
 		onopenprofile?: (author: MessageAuthor, source: HTMLElement | null) => void;
+		onauthormenu?: (author: MessageAuthor, source: HTMLElement | null, event: MouseEvent) => void;
 		pinnedIds?: Set<string>;
 		onpin?: (message: Message) => void;
 		oncopy?: (message: Message) => void;
@@ -55,6 +56,7 @@
 		onopeninvite,
 		onopenphoto,
 		onopenprofile,
+		onauthormenu,
 		pinnedIds,
 		onpin,
 		oncopy,
@@ -313,6 +315,7 @@
 						{onopeninvite}
 						{onopenphoto}
 						{onopenprofile}
+						{onauthormenu}
 					/>
 				{/each}
 			</div>

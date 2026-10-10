@@ -8,7 +8,9 @@
 	import { voice } from '$lib/voice/voice.svelte';
 	import { defaultVolume, maxVolume, participantAudio } from '$lib/voice/volumes.svelte';
 	import Avatar from './Avatar.svelte';
+	import type { MemberModeration } from '$lib/servers/moderation-target';
 	import MenuItem from './MenuItem.svelte';
+	import ModerationItems from './ModerationItems.svelte';
 
 	interface Props {
 		occupant: VoiceOccupant;
@@ -16,9 +18,27 @@
 		y: number;
 		onclose: () => void;
 		onprofile?: (occupant: VoiceOccupant) => void;
+		moderation?: MemberModeration;
 	}
 
-	let { occupant, x, y, onclose, onprofile }: Props = $props();
+	let { occupant, x, y, onclose, onprofile, moderation }: Props = $props();
+
+	const target = $derived({
+		id: occupant.id,
+		username: occupant.username,
+		name: occupant.name,
+		avatarId: occupant.avatarId ?? null
+	});
+
+	function kick() {
+		moderation?.onkick(target);
+		onclose();
+	}
+
+	function ban() {
+		moderation?.onban(target);
+		onclose();
+	}
 
 	const width = 224;
 	const margin = 8;
@@ -114,4 +134,8 @@
 			style="--range-fill: {percent / maxVolume}%"
 		/>
 	</div>
+
+	{#if moderation?.allowed(occupant.id)}
+		<ModerationItems onkick={kick} onban={ban} />
+	{/if}
 </div>

@@ -45,6 +45,11 @@ export function createWorkspaces(input: {
 		target.channels.push(channel);
 	}
 
+	function forget(serverId: string) {
+		delete all[serverId];
+		refreshed.delete(serverId);
+	}
+
 	function isTextChannel(serverId: string, channelId: string): boolean {
 		return all[serverId]?.channels.find((channel) => channel.id === channelId)?.kind === 'text';
 	}
@@ -55,6 +60,7 @@ export function createWorkspaces(input: {
 		},
 		addCategory,
 		addChannel,
+		forget,
 		isTextChannel
 	};
 }

@@ -3,6 +3,7 @@
 	import { prefersReducedMotion } from 'svelte/motion';
 	import type { Channel } from '$lib/channels/channels';
 	import type { Member } from '$lib/servers/members';
+	import type { MemberModeration } from '$lib/servers/moderation-target';
 	import type { VoiceOccupant } from '$lib/voice/occupant';
 	import ChannelItem from './ChannelItem.svelte';
 
@@ -13,6 +14,7 @@
 		onselect: (channelId: string) => void;
 		onprefetch?: (channelId: string) => void;
 		onopenprofile?: (member: Member, source: HTMLElement | null) => void;
+		moderation?: MemberModeration;
 	}
 
 	let {
@@ -21,7 +23,8 @@
 		voiceOccupants = {},
 		onselect,
 		onprefetch,
-		onopenprofile
+		onopenprofile,
+		moderation
 	}: Props = $props();
 
 	let itemElements = $state<Record<string, HTMLButtonElement>>({});
@@ -91,6 +94,7 @@
 			onclick={() => onselect(channel.id)}
 			onprefetch={() => onprefetch?.(channel.id)}
 			{onopenprofile}
+			{moderation}
 			bind:element={itemElements[channel.id]}
 		/>
 	{/each}

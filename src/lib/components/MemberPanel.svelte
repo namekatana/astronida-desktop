@@ -20,10 +20,19 @@
 		preview: MemberListPreview | null;
 		onpreview: (preview: MemberListPreview) => void;
 		onopenprofile?: (member: Member, source: HTMLElement | null) => void;
+		onmembermenu?: (member: Member, source: HTMLElement | null, event: MouseEvent) => void;
 	}
 
-	let { serverId, ownerId, selfId, selfStatus, preview, onpreview, onopenprofile }: Props =
-		$props();
+	let {
+		serverId,
+		ownerId,
+		selfId,
+		selfStatus,
+		preview,
+		onpreview,
+		onopenprofile,
+		onmembermenu
+	}: Props = $props();
 
 	const paddingTop = 12;
 	const headerHeight = 28;
@@ -218,7 +227,13 @@
 					<div class="absolute inset-x-0" style="top: {topOf(slot.index)}px">
 						{#if slot.row}
 							{@const member = memberOf(slot.row)}
-							<MemberItem {member} onopenprofile={(source) => onopenprofile?.(member, source)} />
+							<MemberItem
+								{member}
+								onopenprofile={(source) => onopenprofile?.(member, source)}
+								onmenu={onmembermenu
+									? (source, event) => onmembermenu(member, source, event)
+									: undefined}
+							/>
 						{:else}
 							<div class="flex h-10 items-center gap-2.5 px-2.5" aria-hidden="true">
 								<span class="skeleton h-7 w-7 shrink-0 rounded-full"></span>

@@ -191,10 +191,15 @@ function arrange(sketch: Sketch, slots: SketchStar[]): Constellation {
 	return { stars, links };
 }
 
-export const constellations: Constellation[] = [
-	bigDipper,
-	littleDipper,
-	cassiopeia,
-	orion,
-	cygnus
-].map((sketch) => arrange(sketch, orion.stars));
+const sketches = { bigDipper, littleDipper, cassiopeia, orion, cygnus };
+
+export type ConstellationName = keyof typeof sketches;
+
+export const constellations: Constellation[] = Object.values(sketches).map((sketch) =>
+	arrange(sketch, orion.stars)
+);
+
+export function constellationNamed(name: ConstellationName): Constellation {
+	const sketch = sketches[name];
+	return arrange(sketch, sketch.stars);
+}

@@ -254,6 +254,18 @@ export const workspaceCache = {
 		scheduleWrite('workspaces');
 	},
 
+	forgetServer(userId: string, serverId: string) {
+		const cache = current(userId);
+		delete cache.workspaces[serverId];
+		delete cache.presence[serverId];
+		delete cache.memberPreviews[serverId];
+		delete cache.previewsLiveAt[serverId];
+		scheduleWrite('workspaces');
+		scheduleWrite('presence');
+		scheduleWrite('memberPreviews');
+		scheduleWrite('previewsLiveAt');
+	},
+
 	clear(userId: string) {
 		for (const name of sectionNames) sections[name].cancel();
 		stored = empty();

@@ -2,6 +2,7 @@
 	import { fade } from 'svelte/transition';
 	import type { Category, Channel, ChannelKind } from '$lib/channels/channels';
 	import type { Member } from '$lib/servers/members';
+	import type { MemberModeration } from '$lib/servers/moderation-target';
 	import { createDelayedFlag } from '$lib/ui/delayed-flag.svelte';
 	import { panelLimits } from '$lib/ui/panel-widths.svelte';
 	import type { VoiceOccupant } from '$lib/voice/occupant';
@@ -27,6 +28,8 @@
 		oninvite: () => void;
 		onprefetchinvite: () => void;
 		onopenprofile?: (member: Member, source: HTMLElement | null) => void;
+		moderation?: MemberModeration;
+		onopensettings?: () => void;
 	}
 
 	let {
@@ -43,7 +46,9 @@
 		oncreatechannel,
 		oninvite,
 		onprefetchinvite,
-		onopenprofile
+		onopenprofile,
+		moderation,
+		onopensettings
 	}: Props = $props();
 
 	const uncategorized = $derived(channels.filter((channel) => channel.categoryId === null));
@@ -81,7 +86,7 @@
 		>
 			<Icon name="user-plus" size={16} />
 		</button>
-		<ServerMenu {oncreatecategory} {oncreatechannel} />
+		<ServerMenu {oncreatecategory} {oncreatechannel} {onopensettings} />
 	</div>
 	<div class="mx-4 h-px bg-surface-line"></div>
 
@@ -125,6 +130,7 @@
 				{onselect}
 				{onprefetch}
 				{onopenprofile}
+				{moderation}
 			/>
 		</div>
 	{/if}
@@ -156,6 +162,7 @@
 							{onselect}
 							{onprefetch}
 							{onopenprofile}
+							{moderation}
 						/>
 					</div>
 				</div>

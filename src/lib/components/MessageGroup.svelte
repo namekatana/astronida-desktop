@@ -34,6 +34,7 @@
 		onopeninvite?: (code: string) => void;
 		onopenphoto?: (message: Message, index: number, element: HTMLElement) => void;
 		onopenprofile?: (author: MessageAuthor, source: HTMLElement | null) => void;
+		onauthormenu?: (author: MessageAuthor, source: HTMLElement | null, event: MouseEvent) => void;
 	}
 
 	let {
@@ -47,7 +48,8 @@
 		onjoinedinvite,
 		onopeninvite,
 		onopenphoto,
-		onopenprofile
+		onopenprofile,
+		onauthormenu
 	}: Props = $props();
 
 	const linkClass =
@@ -99,6 +101,13 @@
 
 	function openAuthorProfile() {
 		onopenprofile?.(author, avatarElement);
+	}
+
+	function openAuthorMenu(event: MouseEvent) {
+		if (!onauthormenu) return;
+		event.preventDefault();
+		event.stopPropagation();
+		onauthormenu(author, avatarElement, event);
 	}
 </script>
 
@@ -272,6 +281,7 @@
 						data-avatar
 						aria-label="Профиль @{author.username}"
 						onclick={openAuthorProfile}
+						oncontextmenu={openAuthorMenu}
 						class="mt-0.5 h-8 w-8 shrink-0 rounded-full transition-[filter] duration-150 hover:brightness-125"
 					>
 						<Avatar name={author.name} size={32} userId={author.id} avatarId={author.avatarId} />
@@ -282,6 +292,7 @@
 							<button
 								type="button"
 								onclick={openAuthorProfile}
+								oncontextmenu={openAuthorMenu}
 								class="min-w-0 truncate text-left text-[14px] leading-5 font-medium text-ink decoration-white/30 underline-offset-2 hover:underline"
 							>
 								@{author.username}

@@ -8,14 +8,22 @@
 		member: Member;
 		active?: boolean;
 		onopenprofile?: (source: HTMLElement | null) => void;
+		onmenu?: (source: HTMLElement | null, event: MouseEvent) => void;
 	}
 
-	let { member, active = false, onopenprofile }: Props = $props();
+	let { member, active = false, onopenprofile, onmenu }: Props = $props();
+
+	function openMenu(event: MouseEvent & { currentTarget: HTMLButtonElement }) {
+		if (!onmenu) return;
+		event.preventDefault();
+		onmenu(avatarIn(event.currentTarget), event);
+	}
 </script>
 
 <button
 	type="button"
 	onclick={(event) => onopenprofile?.(avatarIn(event.currentTarget))}
+	oncontextmenu={openMenu}
 	class="flex h-10 w-full items-center gap-2.5 rounded-lg px-2.5 text-left transition-[background-color,opacity] duration-200 hover:bg-white/[0.04] {member.online
 		? ''
 		: 'opacity-50'}"

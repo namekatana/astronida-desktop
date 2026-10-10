@@ -1,5 +1,5 @@
 import { createCachedSection } from '$lib/cache/cached-section';
-import { failureMessage, getApi, postApi } from '$lib/realtime/api-request';
+import { failureMessage, getApi, postApi, type ApiResponse } from '$lib/realtime/api-request';
 import { asRecord } from '$lib/ui/record';
 import { rememberJoinedLayout } from './joined-layouts';
 import { serverFrom, type Server } from './servers';
@@ -28,7 +28,35 @@ export interface InvitePreview {
 export type PreviewResult =
 	{ ok: true; preview: InvitePreview } | { ok: false; reason: 'not_found' | 'failed' };
 
-export type JoinResult = { ok: true; server: Server } | { ok: false; message: string };
+export type JoinResult =
+	{ ok: true; server: Server } | { ok: false; message: string; missing: boolean };
+
+export interface ServerInvite {
+	code: string;
+	expiresAt: Date | null;
+	maxUses: number | null;
+	uses: number;
+	isDefault: boolean;
+	joined: number;
+}
+
+export interface InviteJoiner {
+	id: string;
+	username: string;
+	name: string;
+	avatarId: string | null;
+	joinedAt: Date;
+}
+
+export type ServerInvitesResult =
+	{ ok: true; invites: ServerInvite[] } | { ok: false; message: string };
+
+export type InviteJoinersResult =
+	{ ok: true; joiners: InviteJoiner[] } | { ok: false; message: string };
+
+export type RevokeResult = { ok: true } | { ok: false; message: string };
+
+export const inviteJoinersLimit = 100;
 
 const inviteLinkPrefix = 'astronida://invite/';
 const codePattern = /^[A-Za-z0-9]{10}$/;
@@ -74,6 +102,26 @@ function expiryPhrase(expiresAt: Date, now: Date): string {
 	if (days === 0) return `Сегодня до ${time}`;
 	if (days === 1) return `До завтра, ${time}`;
 	return `До ${dayFormat.format(expiresAt)}, ${time}`;
+}
+
+export function describeServerInvite(invite: ServerInvite, now: Date): string {
+	const expiry = invite.expiresAt === null ? 'Бессрочная' : expiryPhrase(invite.expiresAt, now);
+	const uses =
+		invite.maxUses === null
+			? `использовано ${invite.uses}`
+			: `использовано ${invite.uses} из ${invite.maxUses}`;
+	return [invite.isDefault ? 'Общая' : null, expiry, uses].filter(Boolean).join(' · ');
+}
+
+const joinedFormat = new Intl.DateTimeFormat('ru-RU', {
+	day: 'numeric',
+	month: 'long',
+	hour: '2-digit',
+	minute: '2-digit'
+});
+
+export function joinedAtLabel(joinedAt: Date): string {
+	return joinedFormat.format(joinedAt);
 }
 
 export function describeInviteSettings(settings: InviteSettings, now: Date): string {
@@ -283,13 +331,116 @@ export async function joinByInvite(code: string): Promise<JoinResult> {
 	}
 	if (response?.status === 404) {
 		forget(code);
-		return { ok: false, message: 'Приглашение недействительно или истекло' };
+		requests.set(code, Promise.resolve({ ok: false, reason: 'not_found' }));
+		return { ok: false, message: 'Приглашение недействительно или истекло', missing: true };
 	}
 	return {
 		ok: false,
 		message: failureMessage(response, {
 			limit: 'Не удалось присоединиться, попробуйте ещё раз',
 			failed: 'Не удалось присоединиться, попробуйте ещё раз'
-		})
+		}),
+		missing: false
 	};
+}
+
+function managementFailure(response: ApiResponse | null): string {
+	if (!response) return 'Нет связи с сервером';
+	if (response.status === 429) return 'Слишком часто, попробуйте через минуту';
+	if (response.status === 403) return 'Это может только создатель сервера';
+	return 'Не получилось, попробуйте ещё раз';
+}
+
+function dateFrom(value: unknown): Date | null {
+	if (typeof value !== 'string') return null;
+	const date = new Date(value);
+	return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function serverInviteFrom(value: unknown): ServerInvite | null {
+	const row = asRecord(value);
+	if (typeof row?.code !== 'string' || !codePattern.test(row.code)) return null;
+	const expiresAt = row.expires_at === null ? null : dateFrom(row.expires_at);
+	if (row.expires_at !== null && !expiresAt) return null;
+	if (row.max_uses !== null && typeof row.max_uses !== 'number') return null;
+	if (typeof row.uses !== 'number' || typeof row.joined !== 'number') return null;
+	if (typeof row.is_default !== 'boolean') return null;
+	return {
+		code: row.code,
+		expiresAt,
+		maxUses: row.max_uses,
+		uses: row.uses,
+		isDefault: row.is_default,
+		joined: row.joined
+	};
+}
+
+function inviteJoinerFrom(value: unknown): InviteJoiner | null {
+	const row = asRecord(value);
+	const user = asRecord(row?.user);
+	const joinedAt = dateFrom(row?.joined_at);
+	if (!user || !joinedAt) return null;
+	const { id, username, display_name: displayName, avatar_id: avatarId } = user;
+	if (typeof id !== 'string' || typeof username !== 'string') return null;
+	return {
+		id,
+		username,
+		name: typeof displayName === 'string' ? displayName : username,
+		avatarId: typeof avatarId === 'string' ? avatarId : null,
+		joinedAt
+	};
+}
+
+export async function loadServerInvites(serverId: string): Promise<ServerInvitesResult> {
+	const response = await getApi(`/servers/${serverId}/invites`);
+	const list = response?.status === 200 ? asRecord(response.body)?.invites : null;
+	if (!Array.isArray(list)) return { ok: false, message: managementFailure(response) };
+	const invites = list
+		.map(serverInviteFrom)
+		.filter((invite): invite is ServerInvite => invite !== null);
+	return { ok: true, invites };
+}
+
+export async function loadInviteJoiners(
+	serverId: string,
+	code: string
+): Promise<InviteJoinersResult> {
+	const response = await getApi(`/servers/${serverId}/invites/${code}/members`);
+	const list = response?.status === 200 ? asRecord(response.body)?.members : null;
+	if (!Array.isArray(list)) return { ok: false, message: managementFailure(response) };
+	const joiners = list
+		.map(inviteJoinerFrom)
+		.filter((joiner): joiner is InviteJoiner => joiner !== null);
+	return { ok: true, joiners };
+}
+
+function forgetRevoked(serverId: string, code: string) {
+	if (knownLinks.get(serverId)?.link === inviteLinkOf(code)) {
+		knownLinks.delete(serverId);
+		prefetchedAt.delete(serverId);
+	}
+	forget(code);
+	requests.set(code, Promise.resolve({ ok: false, reason: 'not_found' }));
+}
+
+export async function revokeInvite(serverId: string, code: string): Promise<RevokeResult> {
+	const response = await postApi(`/servers/${serverId}/invites/${code}/revoke`, {});
+	if (response?.status !== 200 && response?.status !== 404) {
+		return { ok: false, message: managementFailure(response) };
+	}
+	forgetRevoked(serverId, code);
+	return { ok: true };
+}
+
+export function forgetServerInvites(serverId: string) {
+	knownLinks.delete(serverId);
+	prefetchedAt.delete(serverId);
+	let changed = false;
+	for (const [code, preview] of storedPreviews) {
+		if (preview.serverId !== serverId) continue;
+		storedPreviews.delete(code);
+		requests.delete(code);
+		changed = true;
+	}
+	if (changed) persistPreviews();
 }
