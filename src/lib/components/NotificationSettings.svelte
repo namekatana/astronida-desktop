@@ -1,16 +1,12 @@
 <script lang="ts">
 	import { notificationSections, type NotificationSettingId } from '$lib/settings/notifications';
-	import CheckCircle from './CheckCircle.svelte';
+	import LockMark from './LockMark.svelte';
 
 	interface Props {
 		settings: Record<NotificationSettingId, boolean>;
 	}
 
 	let { settings = $bindable() }: Props = $props();
-
-	function toggle(id: NotificationSettingId) {
-		settings = { ...settings, [id]: !settings[id] };
-	}
 </script>
 
 {#each notificationSections as section, sectionIndex (section.id)}
@@ -20,35 +16,27 @@
 		</h4>
 		<div class="overflow-hidden rounded-[14px] bg-white/[0.05] [corner-shape:squircle]">
 			{#each section.items as item, index (item.id)}
-				{@const checked = settings[item.id]}
 				{#if index > 0}
 					<div class="ml-4 h-px bg-white/[0.06]"></div>
 				{/if}
-				<button
-					type="button"
+				<div
 					role="checkbox"
-					aria-checked={checked}
-					onclick={() => toggle(item.id)}
-					class="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-white/[0.03] {item.description
+					aria-checked={settings[item.id]}
+					aria-disabled="true"
+					class="flex w-full items-center gap-3 px-4 py-2.5 {item.description
 						? 'min-h-[60px]'
 						: 'min-h-[52px]'}"
 				>
-					<span class="min-w-0 flex-1">
-						<span
-							class="block truncate text-[14px] leading-5 transition-colors duration-150 {checked
-								? 'text-ink'
-								: 'text-ink-secondary'}"
-						>
-							{item.label}
-						</span>
+					<span class="min-w-0 flex-1 opacity-40">
+						<span class="block truncate text-[14px] leading-5 text-ink">{item.label}</span>
 						{#if item.description}
 							<span class="mt-0.5 block truncate text-[12px] leading-4 text-muted">
 								{item.description}
 							</span>
 						{/if}
 					</span>
-					<CheckCircle {checked} />
-				</button>
+					<LockMark />
+				</div>
 			{/each}
 		</div>
 		{#if section.note}

@@ -26,6 +26,7 @@
 	import type { SmoothScrollController } from '$lib/ui/smooth-scroll';
 	import AccountSettings from './AccountSettings.svelte';
 	import Icon from './Icon.svelte';
+	import LockMark from './LockMark.svelte';
 	import NotificationSettings from './NotificationSettings.svelte';
 	import PrivacySettings from './PrivacySettings.svelte';
 	import SafetySettings from './SafetySettings.svelte';
@@ -132,8 +133,11 @@
 			<h2 class="px-5 pt-4 pb-3 text-[20px] leading-6 font-bold tracking-[-0.01em] text-ink">
 				Настройки
 			</h2>
-			<div class="px-3 pb-2">
-				<SearchField bind:value={query} placeholder="Поиск настроек" />
+			<div class="relative px-3 pb-2">
+				<div inert class="opacity-40">
+					<SearchField bind:value={query} placeholder="Поиск настроек" />
+				</div>
+				<LockMark size={12} class="absolute top-3 right-6" />
 			</div>
 			<SmoothScroll scrollbar class="min-h-0 flex-1" contentClass="flex flex-col px-2.5 pb-3">
 				{#each settingsGroups as group, groupIndex (groupIndex)}
@@ -154,8 +158,17 @@
 										? 'bg-white/[0.08] text-ink'
 										: 'text-ink-secondary hover:bg-white/[0.04] hover:text-ink'}"
 								>
-									<Icon name={category.icon} size={16} class={active ? 'text-ink' : 'text-muted'} />
-									<span class="min-w-0 flex-1 truncate">{category.label}</span>
+									<Icon
+										name={category.icon}
+										size={16}
+										class="{active ? 'text-ink' : 'text-muted'} {category.locked ? 'opacity-50' : ''}"
+									/>
+									<span class="min-w-0 flex-1 truncate {category.locked ? 'opacity-50' : ''}">
+										{category.label}
+									</span>
+									{#if category.locked}
+										<LockMark size={12} />
+									{/if}
 								</button>
 								<div class="collapsible {expanded ? 'is-open' : ''}" inert={!expanded}>
 									<div>

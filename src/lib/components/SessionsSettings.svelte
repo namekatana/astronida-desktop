@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { version } from '../../../package.json';
+	import LockMark from './LockMark.svelte';
 </script>
 
 <section aria-labelledby="sessions-current">
@@ -14,12 +15,12 @@
 			</div>
 		</div>
 		<div class="ml-4 h-px bg-white/[0.06]"></div>
-		<button
-			type="button"
-			class="flex h-11 w-full items-center px-4 text-left text-[14px] text-danger transition-colors duration-150 hover:bg-white/[0.03]"
-		>
-			Завершить другие сеансы
-		</button>
+		<div aria-disabled="true" class="flex h-11 w-full items-center gap-3 px-4">
+			<span class="min-w-0 flex-1 truncate text-[14px] text-danger opacity-40">
+				Завершить другие сеансы
+			</span>
+			<LockMark />
+		</div>
 	</div>
 	<p class="px-1 pt-2 text-[12px] leading-4 text-muted">
 		Вы выйдете на всех устройствах, кроме этого

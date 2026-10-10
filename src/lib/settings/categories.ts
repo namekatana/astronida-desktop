@@ -12,18 +12,19 @@ export interface SettingsCategory {
 	id: SettingsCategoryId;
 	label: string;
 	icon: IconName;
+	locked: boolean;
 }
 
 export const settingsGroups: SettingsCategory[][] = [
 	[
-		{ id: 'account', label: 'Учётная запись', icon: 'account' },
-		{ id: 'privacy', label: 'Конфиденциальность', icon: 'privacy' },
-		{ id: 'safety', label: 'Безопасность', icon: 'safety' }
+		{ id: 'account', label: 'Учётная запись', icon: 'account', locked: false },
+		{ id: 'privacy', label: 'Конфиденциальность', icon: 'privacy', locked: true },
+		{ id: 'safety', label: 'Безопасность', icon: 'safety', locked: true }
 	],
 	[
-		{ id: 'notifications', label: 'Уведомления', icon: 'notifications' },
-		{ id: 'voice', label: 'Голос и видео', icon: 'voiceVideo' },
-		{ id: 'system', label: 'Система', icon: 'system' }
+		{ id: 'notifications', label: 'Уведомления', icon: 'notifications', locked: true },
+		{ id: 'voice', label: 'Голос и видео', icon: 'voiceVideo', locked: true },
+		{ id: 'system', label: 'Система', icon: 'system', locked: true }
 	]
 ];
 

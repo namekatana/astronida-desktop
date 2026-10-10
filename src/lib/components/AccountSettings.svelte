@@ -2,6 +2,7 @@
 	import { formatPhone, maskEmail, maskPhone } from '$lib/settings/mask';
 	import { settle } from '$lib/ui/settle';
 	import Icon from './Icon.svelte';
+	import LockedAction from './LockedAction.svelte';
 	import Orbit from './Orbit.svelte';
 
 	interface Props {
@@ -88,7 +89,7 @@
 		{@render divider()}
 
 		<div class="flex min-h-[60px] items-center gap-3 px-4 py-2.5">
-			<div class="min-w-0 flex-1">
+			<div class="min-w-0 flex-1 opacity-40">
 				<p class="text-[12px] leading-4 text-muted">Возраст</p>
 				<p class="mt-0.5 truncate text-[14px] leading-5 text-muted">Не указан</p>
 			</div>
@@ -113,10 +114,12 @@
 		Пароль и безопасность
 	</h4>
 	<div class="mb-2 flex items-center gap-3 rounded-[14px] bg-white/[0.05] px-4 py-3 [corner-shape:squircle]">
-		<div class="grid size-9 shrink-0 place-items-center rounded-full bg-white/[0.08] text-ink">
+		<div
+			class="grid size-9 shrink-0 place-items-center rounded-full bg-white/[0.08] text-ink opacity-40"
+		>
 			<Icon name="lock" size={16} />
 		</div>
-		<div class="min-w-0 flex-1">
+		<div class="min-w-0 flex-1 opacity-40">
 			<p class="text-[14px] leading-5 font-semibold text-ink">Защитите учётную запись</p>
 			<p class="mt-0.5 text-[12px] leading-4 text-muted">
 				Включите двухфакторную аутентификацию — при входе понадобится ещё код из
@@ -127,7 +130,7 @@
 	</div>
 	<div class="rounded-[14px] bg-white/[0.05] [corner-shape:squircle]">
 		<div class="flex min-h-[52px] items-center gap-3 px-4 py-2.5">
-			<p class="min-w-0 flex-1 truncate text-[14px] leading-5 text-ink">Пароль</p>
+			<p class="min-w-0 flex-1 truncate text-[14px] leading-5 text-ink opacity-40">Пароль</p>
 			{@render action('Изменить')}
 		</div>
 
@@ -179,7 +182,7 @@
 		{@render divider()}
 
 		<div class="flex min-h-[60px] items-center gap-3 px-4 py-2.5">
-			<div class="min-w-0 flex-1">
+			<div class="min-w-0 flex-1 opacity-40">
 				<p class="truncate text-[14px] leading-5 text-ink">Скачать мои данные</p>
 				<p class="mt-0.5 truncate text-[12px] leading-4 text-muted">
 					Архив профиля, друзей и сообщений
@@ -191,7 +194,7 @@
 		{@render divider()}
 
 		<div class="flex min-h-[60px] items-center gap-3 px-4 py-2.5">
-			<div class="min-w-0 flex-1">
+			<div class="min-w-0 flex-1 opacity-40">
 				<p class="truncate text-[14px] leading-5 text-ink">Отключить учётную запись</p>
 				<p class="mt-0.5 truncate text-[12px] leading-4 text-muted">
 					Временно скрыть профиль; можно вернуться, войдя снова
@@ -203,13 +206,13 @@
 		{@render divider()}
 
 		<div class="flex min-h-[60px] items-center gap-3 px-4 py-2.5">
-			<div class="min-w-0 flex-1">
+			<div class="min-w-0 flex-1 opacity-40">
 				<p class="truncate text-[14px] leading-5 text-danger">Удалить учётную запись</p>
 				<p class="mt-0.5 truncate text-[12px] leading-4 text-muted">
 					Навсегда, без возможности восстановления
 				</p>
 			</div>
-			{@render action('Удалить', true)}
+			{@render action('Удалить')}
 		</div>
 	</div>
 </section>
@@ -246,15 +249,8 @@
 	</div>
 {/snippet}
 
-{#snippet action(label: string, destructive = false)}
-	<button
-		type="button"
-		class="pressable h-8 shrink-0 rounded-full px-3.5 text-[12px] font-semibold duration-150 {destructive
-			? 'bg-danger/[0.14] text-danger hover:bg-danger/[0.22]'
-			: 'bg-white/[0.08] text-ink hover:bg-white/[0.12]'}"
-	>
-		{label}
-	</button>
+{#snippet action(label: string)}
+	<LockedAction {label} />
 {/snippet}
 
 {#snippet divider()}

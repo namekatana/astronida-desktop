@@ -16,6 +16,7 @@
 	import { reveal } from '$lib/ui/reveal';
 	import { settle } from '$lib/ui/settle';
 	import Icon from './Icon.svelte';
+	import LockMark from './LockMark.svelte';
 
 	interface Props {
 		opened: PrivacyPageId | null;
@@ -155,7 +156,7 @@
 			</h4>
 			<div class="overflow-hidden rounded-[14px] bg-white/[0.05] [corner-shape:squircle]">
 				{#each section.items as item, index (item.id)}
-					{@render link(index, item.label, audienceLabel(audiences[item.id]), () => onopen(item.id))}
+					{@render link(index, item.label, audienceLabel(audiences[item.id]))}
 				{/each}
 			</div>
 		</section>
@@ -166,27 +167,21 @@
 			Блокировки и данные
 		</h4>
 		<div class="overflow-hidden rounded-[14px] bg-white/[0.05] [corner-shape:squircle]">
-			{@render link(0, dataPageLabels.blocked, 'Нет', () => onopen('blocked'))}
-			{@render link(1, dataPageLabels.autoDelete, deletionPeriodLabel(deletionPeriod), () =>
-				onopen('autoDelete')
-			)}
+			{@render link(0, dataPageLabels.blocked, 'Нет')}
+			{@render link(1, dataPageLabels.autoDelete, deletionPeriodLabel(deletionPeriod))}
 		</div>
 	</section>
 {/if}
 
-{#snippet link(index: number, label: string, value: string, onclick: () => void)}
+{#snippet link(index: number, label: string, value: string)}
 	{#if index > 0}
 		{@render divider()}
 	{/if}
-	<button
-		type="button"
-		{onclick}
-		class="flex min-h-[52px] w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-white/[0.03]"
-	>
-		<span class="min-w-0 flex-1 truncate text-[14px] leading-5 text-ink">{label}</span>
-		<span class="shrink-0 text-[13px] text-muted">{value}</span>
-		<Icon name="chevron" size={14} class="shrink-0 -rotate-90 text-muted" />
-	</button>
+	<div aria-disabled="true" class="flex min-h-[52px] w-full items-center gap-3 px-4 py-2.5">
+		<span class="min-w-0 flex-1 truncate text-[14px] leading-5 text-ink opacity-40">{label}</span>
+		<span class="shrink-0 text-[13px] text-muted opacity-40">{value}</span>
+		<LockMark />
+	</div>
 {/snippet}
 
 {#snippet choice(index: number, label: string, checked: boolean, onclick: () => void)}

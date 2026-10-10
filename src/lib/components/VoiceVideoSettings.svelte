@@ -13,6 +13,7 @@
 	import { reveal } from '$lib/ui/reveal';
 	import { settle } from '$lib/ui/settle';
 	import CheckCircle from './CheckCircle.svelte';
+	import LockMark from './LockMark.svelte';
 	import SegmentedControl from './SegmentedControl.svelte';
 	import SelectMenu from './SelectMenu.svelte';
 
@@ -21,6 +22,8 @@
 	}
 
 	let { preferences = $bindable() }: Props = $props();
+
+	const headingClass = 'flex items-center gap-1.5 px-1 pb-2 text-[13px] font-semibold text-muted';
 
 	let devices = $state(defaultDeviceOptions());
 
@@ -90,8 +93,8 @@
 </script>
 
 <section aria-labelledby="voice-microphone">
-	<h4 id="voice-microphone" class="px-1 pb-2 text-[13px] font-semibold text-muted">Микрофон</h4>
-	<div class="overflow-hidden rounded-[14px] bg-white/[0.05] [corner-shape:squircle]">
+	<h4 id="voice-microphone" class={headingClass}>Микрофон <LockMark size={12} /></h4>
+	<div inert class="overflow-hidden rounded-[14px] bg-white/[0.05] opacity-40 [corner-shape:squircle]">
 		<SelectMenu label="Устройство" options={devices.audioinput} bind:value={preferences.microphone} />
 		{@render divider()}
 		{@render volume('Громкость микрофона', preferences.inputVolume, (value) => {
@@ -138,7 +141,7 @@
 			<p
 				in:settle
 				out:settle={{ duration: 100 }}
-				class="col-start-1 row-start-1 text-[12px] leading-4 text-muted"
+				class="col-start-1 row-start-1 text-[12px] leading-4 text-muted opacity-40"
 			>
 				{preferences.inputMode === 'voiceActivity'
 					? 'Микрофон включается, когда вы говорите'
@@ -149,8 +152,8 @@
 </section>
 
 <section aria-labelledby="voice-output" class="mt-6">
-	<h4 id="voice-output" class="px-1 pb-2 text-[13px] font-semibold text-muted">Звук</h4>
-	<div class="overflow-hidden rounded-[14px] bg-white/[0.05] [corner-shape:squircle]">
+	<h4 id="voice-output" class={headingClass}>Звук <LockMark size={12} /></h4>
+	<div inert class="overflow-hidden rounded-[14px] bg-white/[0.05] opacity-40 [corner-shape:squircle]">
 		<SelectMenu label="Устройство" options={devices.audiooutput} bind:value={preferences.speaker} />
 		{@render divider()}
 		{@render volume('Громкость звука', preferences.outputVolume, (value) => {
@@ -160,8 +163,8 @@
 </section>
 
 <section aria-labelledby="voice-processing" class="mt-6">
-	<h4 id="voice-processing" class="px-1 pb-2 text-[13px] font-semibold text-muted">Обработка</h4>
-	<div class="overflow-hidden rounded-[14px] bg-white/[0.05] [corner-shape:squircle]">
+	<h4 id="voice-processing" class={headingClass}>Обработка <LockMark size={12} /></h4>
+	<div inert class="overflow-hidden rounded-[14px] bg-white/[0.05] opacity-40 [corner-shape:squircle]">
 		{#each processingOptions as option, index (option.id)}
 			{@const checked = preferences.processing[option.id]}
 			{#if index > 0}
@@ -193,8 +196,8 @@
 </section>
 
 <section aria-labelledby="voice-video" class="mt-6">
-	<h4 id="voice-video" class="px-1 pb-2 text-[13px] font-semibold text-muted">Видео</h4>
-	<div class="overflow-hidden rounded-[14px] bg-white/[0.05] [corner-shape:squircle]">
+	<h4 id="voice-video" class={headingClass}>Видео <LockMark size={12} /></h4>
+	<div inert class="overflow-hidden rounded-[14px] bg-white/[0.05] opacity-40 [corner-shape:squircle]">
 		<SelectMenu label="Камера" options={devices.videoinput} bind:value={preferences.camera} />
 		{@render divider()}
 		<div class="flex h-12 items-center gap-3 px-4">
