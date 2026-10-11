@@ -48,7 +48,8 @@
 	const landingMs = 580;
 	const mergeMs = 420;
 	const headScale = 0.6;
-	const recolorMs = 200;
+	const recolorAtMs = 420;
+	const recolorMs = 160;
 	const pulseMs = 420;
 	const pulseScale = 1.18;
 	const softEasing = 'cubic-bezier(0.22, 1, 0.36, 1)';
@@ -94,7 +95,7 @@
 			untrack(() => recolor(next));
 			return;
 		}
-		const landing = setTimeout(() => recolor(next), landingMs);
+		const landing = setTimeout(() => recolor(next), recolorAtMs);
 		return () => clearTimeout(landing);
 	});
 

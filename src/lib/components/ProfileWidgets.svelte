@@ -131,7 +131,7 @@
 		const animation = node.animate(
 			[
 				{ width: `${from.width}px`, height: `${from.height}px` },
-				{ width: `${to.width}px`, height: `${to.height}px` }
+				{ width: '100%', height: `${to.height}px` }
 			],
 			{ duration: glideMs, easing: quintOutCurve }
 		);
