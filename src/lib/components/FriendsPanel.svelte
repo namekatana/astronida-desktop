@@ -6,6 +6,7 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import { fade, scale, type TransitionConfig } from 'svelte/transition';
 	import type { Friend, FriendActivity } from '$lib/friends/friends';
+	import { avatarIn } from '$lib/profile/profile';
 	import type { Member } from '$lib/servers/members';
 	import { panelLimits } from '$lib/ui/panel-widths.svelte';
 	import { pop } from '$lib/ui/pop';
@@ -29,6 +30,7 @@
 		width: number;
 		onselect: (friendId: string) => void;
 		onprefetch: (friendId: string) => void;
+		onmenu: (member: Member, source: HTMLElement | null, event: MouseEvent) => void;
 		onaddfriend: () => void;
 		onaccept: (userId: string) => Promise<boolean>;
 		ondecline: (userId: string) => Promise<boolean>;
@@ -47,6 +49,7 @@
 		width = $bindable(),
 		onselect,
 		onprefetch,
+		onmenu,
 		onaddfriend,
 		onaccept,
 		ondecline,
@@ -277,6 +280,10 @@
 							onclick={() => onselect(item.member.id)}
 							onpointerenter={() => onprefetch(item.member.id)}
 							onfocus={() => onprefetch(item.member.id)}
+							oncontextmenu={(event) => {
+								event.preventDefault();
+								onmenu(item.member, avatarIn(event.currentTarget), event);
+							}}
 							class="relative block w-full rounded-lg text-left"
 						>
 							<FriendItem

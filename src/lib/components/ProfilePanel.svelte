@@ -15,6 +15,7 @@
 		onmessage?: () => void;
 		messageBusy?: boolean;
 		onfriendaction?: () => Promise<boolean>;
+		onunfriend?: () => void;
 		actionError?: string | null;
 	}
 
@@ -26,6 +27,7 @@
 		onmessage,
 		messageBusy = false,
 		onfriendaction,
+		onunfriend,
 		actionError = null
 	}: Props = $props();
 
@@ -49,6 +51,7 @@
 					{onmessage}
 					{messageBusy}
 					{onfriendaction}
+					{onunfriend}
 					{actionError}
 				/>
 			</div>

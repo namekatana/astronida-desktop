@@ -20,6 +20,7 @@ export function createFriendsState(input: {
 	online: Set<string>;
 	feeds: Feeds;
 	persist: (friends: Friend[]) => void;
+	onRemoved: (friend: Friend) => void;
 }) {
 	let list = $state<Friend[]>(input.friends);
 	let online = $state<Map<string, PresenceStatus>>(
@@ -40,6 +41,14 @@ export function createFriendsState(input: {
 		setTimeout(() => freshFriendIds.delete(friend.id), freshFriendMs);
 		list = [...list, friend];
 		input.persist(list);
+	}
+
+	function removeFriend(friendId: string) {
+		const removed = list.find((friend) => friend.id === friendId);
+		if (!removed) return;
+		list = list.filter((friend) => friend.id !== friendId);
+		input.persist(list);
+		input.onRemoved(removed);
 	}
 
 	function changeAvatar(friendId: string, avatarId: string | null) {
@@ -71,6 +80,7 @@ export function createFriendsState(input: {
 			onRequests: (next) => (requests = next),
 			onRequestReceived: handleRequestReceived,
 			onFriendAdded: addFriend,
+			onFriendRemoved: removeFriend,
 			onFriendAvatar: changeAvatar,
 			onOutgoing: (next) => (outgoingIds = next)
 		});

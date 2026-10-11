@@ -5,6 +5,7 @@
 	import { widgetTileClass } from '$lib/profile/widget-tile';
 	import type { Server } from '$lib/servers/servers';
 	import { createDelayedFlag } from '$lib/ui/delayed-flag.svelte';
+	import type { IconName } from '$lib/ui/icons';
 	import { initials } from '$lib/ui/initials';
 	import { materialize } from '$lib/ui/materialize';
 	import { settle } from '$lib/ui/settle';
@@ -25,6 +26,7 @@
 		onmessage?: () => void;
 		messageBusy?: boolean;
 		onfriendaction?: () => Promise<boolean>;
+		onunfriend?: () => void;
 		actionError?: string | null;
 	}
 
@@ -37,6 +39,7 @@
 		onmessage,
 		messageBusy = false,
 		onfriendaction,
+		onunfriend,
 		actionError = null
 	}: Props = $props();
 
@@ -53,26 +56,40 @@
 		avatar?.showStatusNow();
 	}
 
-	type FriendGlyph = 'add' | 'accept' | 'sent' | 'spinner';
+	type FriendGlyph = 'add' | 'accept' | 'sent' | 'remove' | 'spinner';
 
 	const friendLabels: Record<Exclude<FriendGlyph, 'spinner'>, string> = {
 		add: 'Добавить в друзья',
 		accept: 'Принять запрос',
-		sent: 'Запрос отправлен'
+		sent: 'Запрос отправлен',
+		remove: 'Удалить из друзей'
 	};
 
 	const friendGlyphs: Partial<Record<ProfileRelation, Exclude<FriendGlyph, 'spinner'>>> = {
 		none: 'add',
 		incoming: 'accept',
-		outgoing: 'sent'
+		outgoing: 'sent',
+		friend: 'remove'
 	};
 
-	const restingGlyph = $derived(friendGlyphs[card.relation]);
+	const friendIcons: Record<'add' | 'accept' | 'remove', IconName> = {
+		add: 'user-plus',
+		accept: 'user-check',
+		remove: 'user-minus'
+	};
+
+	const restingGlyph = $derived(
+		card.relation === 'friend' && !onunfriend ? undefined : friendGlyphs[card.relation]
+	);
 	const friendGlyph = $derived<FriendGlyph | undefined>(
 		friendSpinner.current ? 'spinner' : restingGlyph
 	);
 
 	async function runFriendAction() {
+		if (restingGlyph === 'remove') {
+			onunfriend?.();
+			return;
+		}
 		if (!onfriendaction || friendBusy || restingGlyph === 'sent') return;
 		justSent = true;
 		friendBusy = true;
@@ -229,7 +246,9 @@
 						out:friendButtonOut
 						class="grid h-9 w-9 place-items-center rounded-full bg-white/[0.08] duration-150 {sent
 							? 'cursor-default text-muted transition-colors'
-							: 'pressable text-ink hover:bg-white/[0.12]'}"
+							: 'pressable text-ink hover:bg-white/[0.12]'} {restingGlyph === 'remove'
+							? 'hover:text-danger'
+							: ''}"
 					>
 						{#key friendGlyph}
 							<span class="col-start-1 row-start-1 flex" in:glyphIn out:glyphOut>
@@ -238,19 +257,12 @@
 								{:else if friendGlyph === 'sent'}
 									<DrawnCheck size={16} duration={justSent ? 320 : 0} delay={60} />
 								{:else}
-									<Icon name={friendGlyph === 'accept' ? 'user-check' : 'user-plus'} size={16} />
+									<Icon name={friendIcons[friendGlyph]} size={16} />
 								{/if}
 							</span>
 						{/key}
 					</button>
 				{/if}
-				<button
-					type="button"
-					aria-label="Ещё"
-					class="pressable flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.08] text-ink duration-150 hover:bg-white/[0.12]"
-				>
-					<Icon name="dots" size={16} />
-				</button>
 			</div>
 			<div class="collapsible {actionError ? 'is-open' : ''}" inert={!actionError}>
 				<div class="grid">

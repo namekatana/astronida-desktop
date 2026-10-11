@@ -4,7 +4,7 @@
 
 	interface Props {
 		target: ModerationTarget;
-		serverName: string;
+		serverName?: string;
 	}
 
 	let { target, serverName }: Props = $props();
@@ -16,6 +16,8 @@
 	<Avatar name={target.name} size={32} userId={target.id} avatarId={target.avatarId} />
 	<div class="min-w-0">
 		<p class="truncate text-[14px] leading-5 font-semibold text-ink">@{target.username}</p>
-		<p class="truncate text-[12px] leading-4 text-muted">«{serverName}»</p>
+		{#if serverName}
+			<p class="truncate text-[12px] leading-4 text-muted">«{serverName}»</p>
+		{/if}
 	</div>
 </div>

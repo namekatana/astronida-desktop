@@ -17,9 +17,11 @@
 		onprofile: () => void;
 		onkick: () => void;
 		onban: () => void;
+		onunfriend?: () => void;
 	}
 
-	let { target, x, y, canModerate, onclose, onprofile, onkick, onban }: Props = $props();
+	let { target, x, y, canModerate, onclose, onprofile, onkick, onban, onunfriend }: Props =
+		$props();
 
 	const width = 224;
 	const margin = 8;
@@ -63,6 +65,19 @@
 	<div class="mt-1.5 flex flex-col gap-0.5">
 		<MenuItem icon="user" label="Профиль" onclick={() => choose(onprofile)} />
 	</div>
+
+	{#if onunfriend}
+		{@const unfriend = onunfriend}
+		<div class="mx-1.5 my-1.5 h-px bg-surface-line"></div>
+		<div class="flex flex-col gap-0.5">
+			<MenuItem
+				icon="user-minus"
+				label="Удалить из друзей"
+				onclick={() => choose(unfriend)}
+				destructive
+			/>
+		</div>
+	{/if}
 
 	{#if canModerate}
 		<ModerationItems onkick={() => choose(onkick)} onban={() => choose(onban)} />

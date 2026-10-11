@@ -25,6 +25,7 @@
 	import ServerSettingsDialog from '$lib/components/ServerSettingsDialog.svelte';
 	import KickMemberDialog from '$lib/components/KickMemberDialog.svelte';
 	import MemberMenu from '$lib/components/MemberMenu.svelte';
+	import RemoveFriendDialog from '$lib/components/RemoveFriendDialog.svelte';
 	import MemberPanel from '$lib/components/MemberPanel.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import {
@@ -198,7 +199,10 @@
 		friends: data.account.friends ?? [],
 		online: data.cache.friendsOnline,
 		feeds,
-		persist: (list) => persistAccount(list)
+		persist: (list) => persistAccount(list),
+		onRemoved: (friend) => {
+			if (friend.channelId) conversations.remember(friend);
+		}
 	});
 
 	// svelte-ignore state_referenced_locally
@@ -701,7 +705,32 @@
 		};
 	}
 
-	function mayModerate(serverId: string, targetId: string): boolean {
+	function openFriendMenu(person: Member, source: HTMLElement | null, event: MouseEvent) {
+		memberMenu = {
+			target: moderationTargetOf(person),
+			serverId: null,
+			x: event.clientX,
+			y: event.clientY,
+			source
+		};
+	}
+
+	let unfriending = $state<ModerationTarget | null>(null);
+
+	function unfriendActionFor(person: ProfileTarget): (() => void) | undefined {
+		if (!friends.ids.has(person.id)) return undefined;
+		return () => (unfriending = moderationTargetOf(person));
+	}
+
+	function finishUnfriend() {
+		if (!unfriending) return;
+		const { username } = unfriending;
+		unfriending = null;
+		toast.show(`@${username} удалён из друзей`);
+	}
+
+	function mayModerate(serverId: string | null, targetId: string): boolean {
+		if (serverId === null) return false;
 		const ownerId = servers.find((server) => server.id === serverId)?.ownerId;
 		return canModerate({ selfId: data.userId, ownerId, targetId });
 	}
@@ -949,8 +978,17 @@
 			canModerate={mayModerate(request.serverId, request.target.id)}
 			onclose={() => (memberMenu = null)}
 			onprofile={() => openProfile(request.target, request.source)}
-			onkick={() => startModeration('kick', request.target, request.serverId)}
-			onban={() => startModeration('ban', request.target, request.serverId)}
+			onkick={() => request.serverId && startModeration('kick', request.target, request.serverId)}
+			onban={() => request.serverId && startModeration('ban', request.target, request.serverId)}
+			onunfriend={unfriendActionFor(request.target)}
+		/>
+	{/if}
+
+	{#if unfriending}
+		<RemoveFriendDialog
+			target={unfriending}
+			ondone={finishUnfriend}
+			onclose={() => (unfriending = null)}
 		/>
 	{/if}
 
@@ -1098,6 +1136,7 @@
 				bind:width={panelWidths.channels}
 				onselect={selectFriend}
 				onprefetch={prefetchFriend}
+				onmenu={openFriendMenu}
 				onaddfriend={() => (addingFriend = true)}
 				onaccept={acceptFriendRequest}
 				ondecline={declineFriendRequest}
@@ -1239,6 +1278,7 @@
 							onmessage={() => messageUser(sideCard.target)}
 							messageBusy={directOpening === sideCard.target.id}
 							onfriendaction={() => befriend(sideCard.target, sideCard.relation)}
+							onunfriend={unfriendActionFor(sideCard.target)}
 							actionError={errorFor(sideCard.target.id)}
 						/>
 					</div>
@@ -1267,6 +1307,7 @@
 								animated={false}
 								onopenserver={handleServerJoined}
 								onfriendaction={() => befriend(chatPartnerCard.target, chatPartnerCard.relation)}
+								onunfriend={unfriendActionFor(chatPartnerCard.target)}
 								actionError={errorFor(chatPartnerCard.target.id)}
 							/>
 						{:else}

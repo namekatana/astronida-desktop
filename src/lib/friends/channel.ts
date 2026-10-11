@@ -38,6 +38,7 @@ interface FriendsSession {
 	channel: Channel;
 	dropRequest: (userId: string) => void;
 	markOutgoing: (userId: string) => void;
+	dropFriend: (userId: string) => void;
 }
 
 let session: FriendsSession | null = null;
@@ -60,6 +61,7 @@ export function subscribeToFriends(input: {
 	onRequests: (requests: Friend[]) => void;
 	onRequestReceived: (request: Friend) => void;
 	onFriendAdded: (friend: Friend) => void;
+	onFriendRemoved: (userId: string) => void;
 	onFriendAvatar: (userId: string, avatarId: string | null) => void;
 	onOutgoing: (userIds: Set<string>) => void;
 }): () => void {
@@ -93,6 +95,11 @@ export function subscribeToFriends(input: {
 		publishRequests();
 	}
 
+	function dropFriend(userId: string) {
+		if (online.delete(userId)) publishOnline();
+		input.onFriendRemoved(userId);
+	}
+
 	channel.on(
 		'friend_presence',
 		(payload: { user_id: string; online: boolean; status?: unknown }) => {
@@ -115,6 +122,7 @@ export function subscribeToFriends(input: {
 		publishOnline();
 		input.onFriendAdded(friend);
 	});
+	channel.on('friend_removed', (payload: { user_id: string }) => dropFriend(payload.user_id));
 	channel.on('friend_avatar', (payload: { user_id: string; avatar_id: string | null }) => {
 		knownAvatars.learn(payload.user_id, payload.avatar_id ?? null);
 		input.onFriendAvatar(payload.user_id, payload.avatar_id ?? null);
@@ -134,7 +142,7 @@ export function subscribeToFriends(input: {
 		publishOutgoing();
 	});
 
-	session = { channel, dropRequest, markOutgoing };
+	session = { channel, dropRequest, markOutgoing, dropFriend };
 
 	return () => {
 		if (session?.channel === channel) session = null;
@@ -201,4 +209,21 @@ export async function declineFriendRequest(userId: string): Promise<boolean> {
 	const outcome = await push<unknown>('decline', { user_id: userId });
 	if (outcome.ok) session?.dropRequest(userId);
 	return outcome.ok;
+}
+
+export type RemoveFriendOutcome = { ok: true } | { ok: false; message: string };
+
+export async function removeFriend(userId: string): Promise<RemoveFriendOutcome> {
+	const outcome = await push<unknown>('remove', { user_id: userId });
+	if (outcome.ok) {
+		session?.dropFriend(userId);
+		return { ok: true };
+	}
+	return {
+		ok: false,
+		message:
+			outcome.reason === 'rate_limited'
+				? 'Слишком часто, попробуйте через минуту'
+				: 'Не удалось удалить — проверьте соединение'
+	};
 }

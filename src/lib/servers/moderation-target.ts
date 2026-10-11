@@ -7,7 +7,7 @@ export interface ModerationTarget {
 
 export interface MemberMenuRequest {
 	target: ModerationTarget;
-	serverId: string;
+	serverId: string | null;
 	x: number;
 	y: number;
 	source: HTMLElement | null;
