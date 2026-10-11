@@ -64,11 +64,12 @@ const linkPattern = /^(?:astronida:\/\/invite\/|https:\/\/[^\s/]+\/invite\/)([A-
 const messageLinkPattern = /astronida:\/\/invite\/([A-Za-z0-9]{10})(?![A-Za-z0-9])/;
 
 const maxStoredPreviews = 200;
+const missingRecheckMs = 60_000;
 
 const section = createCachedSection('invites');
 const requests = new Map<string, Promise<PreviewResult>>();
 const storedPreviews = new Map<string, InvitePreview>();
-const missingCodes = new Set<string>();
+const missingCodes = new Map<string, number>();
 
 const memberPlurals = new Intl.PluralRules('ru-RU');
 const memberWords: Record<string, string> = {
@@ -268,7 +269,7 @@ function remember(code: string, preview: InvitePreview) {
 }
 
 function forget(code: string) {
-	missingCodes.add(code);
+	missingCodes.set(code, Date.now());
 	if (storedPreviews.delete(code)) persistPreviews();
 }
 
@@ -305,9 +306,16 @@ async function requestPreview(code: string): Promise<PreviewResult> {
 	return cachedPreview(code) ?? { ok: false, reason: 'failed' };
 }
 
+function missingRecheckDue(code: string): boolean {
+	const missingAt = missingCodes.get(code);
+	return missingAt !== undefined && Date.now() - missingAt >= missingRecheckMs;
+}
+
 export function previewInvite(code: string): Promise<PreviewResult> {
 	const known = requests.get(code);
-	if (known) return known;
+	const recheck = missingRecheckDue(code);
+	if (known && !recheck) return known;
+	if (recheck) missingCodes.set(code, Date.now());
 	const pending = requestPreview(code);
 	requests.set(code, pending);
 	return pending;
