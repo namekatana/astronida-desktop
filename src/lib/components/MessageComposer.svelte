@@ -167,7 +167,7 @@
 	}
 
 	function handleInput() {
-		if (value.trim().length > 0) ontyping?.();
+		if (!editing && value.trim().length > 0) ontyping?.();
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
