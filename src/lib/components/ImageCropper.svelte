@@ -241,7 +241,7 @@
 	});
 </script>
 
-<div class="absolute inset-0 flex flex-col p-1.5">
+<div class="absolute inset-0 z-10 flex flex-col p-1.5">
 	<div
 		class="absolute inset-0 rounded-[18px] bg-surface [corner-shape:squircle]"
 		in:fade={{ duration: 200 }}
