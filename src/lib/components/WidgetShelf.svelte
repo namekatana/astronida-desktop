@@ -10,6 +10,7 @@
 		type WidgetType
 	} from '$lib/profile/widgets';
 	import { settle } from '$lib/ui/settle';
+	import DashedFrame from './DashedFrame.svelte';
 	import Icon from './Icon.svelte';
 	import ProfileBio from './ProfileBio.svelte';
 	import ProfileLinks from './ProfileLinks.svelte';
@@ -92,9 +93,11 @@
 						{#if carried}
 							<div
 								aria-hidden="true"
-								class="absolute inset-0 rounded-[14px] border border-dashed border-white/20 [corner-shape:squircle]"
+								class="absolute inset-0"
 								in:fade={{ duration: 120 }}
-							></div>
+							>
+								<DashedFrame radius={14} class="text-tint/20" />
+							</div>
 						{/if}
 						<div
 							use:preview={type}
@@ -110,7 +113,7 @@
 							{:else}
 								<ProfileServerWidget
 									serverId=""
-									inviteCode={null}
+									ownerId={null}
 									compact={false}
 									sample={sampleServer}
 								/>
@@ -139,7 +142,7 @@
 										disabled={locked}
 										aria-label={`Добавить виджет «${widgetTitles[type]}»`}
 										onclick={() => onadd(type)}
-										class="pressable h-6 rounded-full bg-white/[0.08] px-2.5 text-[12px] font-semibold text-ink hover:bg-white/[0.12] disabled:opacity-40"
+										class="pressable h-6 rounded-full bg-tint/[0.08] px-2.5 text-[12px] font-semibold text-ink hover:bg-tint/[0.12] disabled:opacity-40"
 									>
 										Добавить
 									</button>
@@ -164,9 +167,9 @@
 			class="pointer-events-none absolute inset-0 flex flex-col items-center justify-end gap-2 bg-surface/90 pb-12 text-[13px] text-danger"
 			transition:fade={{ duration: 120 }}
 		>
-			<div
-				class="absolute inset-2 rounded-[12px] border border-dashed border-danger/40 [corner-shape:squircle]"
-			></div>
+			<div class="absolute inset-2">
+				<DashedFrame radius={12} class="text-danger/40" />
+			</div>
 			<Icon name="trash" size={18} />
 			Отпустите, чтобы убрать
 		</div>

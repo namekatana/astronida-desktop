@@ -22,7 +22,7 @@ interface WidgetSize {
 export type ProfileWidget =
 	| (WidgetSize & { type: 'bio' })
 	| (WidgetSize & { type: 'links'; links: ProfileLink[] })
-	| (WidgetSize & { type: 'server'; serverId: string; inviteCode: string | null });
+	| (WidgetSize & { type: 'server'; serverId: string });
 
 export type WidgetsSaveResult =
 	| { ok: true; widgets: ProfileWidget[] | null }
@@ -52,7 +52,6 @@ export const defaultWidgets: ProfileWidget[] = [{ type: 'bio', width: 2, height:
 
 const linksChromePx = 42;
 const linkRowPx = 36;
-const inviteCodePattern = /^[A-Za-z0-9]{10}$/;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const saveFailed = 'Не удалось сохранить виджеты';
@@ -98,16 +97,9 @@ function linksFrom(value: unknown): ProfileLink[] | null {
 	return links.some((link) => link === null) ? null : (links as ProfileLink[]);
 }
 
-function serverFieldsFrom(
-	record: Record<string, unknown>
-): { serverId: string; inviteCode: string | null } | null {
+function serverIdFrom(record: Record<string, unknown>): string | null {
 	const serverId = record.server_id;
-	const inviteCode = record.invite_code ?? null;
-	if (typeof serverId !== 'string' || !uuidPattern.test(serverId)) return null;
-	if (inviteCode !== null && (typeof inviteCode !== 'string' || !inviteCodePattern.test(inviteCode))) {
-		return null;
-	}
-	return { serverId, inviteCode };
+	return typeof serverId === 'string' && uuidPattern.test(serverId) ? serverId : null;
 }
 
 function widgetFrom(value: unknown): ProfileWidget | null {
@@ -121,8 +113,8 @@ function widgetFrom(value: unknown): ProfileWidget | null {
 		return links ? { type: 'links', width, height, links } : null;
 	}
 	if (record.type === 'server') {
-		const fields = serverFieldsFrom(record);
-		return fields ? { type: 'server', width, height, ...fields } : null;
+		const serverId = serverIdFrom(record);
+		return serverId ? { type: 'server', width, height, serverId } : null;
 	}
 	return null;
 }
@@ -144,7 +136,7 @@ export function shownWidgets(widgets: ProfileWidget[] | null): ProfileWidget[] {
 export function createWidget(type: WidgetType, serverId: string | null = null): ProfileWidget {
 	if (type === 'bio') return { type: 'bio', width: 1, height: 2 };
 	if (type === 'links') return { type: 'links', width: 1, height: 2, links: [] };
-	return { type: 'server', width: 1, height: 2, serverId: serverId ?? '', inviteCode: null };
+	return { type: 'server', width: 1, height: 2, serverId: serverId ?? '' };
 }
 
 function canonical(widget: ProfileWidget): ProfileWidget {
@@ -157,7 +149,7 @@ function canonical(widget: ProfileWidget): ProfileWidget {
 			links: widget.links.map((link) => ({ url: link.url, label: link.label }))
 		};
 	}
-	return { type: 'server', ...size, serverId: widget.serverId, inviteCode: widget.inviteCode };
+	return { type: 'server', ...size, serverId: widget.serverId };
 }
 
 export function copyWidgets(widgets: ProfileWidget[]): ProfileWidget[] {
@@ -174,8 +166,7 @@ function payloadOf(widget: ProfileWidget): object {
 		type: 'server',
 		width: widget.width,
 		height: widget.height,
-		server_id: widget.serverId,
-		invite_code: widget.inviteCode
+		server_id: widget.serverId
 	};
 }
 

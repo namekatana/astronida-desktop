@@ -23,6 +23,7 @@
 	} from '$lib/profile/widgets';
 	import type { Server } from '$lib/servers/servers';
 	import { pop } from '$lib/ui/pop';
+	import DashedFrame from './DashedFrame.svelte';
 	import Icon from './Icon.svelte';
 	import ProfileBio from './ProfileBio.svelte';
 	import ProfileLinks from './ProfileLinks.svelte';
@@ -32,10 +33,11 @@
 		bio: string | null;
 		widgets: ProfileWidget[] | null;
 		editing: ProfileEditing | null;
+		ownerId: string;
 		onopenserver?: (server: Server) => void;
 	}
 
-	let { bio, widgets, editing, onopenserver }: Props = $props();
+	let { bio, widgets, editing, ownerId, onopenserver }: Props = $props();
 
 	const glideMs = 260;
 	const removeMs = 160;
@@ -227,11 +229,13 @@
 		{#each freeCells as free (`${free.row}:${free.column}`)}
 			<div
 				aria-hidden="true"
-				class="pointer-events-none rounded-[14px] border border-dashed border-white/[0.07] [corner-shape:squircle]"
+				class="pointer-events-none relative"
 				style:grid-column="{free.column} / span 1"
 				style:grid-row="{free.row} / span 1"
 				in:fade={{ duration: 150 }}
-			></div>
+			>
+				<DashedFrame radius={14} class="text-tint/[0.07]" />
+			</div>
 		{/each}
 
 		{#each list as widget, index (widget.type)}
@@ -281,7 +285,7 @@
 					{:else}
 						<ProfileServerWidget
 							serverId={widget.serverId}
-							inviteCode={widget.inviteCode}
+							{ownerId}
 							compact={widget.height === 1}
 							knownServers={editing?.widgets.ownedServers ?? []}
 							locked={editing?.locked ?? false}
@@ -295,8 +299,10 @@
 					<div
 						data-drag-chrome
 						aria-hidden="true"
-						class="pointer-events-none absolute inset-0 rounded-[14px] border border-dashed border-white/20 bg-white/[0.02] [corner-shape:squircle]"
-					></div>
+						class="pointer-events-none absolute inset-0 rounded-[14px] bg-tint/[0.02] [corner-shape:squircle]"
+					>
+						<DashedFrame radius={14} class="text-tint/20" />
+					</div>
 				{/if}
 
 				{#if editing && !hidden}
@@ -309,7 +315,7 @@
 						onclick={() => remove(widget.type)}
 						in:fade={{ duration: 150 }}
 						out:fade={{ duration: 100 }}
-						class="pressable absolute -top-1.5 -left-1.5 z-10 flex h-[22px] w-[22px] items-center justify-center rounded-full bg-[#48484c] text-ink transition-[opacity,color,background-color] duration-150 hover:bg-[#525257] hover:text-danger disabled:opacity-40 {drag?.busy
+						class="pressable absolute -top-1.5 -left-1.5 z-10 flex h-[22px] w-[22px] items-center justify-center rounded-full bg-knob text-ink transition-[opacity,color,background-color] duration-150 hover:bg-knob-hover hover:text-danger disabled:opacity-40 {drag?.busy
 							? 'opacity-0'
 							: ''}"
 					>
@@ -350,8 +356,8 @@
 							) === 'end'
 								? 'rounded-br-[6px] border-r-2'
 								: 'rounded-bl-[6px] border-l-2'} {resize
-								? 'border-white/80 opacity-100'
-								: 'border-white/40 opacity-0 group-hover/widget:opacity-100'} {drag?.active
+								? 'border-tint/80 opacity-100'
+								: 'border-tint/40 opacity-0 group-hover/widget:opacity-100'} {drag?.active
 								? 'opacity-0'
 								: ''}"
 						></span>

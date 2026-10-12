@@ -2,10 +2,10 @@
 	import { fade } from 'svelte/transition';
 	import { widgetTileClass } from '$lib/profile/widget-tile';
 	import {
-		cachedPreview,
-		joinByInvite,
+		cachedProfileServer,
+		joinProfileServer,
 		memberCountLabel,
-		previewInvite,
+		previewProfileServer,
 		type InvitePreview
 	} from '$lib/servers/invites';
 	import type { Server } from '$lib/servers/servers';
@@ -16,7 +16,7 @@
 
 	interface Props {
 		serverId: string;
-		inviteCode: string | null;
+		ownerId: string | null;
 		compact: boolean;
 		knownServers?: Server[];
 		sample?: { name: string; memberCount: number } | null;
@@ -27,7 +27,7 @@
 
 	let {
 		serverId,
-		inviteCode,
+		ownerId,
 		compact,
 		knownServers = [],
 		sample = null,
@@ -46,19 +46,20 @@
 
 	const editable = $derived(onpick !== undefined);
 	const known = $derived(knownServers.find((server) => server.id === serverId) ?? null);
-	const name = $derived(sample?.name ?? preview?.serverName ?? known?.name ?? null);
-	const memberCount = $derived(sample?.memberCount ?? preview?.memberCount ?? null);
+	const shownPreview = $derived(preview?.serverId === serverId ? preview : null);
+	const name = $derived(sample?.name ?? shownPreview?.serverName ?? known?.name ?? null);
+	const memberCount = $derived(sample?.memberCount ?? shownPreview?.memberCount ?? null);
 	const unavailable = $derived(!sample && !editable && missing);
-	const actionLabel = $derived(preview?.member ? 'Открыть' : 'Вступить');
+	const actionLabel = $derived(shownPreview?.member ? 'Открыть' : 'Вступить');
 
 	$effect(() => {
-		const code = inviteCode;
-		if (sample || !code) return;
-		const cached = cachedPreview(code);
-		if (cached?.ok) preview = cached.preview;
-		missing = cached?.ok === false && cached.reason === 'not_found';
+		const owner = ownerId;
+		void serverId;
+		if (sample || editable || !owner) return;
+		preview = cachedProfileServer(owner);
+		missing = false;
 		let current = true;
-		void previewInvite(code).then((result) => {
+		void previewProfileServer(owner).then((result) => {
 			if (!current) return;
 			if (result.ok) {
 				preview = result.preview;
@@ -77,12 +78,16 @@
 	});
 
 	async function open() {
-		if (!inviteCode || joining || sample) return;
+		if (!ownerId || joining || sample) return;
 		joining = true;
-		const result = await joinByInvite(inviteCode);
+		const result = await joinProfileServer(ownerId);
 		joining = false;
 		if (result.ok) {
 			onopen?.(result.server);
+			return;
+		}
+		if (result.missing) {
+			missing = true;
 			return;
 		}
 		failed = true;
@@ -107,8 +112,8 @@
 				{memberCount === null ? 'Ваш сервер' : memberCountLabel(memberCount)}
 			</span>
 		{:else}
-			<span class="h-3.5 w-24 rounded-full bg-white/[0.08]"></span>
-			<span class="mt-1.5 h-3 w-16 rounded-full bg-white/[0.05]"></span>
+			<span class="h-3.5 w-24 rounded-full bg-tint/[0.08]"></span>
+			<span class="mt-1.5 h-3 w-16 rounded-full bg-tint/[0.05]"></span>
 		{/if}
 	</span>
 {/snippet}
@@ -119,7 +124,7 @@
 			type="button"
 			disabled={locked}
 			onclick={(event) => onpick?.(event.currentTarget)}
-			class="pressable flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full bg-white/[0.08] px-3.5 text-[13px] font-medium text-ink duration-150 hover:bg-white/[0.12] disabled:opacity-40"
+			class="pressable flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full bg-tint/[0.08] px-3.5 text-[13px] font-medium text-ink duration-150 hover:bg-tint/[0.12] disabled:opacity-40"
 		>
 			Сменить сервер
 			<Icon name="chevron" size={12} class="text-muted" />
@@ -127,11 +132,11 @@
 	{:else}
 		<button
 			type="button"
-			disabled={!inviteCode && !sample}
+			disabled={!ownerId && !sample}
 			aria-busy={joining}
 			onclick={open}
 			class="pressable grid h-8 shrink-0 place-items-center rounded-full px-4 text-[13px] font-semibold duration-150 {failed
-				? 'bg-white/[0.08] text-danger'
+				? 'bg-tint/[0.08] text-danger'
 				: 'bg-ink text-bg hover:bg-ink-hover'}"
 		>
 			{#key joining ? 'joining' : failed ? 'failed' : actionLabel}

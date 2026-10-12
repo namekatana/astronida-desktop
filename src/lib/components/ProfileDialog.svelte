@@ -273,11 +273,7 @@
 	function pickServer(serverId: string) {
 		widgetsDraft = widgetsDraft.map((widget) =>
 			widget.type === 'server'
-				? {
-						...widget,
-						serverId,
-						inviteCode: widget.serverId === serverId ? widget.inviteCode : null
-					}
+				? { ...widget, serverId }
 				: widget
 		);
 		widgetsError = null;
@@ -926,7 +922,7 @@
 							role="menuitemradio"
 							aria-checked={chosen}
 							onclick={() => pickServer(server.id)}
-							class="flex h-9 min-w-0 items-center gap-2.5 rounded-[10px] px-2.5 text-left text-[13px] text-ink transition-colors duration-150 [corner-shape:squircle] hover:bg-white/[0.06]"
+							class="flex h-9 min-w-0 items-center gap-2.5 rounded-[10px] px-2.5 text-left text-[13px] text-ink transition-colors duration-150 [corner-shape:squircle] hover:bg-tint/[0.06]"
 						>
 							<span
 								class="flex h-6 w-6 shrink-0 items-center justify-center rounded-[7px] bg-surface-raised text-[10px] font-semibold [corner-shape:squircle]"
@@ -975,7 +971,7 @@
 							aria-label="Изменить профиль"
 							title="Изменить профиль"
 							onclick={startEditing}
-							class="pressable mr-3 flex h-8 w-8 items-center justify-center rounded-full text-muted duration-150 hover:bg-white/[0.08] hover:text-ink"
+							class="pressable mr-3 flex h-8 w-8 items-center justify-center rounded-full text-muted duration-150 hover:bg-tint/[0.08] hover:text-ink"
 						>
 							<Icon name="pencil" size={15} />
 						</button>

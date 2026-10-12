@@ -70,6 +70,7 @@ const section = createCachedSection('invites');
 const requests = new Map<string, Promise<PreviewResult>>();
 const storedPreviews = new Map<string, InvitePreview>();
 const missingCodes = new Map<string, number>();
+const profileServerPreviews = new Map<string, InvitePreview>();
 
 const memberPlurals = new Intl.PluralRules('ru-RU');
 const memberWords: Record<string, string> = {
@@ -247,6 +248,7 @@ export async function restoreInvitePreviews() {
 	requests.clear();
 	storedPreviews.clear();
 	missingCodes.clear();
+	profileServerPreviews.clear();
 	const entries = await section.read();
 	if (!Array.isArray(entries)) return;
 	for (const entry of entries) {
@@ -327,6 +329,51 @@ function rememberMembership(code: string) {
 	const joined = { ...known, member: true, memberCount: known.memberCount + 1 };
 	remember(code, joined);
 	requests.set(code, Promise.resolve({ ok: true, preview: joined }));
+}
+
+export function cachedProfileServer(ownerId: string): InvitePreview | null {
+	return profileServerPreviews.get(ownerId) ?? null;
+}
+
+export async function previewProfileServer(ownerId: string): Promise<PreviewResult> {
+	const response = await getApi(`/profiles/${ownerId}/server`);
+	if (response?.status === 404) {
+		profileServerPreviews.delete(ownerId);
+		return { ok: false, reason: 'not_found' };
+	}
+	const preview = response?.status === 200 ? previewFrom(response.body) : null;
+	if (!preview) return { ok: false, reason: 'failed' };
+	profileServerPreviews.set(ownerId, preview);
+	return { ok: true, preview };
+}
+
+export async function joinProfileServer(ownerId: string): Promise<JoinResult> {
+	const response = await postApi(`/profiles/${ownerId}/server/join`, {});
+	const server = response?.status === 200 ? serverFrom(response.body) : null;
+	if (server) {
+		const known = profileServerPreviews.get(ownerId);
+		if (known && !known.member) {
+			profileServerPreviews.set(ownerId, {
+				...known,
+				member: true,
+				memberCount: known.memberCount + 1
+			});
+		}
+		rememberJoinedLayout(server.id, response?.body);
+		return { ok: true, server };
+	}
+	if (response?.status === 404) {
+		profileServerPreviews.delete(ownerId);
+		return { ok: false, message: 'Сервер недоступен', missing: true };
+	}
+	return {
+		ok: false,
+		message: failureMessage(response, {
+			limit: 'Не удалось присоединиться, попробуйте ещё раз',
+			failed: 'Не удалось присоединиться, попробуйте ещё раз'
+		}),
+		missing: false
+	};
 }
 
 export async function joinByInvite(code: string): Promise<JoinResult> {

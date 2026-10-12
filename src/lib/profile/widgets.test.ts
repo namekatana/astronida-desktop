@@ -36,7 +36,7 @@ describe('widgetsFrom', () => {
 		]);
 	});
 
-	it('reads links and server widgets from the snake case payload', () => {
+	it('reads links and server widgets from the snake case payload and ignores old invite codes', () => {
 		expect(
 			widgetsFrom([
 				{ type: 'links', width: 1, height: 2, links: [{ url: 'https://a.io/', label: null }] },
@@ -44,7 +44,7 @@ describe('widgetsFrom', () => {
 			])
 		).toEqual([
 			{ type: 'links', width: 1, height: 2, links: [{ url: 'https://a.io/', label: null }] },
-			{ type: 'server', width: 1, height: 2, serverId, inviteCode: 'Ab3dE6gH9k' }
+			{ type: 'server', width: 1, height: 2, serverId }
 		]);
 	});
 
@@ -57,7 +57,6 @@ describe('widgetsFrom', () => {
 			[{ type: 'links', width: 1, height: 1, links: Array(6).fill({ url: 'https://a.io', label: null }) }],
 			[{ type: 'links', width: 1, height: 1, links: [{ url: 42, label: null }] }],
 			[{ type: 'server', width: 1, height: 2, server_id: 'nope' }],
-			[{ type: 'server', width: 1, height: 2, server_id: serverId, invite_code: 'short' }],
 			[
 				{ type: 'bio', width: 1, height: 1 },
 				{ type: 'bio', width: 1, height: 1 }
@@ -149,20 +148,16 @@ describe('saveWidgets', () => {
 		postApi.mockResolvedValue({
 			status: 200,
 			body: {
-				widgets: [
-					{ type: 'server', width: 1, height: 2, server_id: serverId, invite_code: 'Ab3dE6gH9k' }
-				]
+				widgets: [{ type: 'server', width: 2, height: 1, server_id: serverId }]
 			}
 		});
-		const result = await saveWidgets([
-			{ type: 'server', width: 1, height: 2, serverId, inviteCode: null }
-		]);
+		const result = await saveWidgets([{ type: 'server', width: 1, height: 2, serverId }]);
 		expect(postApi).toHaveBeenCalledWith('/profile/widgets', {
-			widgets: [{ type: 'server', width: 1, height: 2, server_id: serverId, invite_code: null }]
+			widgets: [{ type: 'server', width: 1, height: 2, server_id: serverId }]
 		});
 		expect(result).toEqual({
 			ok: true,
-			widgets: [{ type: 'server', width: 1, height: 2, serverId, inviteCode: 'Ab3dE6gH9k' }]
+			widgets: [{ type: 'server', width: 2, height: 1, serverId }]
 		});
 	});
 
