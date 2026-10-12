@@ -3,6 +3,7 @@
 	import { on } from 'svelte/events';
 	import { fade } from 'svelte/transition';
 	import type { ServerInvite } from '$lib/servers/invites';
+	import { createServerBans } from '$lib/servers/server-bans.svelte';
 	import { createServerInvites } from '$lib/servers/server-invites.svelte';
 	import {
 		rememberedServerSection,
@@ -37,6 +38,9 @@
 	let revoking = $state<ServerInvite | null>(null);
 
 	const invites = createServerInvites(untrack(() => server.id));
+	const bans = createServerBans(untrack(() => server.id));
+	void invites.load();
+	void bans.load();
 	const section = $derived(serverSettingsSection(selected));
 	const title = $derived(openedInvite ? 'Вступили по ссылке' : section.label);
 	const pageKey = $derived(`${selected}:${openedInvite?.code ?? ''}`);
@@ -48,8 +52,8 @@
 	}
 
 	$effect(() => {
-		if (selected !== 'invites' || openedInvite) return;
-		untrack(() => invites.load());
+		if (selected === 'invites' && !openedInvite) untrack(() => invites.load());
+		if (selected === 'bans') untrack(() => bans.load());
 	});
 
 	$effect(() => {
@@ -104,8 +108,8 @@
 								aria-current={active ? 'page' : undefined}
 								onclick={() => select(item.id)}
 								class="flex h-9 w-full items-center gap-2.5 rounded-[10px] px-2.5 text-left text-[13px] transition-colors duration-150 {active
-									? 'bg-white/[0.08] text-ink'
-									: 'text-ink-secondary hover:bg-white/[0.04] hover:text-ink'}"
+									? 'bg-tint/[0.08] text-ink'
+									: 'text-ink-secondary hover:bg-tint/[0.04] hover:text-ink'}"
 							>
 								<Icon
 									name={item.icon}
@@ -137,7 +141,7 @@
 						type="button"
 						aria-label="Назад"
 						onclick={() => (openedInvite = null)}
-						class="pressable flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted duration-150 hover:bg-white/[0.06] hover:text-ink"
+						class="pressable flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted duration-150 hover:bg-tint/[0.06] hover:text-ink"
 					>
 						<Icon name="chevron" size={16} class="rotate-90" />
 					</button>
@@ -157,7 +161,7 @@
 					type="button"
 					aria-label="Закрыть настройки сервера"
 					onclick={onclose}
-					class="pressable ml-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted duration-150 hover:bg-white/[0.06] hover:text-ink"
+					class="pressable ml-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted duration-150 hover:bg-tint/[0.06] hover:text-ink"
 				>
 					<Icon name="close" size={14} />
 				</button>
@@ -177,7 +181,7 @@
 									{section.summary}
 								</p>
 								<span
-									class="mt-4 flex h-7 items-center gap-1.5 rounded-full bg-white/[0.04] px-3 text-[12px] font-semibold text-muted"
+									class="mt-4 flex h-7 items-center gap-1.5 rounded-full bg-tint/[0.04] px-3 text-[12px] font-semibold text-muted"
 								>
 									<Icon name="lock" size={12} />
 									Скоро
@@ -192,7 +196,7 @@
 								onrevoke={(invite) => (revoking = invite)}
 							/>
 						{:else}
-							<ServerBansSettings serverId={server.id} />
+							<ServerBansSettings serverBans={bans} />
 						{/if}
 					</div>
 				{/key}
