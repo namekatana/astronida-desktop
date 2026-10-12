@@ -29,15 +29,19 @@
 	aria-checked={checked}
 	{disabled}
 	{onclick}
-	class="flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] transition-colors duration-150 enabled:hover:bg-white/[0.06] disabled:cursor-default {checked
-		? 'text-ink'
-		: 'text-ink-secondary'} {disabled
+	class="flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] transition-colors duration-150 disabled:cursor-default {destructive
+		? 'text-danger enabled:hover:bg-danger/[0.08]'
+		: checked
+			? 'text-ink enabled:hover:bg-tint/[0.06]'
+			: 'text-ink-secondary enabled:hover:bg-tint/[0.06] enabled:hover:text-ink'} {disabled
 		? 'opacity-50'
-		: destructive
-			? 'enabled:hover:text-danger'
-			: 'enabled:hover:text-ink'}"
+		: ''}"
 >
-	<Icon name={icon} size={15} class={checked ? 'text-ink' : 'text-muted'} />
+	<Icon
+		name={icon}
+		size={15}
+		class={destructive ? 'text-danger' : checked ? 'text-ink' : 'text-muted'}
+	/>
 	<span class="min-w-0 flex-1 truncate">{label}</span>
 	{#if hint}
 		<span class="shrink-0 text-[11px] text-muted">{hint}</span>

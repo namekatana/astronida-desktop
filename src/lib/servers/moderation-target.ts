@@ -14,6 +14,7 @@ export interface MemberMenuRequest {
 }
 
 export interface MemberModeration {
+	serverName: string;
 	allowed: (userId: string) => boolean;
 	onkick: (target: ModerationTarget) => void;
 	onban: (target: ModerationTarget) => void;

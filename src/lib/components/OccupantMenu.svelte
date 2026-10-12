@@ -92,7 +92,7 @@
 	class="panel panel-floating fixed z-50 origin-top-left p-1.5"
 >
 	<div class="flex items-center gap-2.5 px-2.5 pt-2 pb-2.5">
-		<Avatar name={occupant.name} size={32} />
+		<Avatar name={occupant.name} size={32} userId={occupant.id} avatarId={occupant.avatarId} />
 		<div class="min-w-0">
 			<div class="truncate text-[13px] font-medium text-ink">{occupant.name}</div>
 			<div class="truncate text-[11px] text-muted">@{occupant.username}</div>
@@ -136,6 +136,6 @@
 	</div>
 
 	{#if moderation?.allowed(occupant.id)}
-		<ModerationItems onkick={kick} onban={ban} />
+		<ModerationItems serverName={moderation.serverName} onkick={kick} onban={ban} />
 	{/if}
 </div>

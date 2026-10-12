@@ -10,6 +10,8 @@
 
 	interface Props {
 		target: ModerationTarget;
+		subtitle: string | null;
+		serverName: string | null;
 		x: number;
 		y: number;
 		canModerate: boolean;
@@ -18,10 +20,23 @@
 		onkick: () => void;
 		onban: () => void;
 		onunfriend?: () => void;
+		onshare?: () => void;
 	}
 
-	let { target, x, y, canModerate, onclose, onprofile, onkick, onban, onunfriend }: Props =
-		$props();
+	let {
+		target,
+		subtitle,
+		serverName,
+		x,
+		y,
+		canModerate,
+		onclose,
+		onprofile,
+		onkick,
+		onban,
+		onunfriend,
+		onshare
+	}: Props = $props();
 
 	const width = 224;
 	const margin = 8;
@@ -57,29 +72,36 @@
 	<div class="flex items-center gap-2.5 px-2.5 pt-2 pb-2.5">
 		<Avatar name={target.name} size={32} userId={target.id} avatarId={target.avatarId} />
 		<div class="min-w-0">
-			<div class="truncate text-[13px] font-medium text-ink">@{target.username}</div>
+			<div class="truncate text-[13px] leading-[18px] font-semibold text-ink">@{target.username}</div>
+			{#if subtitle}
+				<div class="truncate text-[11px] leading-4 text-muted">{subtitle}</div>
+			{/if}
 		</div>
 	</div>
 	<div class="mx-1.5 h-px bg-surface-line"></div>
 
 	<div class="mt-1.5 flex flex-col gap-0.5">
 		<MenuItem icon="user" label="Профиль" onclick={() => choose(onprofile)} />
-	</div>
-
-	{#if onunfriend}
-		{@const unfriend = onunfriend}
-		<div class="mx-1.5 my-1.5 h-px bg-surface-line"></div>
-		<div class="flex flex-col gap-0.5">
+		{#if onshare}
+			{@const share = onshare}
+			<MenuItem icon="share" label="Поделиться профилем" onclick={() => choose(share)} />
+		{/if}
+		{#if onunfriend}
+			{@const unfriend = onunfriend}
 			<MenuItem
 				icon="user-minus"
 				label="Удалить из друзей"
 				onclick={() => choose(unfriend)}
 				destructive
 			/>
-		</div>
-	{/if}
+		{/if}
+	</div>
 
-	{#if canModerate}
-		<ModerationItems onkick={() => choose(onkick)} onban={() => choose(onban)} />
+	{#if canModerate && serverName !== null}
+		<ModerationItems
+			{serverName}
+			onkick={() => choose(onkick)}
+			onban={() => choose(onban)}
+		/>
 	{/if}
 </div>
