@@ -29,6 +29,7 @@ const retryMaxMs = 5_000;
 const credentialsReuseMs = 40_000;
 const reconnectingToneTiming = { firstAfterMs: 1_000, everyMs: 2_500 };
 const afterJoinToneTiming = { firstAfterMs: 2_000, everyMs: 2_500 };
+const dropSoundAfterMs = 1_000;
 const keyResyncGapMs = 5_000;
 
 let micMuted = $state(false);
@@ -56,6 +57,9 @@ let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let onlineListener: (() => void) | null = null;
 let pendingRetry: (() => void) | null = null;
 let stopReconnectingTone: (() => void) | null = null;
+let dropSoundTimer: ReturnType<typeof setTimeout> | null = null;
+let dropSoundPlayed = false;
+let reconnectAnnounced = false;
 let recentCredentials: {
 	channelId: string;
 	credentials: VoiceCredentials;
@@ -173,9 +177,24 @@ function scheduleReconnect(target: VoiceConnection) {
 
 function enterReconnecting() {
 	const joining = status === 'connecting';
-	if (joining) playToggleSound('voice-connected');
+	const dropped = status === 'connected';
+	if (joining) {
+		playToggleSound('voice-connected');
+		reconnectAnnounced = true;
+	}
+	if (dropped) scheduleDropSound();
 	status = 'reconnecting';
-	startReconnectingTone(joining ? afterJoinToneTiming : reconnectingToneTiming);
+	startReconnectingTone(joining || dropped ? afterJoinToneTiming : reconnectingToneTiming);
+}
+
+function scheduleDropSound() {
+	dropSoundPlayed = false;
+	dropSoundTimer ??= setTimeout(() => {
+		dropSoundTimer = null;
+		dropSoundPlayed = true;
+		reconnectAnnounced = true;
+		playToggleSound('voice-disconnected');
+	}, dropSoundAfterMs);
 }
 
 function startReconnectingTone(timing: typeof reconnectingToneTiming) {
@@ -185,13 +204,17 @@ function startReconnectingTone(timing: typeof reconnectingToneTiming) {
 function silenceReconnectingTone() {
 	stopReconnectingTone?.();
 	stopReconnectingTone = null;
+	if (dropSoundTimer) clearTimeout(dropSoundTimer);
+	dropSoundTimer = null;
 }
 
 function markConnected() {
-	const recovered = status === 'reconnecting';
+	const recovered = status === 'reconnecting' && reconnectAnnounced;
 	status = 'connected';
 	retryCount = 0;
 	silenceReconnectingTone();
+	dropSoundPlayed = false;
+	reconnectAnnounced = false;
 	if (recovered) playToggleSound('voice-connected');
 }
 
@@ -418,6 +441,8 @@ export const voice = {
 		cancelRetry();
 		releaseTransport();
 		silenceReconnectingTone();
+		dropSoundPlayed = false;
+		reconnectAnnounced = false;
 		retryCount = 0;
 		connected = target;
 		status = 'connecting';
@@ -432,7 +457,11 @@ export const voice = {
 		releaseTransport();
 		silenceReconnectingTone();
 		if (connected) leaveVoice(connected.serverId);
-		if (status === 'connected') playToggleSound('voice-disconnected');
+		if (status === 'connected' || (status === 'reconnecting' && !dropSoundPlayed)) {
+			playToggleSound('voice-disconnected');
+		}
+		dropSoundPlayed = false;
+		reconnectAnnounced = false;
 		connected = null;
 		status = null;
 		failure = null;
