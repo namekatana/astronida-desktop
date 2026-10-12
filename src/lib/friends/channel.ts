@@ -45,7 +45,7 @@ let session: FriendsSession | null = null;
 
 function toFriend(profile: ProfilePayload, channelId: string | null = null): Friend {
 	const avatarId = typeof profile.avatar_id === 'string' ? profile.avatar_id : null;
-	knownAvatars.learn(profile.id, avatarId);
+	if ('avatar_id' in profile) knownAvatars.learn(profile.id, avatarId);
 	return {
 		id: profile.id,
 		username: profile.username,
