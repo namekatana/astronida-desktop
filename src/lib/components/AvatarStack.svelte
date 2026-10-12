@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { initials } from '$lib/ui/initials';
 	import type { VoiceOccupant } from '$lib/voice/occupant';
+	import Avatar from './Avatar.svelte';
 
 	interface Props {
 		members: VoiceOccupant[];
@@ -15,13 +15,16 @@
 
 <div class="flex -space-x-2">
 	{#each visible as member (member.id)}
-		<span
-			title="@{member.username}{member.quality === 'lost' ? ' · связь потеряна' : ''}"
-			class="flex h-6 w-6 items-center justify-center rounded-full border-2 bg-surface-raised text-[10px] font-medium text-ink transition-[border-color,opacity] duration-150 {member.speaking
-				? 'border-online'
-				: 'border-surface'} {member.quality === 'lost' ? 'animate-pulse opacity-40' : ''}"
-		>
-			{initials(member.name)}
+		<span class="flex" title="@{member.username}{member.quality === 'lost' ? ' · связь потеряна' : ''}">
+			<Avatar
+				name={member.name}
+				size={24}
+				userId={member.id}
+				avatarId={member.avatarId}
+				class="border-2 transition-[border-color,opacity] duration-150 {member.speaking
+					? 'border-online'
+					: 'border-surface'} {member.quality === 'lost' ? 'animate-pulse opacity-40' : ''}"
+			/>
 		</span>
 	{/each}
 	{#if hidden > 0}

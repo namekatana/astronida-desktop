@@ -79,7 +79,7 @@
 		class="relative z-10 flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] transition-colors duration-150 {active ||
 		hasUnread
 			? 'text-ink'
-			: 'text-ink-secondary hover:bg-white/[0.04] hover:text-ink'} {hasUnread ? 'font-medium' : ''}"
+			: 'text-ink-secondary hover:bg-tint/[0.04] hover:text-ink'} {hasUnread ? 'font-medium' : ''}"
 	>
 		{#if hasUnread}
 			<span
@@ -114,14 +114,16 @@
 							type="button"
 							onclick={(event) => onopenprofile?.(occupant, avatarIn(event.currentTarget))}
 							oncontextmenu={(event) => openMenu(event, occupant)}
-							class="flex h-8 w-full items-center gap-2 rounded-md px-1.5 text-left transition-[background-color,opacity] duration-200 hover:bg-white/[0.05] {occupant.quality ===
+							class="flex h-8 w-full items-center gap-2 rounded-md px-1.5 text-left transition-[background-color,opacity] duration-200 hover:bg-tint/[0.05] {occupant.quality ===
 							'lost'
 								? 'opacity-40'
-								: ''} {menu?.occupant.id === occupant.id ? 'bg-white/[0.05]' : ''}"
+								: ''} {menu?.occupant.id === occupant.id ? 'bg-tint/[0.05]' : ''}"
 						>
 							<Avatar
 								name={occupant.name}
 								size={24}
+								userId={occupant.id}
+								avatarId={occupant.avatarId}
 								class="ring-online transition-shadow duration-150 {occupant.speaking
 									? 'ring-2'
 									: 'ring-0'}"
