@@ -53,14 +53,14 @@
 
 <div
 	data-banner
-	class="relative aspect-[4/1] w-full shrink-0 overflow-hidden rounded-[12px] bg-white/[0.06] [corner-shape:squircle]"
+	class="relative aspect-[4/1] w-full shrink-0 overflow-hidden rounded-[12px] bg-tint/[0.06] [corner-shape:squircle]"
 >
 	{#if withoutPicture}
 		<div
 			bind:this={skyHost}
 			aria-hidden="true"
 			transition:fade={{ duration: 200 }}
-			class="absolute inset-0 bg-[radial-gradient(120%_140%_at_50%_120%,rgba(255,255,255,0.07),transparent_60%),linear-gradient(180deg,#121216,#0c0c0f)]"
+			class="night-sky absolute inset-0"
 		>
 			<canvas bind:this={skyCanvas} class="absolute inset-0 h-full w-full"></canvas>
 		</div>

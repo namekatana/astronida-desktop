@@ -14,7 +14,7 @@
 
 <div
 	aria-hidden="true"
-	class="grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-[14px] bg-white/[0.03] px-2 pb-2 [mask-image:linear-gradient(to_bottom,transparent,black_28px)] [corner-shape:squircle]"
+	class="grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-[14px] bg-tint/[0.03] px-2 pb-2 [mask-image:linear-gradient(to_bottom,transparent,black_28px)] [corner-shape:squircle]"
 >
 	{#key context}
 		<div
@@ -37,7 +37,7 @@
 				{:else if item.type === 'channel'}
 					<div
 						class="flex h-9 shrink-0 items-center gap-2.5 rounded-lg px-2.5 text-[13px] {item.fresh
-							? 'bg-white/[0.06] text-ink'
+							? 'bg-tint/[0.06] text-ink'
 							: 'text-ink-secondary opacity-40'}"
 					>
 						<span class="grid shrink-0 text-muted">

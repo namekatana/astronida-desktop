@@ -37,9 +37,9 @@
 		{/if}
 	</span>
 	<span
-		class="max-w-[160px] truncate mix-blend-difference transition-colors duration-200 ease-soft {active
-			? 'text-white'
-			: 'text-white/55 group-hover:text-white'}"
+		class="max-w-[160px] truncate [mix-blend-mode:var(--tab-label-blend,difference)] transition-colors duration-200 ease-soft {active
+			? 'text-tab-label-active'
+			: 'text-tab-label/55 group-hover:text-tab-label'}"
 	>
 		{name}
 	</span>

@@ -178,7 +178,7 @@
 						onanimationend={(event) => {
 							if (event.target === event.currentTarget) flashing.delete(person.id);
 						}}
-						class="flex h-11 items-center gap-3 rounded-[10px] px-2.5 transition-colors duration-150 [corner-shape:squircle] hover:bg-white/[0.04] {flashing.has(
+						class="flex h-11 items-center gap-3 rounded-[10px] px-2.5 transition-colors duration-150 [corner-shape:squircle] hover:bg-tint/[0.04] {flashing.has(
 							person.id
 						)
 							? 'invite-flash'
@@ -215,7 +215,7 @@
 			onanimationend={(event) => {
 				if (event.target === event.currentTarget) linkFlashing = false;
 			}}
-			class="flex h-11 items-center gap-2.5 rounded-full bg-white/[0.05] pr-1.5 pl-4 {linkFlashing
+			class="flex h-11 items-center gap-2.5 rounded-full bg-tint/[0.05] pr-1.5 pl-4 {linkFlashing
 				? 'link-flash'
 				: ''}"
 		>
@@ -246,7 +246,7 @@
 				onclick={copyLink}
 				class="pressable grid h-8 shrink-0 items-center rounded-full px-3.5 text-[12px] font-semibold duration-150 disabled:opacity-50 {copied
 					? 'bg-online/10 text-online'
-					: 'bg-white/[0.08] text-ink hover:bg-white/[0.12]'}"
+					: 'bg-tint/[0.08] text-ink hover:bg-tint/[0.12]'}"
 			>
 				<span
 					aria-hidden={copied}
@@ -328,7 +328,7 @@
 			type="button"
 			disabled={linkUnavailable || !friend.channelId}
 			onclick={() => inviteFriend(friend)}
-			class="pressable flex h-7 items-center rounded-full bg-white/[0.08] px-3 text-[12px] font-semibold text-ink duration-150 hover:bg-white/[0.12] disabled:opacity-50"
+			class="pressable flex h-7 items-center rounded-full bg-tint/[0.08] px-3 text-[12px] font-semibold text-ink duration-150 hover:bg-tint/[0.12] disabled:opacity-50"
 		>
 			Пригласить
 		</button>
@@ -346,16 +346,16 @@
 
 	@keyframes link-flash {
 		0% {
-			background-color: rgba(255, 255, 255, 0.14);
+			background-color: color-mix(in srgb, var(--color-tint) 14%, transparent);
 		}
 		100% {
-			background-color: rgba(255, 255, 255, 0.05);
+			background-color: color-mix(in srgb, var(--color-tint) 5%, transparent);
 		}
 	}
 
 	@keyframes invite-flash {
 		0% {
-			background-color: rgba(255, 255, 255, 0.1);
+			background-color: color-mix(in srgb, var(--color-tint) 10%, transparent);
 		}
 		100% {
 			background-color: transparent;

@@ -121,8 +121,8 @@
 		aria-expanded={open}
 		{disabled}
 		onclick={toggle}
-		class="flex h-12 w-full items-center gap-3 px-4 text-left transition-colors duration-150 hover:bg-white/[0.03] disabled:pointer-events-none disabled:opacity-60 {open
-			? 'bg-white/[0.03]'
+		class="flex h-12 w-full items-center gap-3 px-4 text-left transition-colors duration-150 hover:bg-tint/[0.03] disabled:pointer-events-none disabled:opacity-60 {open
+			? 'bg-tint/[0.03]'
 			: ''}"
 	>
 		<span class="min-w-0 flex-1 truncate text-[13px] text-ink">{label}</span>
@@ -175,7 +175,7 @@
 			onclick={() => pick(index)}
 			class="flex h-9 w-full items-center gap-2.5 rounded-[10px] px-3 text-left [corner-shape:squircle] text-[13px] transition-colors duration-150 {index ===
 			highlighted
-				? 'bg-white/[0.06] text-ink'
+				? 'bg-tint/[0.06] text-ink'
 				: 'text-ink-secondary'}"
 		>
 			<span class="min-w-0 flex-1 truncate tabular-nums">{option.label}</span>

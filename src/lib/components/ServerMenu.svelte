@@ -36,8 +36,8 @@
 		aria-expanded={open}
 		onclick={() => (open = !open)}
 		class="pressable flex h-8 w-8 items-center justify-center rounded-full duration-200 {open
-			? 'bg-white/[0.06] text-ink'
-			: 'text-muted hover:bg-white/[0.06] hover:text-ink'}"
+			? 'bg-tint/[0.06] text-ink'
+			: 'text-muted hover:bg-tint/[0.06] hover:text-ink'}"
 	>
 		<Icon name="dots" size={16} />
 	</button>

@@ -383,12 +383,13 @@
 	aria-modal="true"
 	aria-label="Просмотр фото"
 	tabindex="-1"
+	data-theme="cosmos"
 	onpointerdown={startPan}
 	onpointermove={movePan}
 	onpointerup={endPan}
 	onpointercancel={endPan}
 	ondblclick={toggleZoom}
-	class="fixed inset-0 z-[60] flex items-center justify-center outline-none select-none {panning
+	class="fixed inset-0 z-[60] flex items-center justify-center text-ink outline-none select-none {panning
 		? 'cursor-grabbing'
 		: ''}"
 >
@@ -497,7 +498,7 @@
 				title="Подробности"
 				subtitle={hasAlbum ? `Фото ${index + 1} из ${attachments.length}` : undefined}
 			/>
-			<div class="mx-4 overflow-hidden rounded-[14px] bg-white/[0.05] [corner-shape:squircle]">
+			<div class="mx-4 overflow-hidden rounded-[14px] bg-tint/[0.05] [corner-shape:squircle]">
 				{#each details as [label, value], rowIndex (label)}
 					{#if rowIndex > 0}
 						<div class="mx-4 h-px bg-surface-line"></div>
@@ -520,7 +521,7 @@
 				<div
 					in:pop={{ y: 8, duration: 220 }}
 					out:fade|global={{ duration: 140 }}
-					class="flex h-9 items-center gap-2 rounded-full bg-[#2c2c2e] pl-3.5 text-[13px] font-medium whitespace-nowrap text-ink {notice.revealPath
+					class="flex h-9 items-center gap-2 rounded-full bg-hud pl-3.5 text-[13px] font-medium whitespace-nowrap text-ink {notice.revealPath
 						? 'pr-1.5'
 						: 'pr-3.5'}"
 				>
@@ -536,7 +537,7 @@
 							type="button"
 							data-viewer-control
 							onclick={() => reveal(path)}
-							class="pressable pointer-events-auto h-7 rounded-full bg-white/[0.08] px-3 text-[12px] font-semibold text-ink hover:bg-white/[0.14]"
+							class="pressable pointer-events-auto h-7 rounded-full bg-tint/[0.08] px-3 text-[12px] font-semibold text-ink hover:bg-tint/[0.14]"
 						>
 							Показать
 						</button>
@@ -554,7 +555,7 @@
 			onclick={() => step(-1)}
 			in:fade|global={{ duration: 200 }}
 			out:fade|global={{ duration: 120 }}
-			class="pressable absolute top-1/2 left-4 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/[0.08] text-ink hover:bg-white/[0.14]"
+			class="pressable absolute top-1/2 left-4 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-tint/[0.08] text-ink hover:bg-tint/[0.14]"
 		>
 			<Icon name="chevron" size={16} class="rotate-90" />
 		</button>
@@ -565,7 +566,7 @@
 			onclick={() => step(1)}
 			in:fade|global={{ duration: 200 }}
 			out:fade|global={{ duration: 120 }}
-			class="pressable absolute top-1/2 right-4 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/[0.08] text-ink hover:bg-white/[0.14]"
+			class="pressable absolute top-1/2 right-4 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-tint/[0.08] text-ink hover:bg-tint/[0.14]"
 		>
 			<Icon name="chevron" size={16} class="-rotate-90" />
 		</button>
@@ -586,8 +587,8 @@
 		{disabled}
 		{onclick}
 		class="pressable flex h-10 w-10 items-center justify-center rounded-full text-ink disabled:opacity-50 {active
-			? 'bg-white/[0.16]'
-			: 'bg-white/[0.08] hover:bg-white/[0.14]'}"
+			? 'bg-tint/[0.16]'
+			: 'bg-tint/[0.08] hover:bg-tint/[0.14]'}"
 	>
 		<Icon name={icon} size={16} />
 	</button>

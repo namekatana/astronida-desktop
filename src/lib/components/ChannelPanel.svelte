@@ -82,7 +82,7 @@
 			onclick={oninvite}
 			onpointerenter={onprefetchinvite}
 			onfocus={onprefetchinvite}
-			class="pressable flex h-8 w-8 items-center justify-center rounded-full text-muted duration-200 hover:bg-white/[0.06] hover:text-ink"
+			class="pressable flex h-8 w-8 items-center justify-center rounded-full text-muted duration-200 hover:bg-tint/[0.06] hover:text-ink"
 		>
 			<Icon name="user-plus" size={16} />
 		</button>

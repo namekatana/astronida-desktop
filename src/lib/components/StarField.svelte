@@ -99,7 +99,7 @@
 		<div class="star-layer absolute inset-0" style={layerShift(depth)}>
 			{#each list as star, index (index)}
 				<span
-					class="star absolute rounded-full bg-white"
+					class="star absolute rounded-full bg-star"
 					style="left: {star.x}%; top: {star.y}%; width: {star.size}px; height: {star.size}px; --twinkle-duration: {star.twinkleDuration}s; --twinkle-delay: {star.twinkleDelay}s; --twinkle-peak: {star.peak}; --drift-x: {star.driftX}px; --drift-y: {star.driftY}px; --drift-duration: {star.driftDuration}s; --drift-delay: {star.driftDelay}s;"
 				></span>
 			{/each}

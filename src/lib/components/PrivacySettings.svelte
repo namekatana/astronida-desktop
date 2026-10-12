@@ -38,9 +38,9 @@
 			Заблокированные пользователи
 		</h4>
 		<div
-			class="flex flex-col items-center rounded-[14px] bg-white/[0.05] px-6 pt-7 pb-6 text-center [corner-shape:squircle]"
+			class="flex flex-col items-center rounded-[14px] bg-tint/[0.05] px-6 pt-7 pb-6 text-center [corner-shape:squircle]"
 		>
-			<div class="grid size-10 place-items-center rounded-full bg-white/[0.08] text-ink-secondary">
+			<div class="grid size-10 place-items-center rounded-full bg-tint/[0.08] text-ink-secondary">
 				<Icon name="user" size={18} />
 			</div>
 			<p class="mt-3 text-[14px] leading-5 font-semibold text-ink">Пока никого</p>
@@ -49,7 +49,7 @@
 			</p>
 			<button
 				type="button"
-				class="pressable mt-4 h-8 rounded-full bg-white/[0.08] px-3.5 text-[12px] font-semibold text-ink duration-150 hover:bg-white/[0.12]"
+				class="pressable mt-4 h-8 rounded-full bg-tint/[0.08] px-3.5 text-[12px] font-semibold text-ink duration-150 hover:bg-tint/[0.12]"
 			>
 				Заблокировать пользователя
 			</button>
@@ -66,7 +66,7 @@
 		<div
 			role="radiogroup"
 			aria-labelledby="privacy-auto-delete"
-			class="overflow-hidden rounded-[14px] bg-white/[0.05] [corner-shape:squircle]"
+			class="overflow-hidden rounded-[14px] bg-tint/[0.05] [corner-shape:squircle]"
 		>
 			{#each deletionPeriods as period, index (period.months)}
 				{@render choice(index, period.label, period.months === deletionPeriod, () => {
@@ -90,7 +90,7 @@
 		<div
 			role="radiogroup"
 			aria-labelledby="privacy-audience"
-			class="overflow-hidden rounded-[14px] bg-white/[0.05] [corner-shape:squircle]"
+			class="overflow-hidden rounded-[14px] bg-tint/[0.05] [corner-shape:squircle]"
 		>
 			{#each item.options as option, index (option)}
 				{@render choice(index, audienceLabel(option), option === audience, () =>
@@ -115,7 +115,7 @@
 		<h4 id="privacy-exceptions" class="px-1 pb-2 text-[13px] font-semibold text-muted">
 			Исключения
 		</h4>
-		<div class="overflow-hidden rounded-[14px] bg-white/[0.05] [corner-shape:squircle]">
+		<div class="overflow-hidden rounded-[14px] bg-tint/[0.05] [corner-shape:squircle]">
 			{#each exceptionsFor(audience) as exception, index (index)}
 				<div transition:reveal>
 					{#if index > 0}
@@ -138,7 +138,7 @@
 						</div>
 						<button
 							type="button"
-							class="pressable h-8 shrink-0 rounded-full bg-white/[0.08] px-3.5 text-[12px] font-semibold text-ink duration-150 hover:bg-white/[0.12]"
+							class="pressable h-8 shrink-0 rounded-full bg-tint/[0.08] px-3.5 text-[12px] font-semibold text-ink duration-150 hover:bg-tint/[0.12]"
 						>
 							Добавить
 						</button>
@@ -154,7 +154,7 @@
 			<h4 id="privacy-{section.id}" class="px-1 pb-2 text-[13px] font-semibold text-muted">
 				{section.title}
 			</h4>
-			<div class="overflow-hidden rounded-[14px] bg-white/[0.05] [corner-shape:squircle]">
+			<div class="overflow-hidden rounded-[14px] bg-tint/[0.05] [corner-shape:squircle]">
 				{#each section.items as item, index (item.id)}
 					{@render link(index, item.label, audienceLabel(audiences[item.id]))}
 				{/each}
@@ -166,7 +166,7 @@
 		<h4 id="privacy-data" class="px-1 pb-2 text-[13px] font-semibold text-muted">
 			Блокировки и данные
 		</h4>
-		<div class="overflow-hidden rounded-[14px] bg-white/[0.05] [corner-shape:squircle]">
+		<div class="overflow-hidden rounded-[14px] bg-tint/[0.05] [corner-shape:squircle]">
 			{@render link(0, dataPageLabels.blocked, 'Нет')}
 			{@render link(1, dataPageLabels.autoDelete, deletionPeriodLabel(deletionPeriod))}
 		</div>
@@ -193,7 +193,7 @@
 		role="radio"
 		aria-checked={checked}
 		{onclick}
-		class="flex h-11 w-full items-center gap-3 px-4 text-left transition-colors duration-150 hover:bg-white/[0.03]"
+		class="flex h-11 w-full items-center gap-3 px-4 text-left transition-colors duration-150 hover:bg-tint/[0.03]"
 	>
 		<span class="min-w-0 flex-1 truncate text-[14px] leading-5 text-ink">{label}</span>
 		<Icon
@@ -205,5 +205,5 @@
 {/snippet}
 
 {#snippet divider()}
-	<div class="ml-4 h-px bg-white/[0.06]"></div>
+	<div class="ml-4 h-px bg-tint/[0.06]"></div>
 {/snippet}

@@ -79,7 +79,7 @@
 	style:width="{width}px"
 >
 	<form onsubmit={submit}>
-		<div class="rounded-[12px] bg-white/[0.05] [corner-shape:squircle]">
+		<div class="rounded-[12px] bg-tint/[0.05] [corner-shape:squircle]">
 			<label class="flex h-10 items-center gap-2 px-3">
 				<span class="w-[68px] shrink-0 text-[12px] text-muted">Адрес</span>
 				<input
@@ -95,7 +95,7 @@
 					class="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-muted"
 				/>
 			</label>
-			<div class="ml-3 h-px bg-white/[0.06]"></div>
+			<div class="ml-3 h-px bg-tint/[0.06]"></div>
 			<label class="flex h-10 items-center gap-2 px-3">
 				<span class="w-[68px] shrink-0 text-[12px] text-muted">Подпись</span>
 				<input

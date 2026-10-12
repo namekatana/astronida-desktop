@@ -36,7 +36,7 @@
 					<button
 						type="button"
 						onclick={(event) => onopenprofile?.(friend, avatarIn(event.currentTarget))}
-						class="flex h-12 w-full items-center gap-2.5 rounded-lg px-2.5 text-left transition-colors duration-200 hover:bg-white/[0.04]"
+						class="flex h-12 w-full items-center gap-2.5 rounded-lg px-2.5 text-left transition-colors duration-200 hover:bg-tint/[0.04]"
 					>
 						<Avatar
 							name={friend.name}

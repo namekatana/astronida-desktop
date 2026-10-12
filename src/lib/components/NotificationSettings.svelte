@@ -14,10 +14,10 @@
 		<h4 id="notifications-{section.id}" class="px-1 pb-2 text-[13px] font-semibold text-muted">
 			{section.title}
 		</h4>
-		<div class="overflow-hidden rounded-[14px] bg-white/[0.05] [corner-shape:squircle]">
+		<div class="overflow-hidden rounded-[14px] bg-tint/[0.05] [corner-shape:squircle]">
 			{#each section.items as item, index (item.id)}
 				{#if index > 0}
-					<div class="ml-4 h-px bg-white/[0.06]"></div>
+					<div class="ml-4 h-px bg-tint/[0.06]"></div>
 				{/if}
 				<div
 					role="checkbox"

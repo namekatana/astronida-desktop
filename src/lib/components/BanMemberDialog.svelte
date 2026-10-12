@@ -63,7 +63,7 @@
 		<div
 			role="radiogroup"
 			aria-label="Срок блокировки"
-			class="overflow-hidden rounded-[14px] bg-white/[0.05] [corner-shape:squircle]"
+			class="overflow-hidden rounded-[14px] bg-tint/[0.05] [corner-shape:squircle]"
 		>
 			{#each banDurations as option, index (option.label)}
 				{@const selected = option.value === duration}
@@ -72,7 +72,7 @@
 						class="ml-4 h-px transition-colors duration-150 {highlighted(index) ||
 						highlighted(index - 1)
 							? 'bg-transparent'
-							: 'bg-white/[0.06]'}"
+							: 'bg-tint/[0.06]'}"
 					></div>
 				{/if}
 				<button
@@ -83,9 +83,9 @@
 					onclick={() => (duration = option.value)}
 					onpointerenter={() => (hoveredIndex = index)}
 					onpointerleave={() => (hoveredIndex = null)}
-					class="flex h-10 w-full items-center gap-3 px-4 text-left text-[14px] transition-colors duration-150 active:bg-white/[0.06] active:duration-0 {selected
-						? 'bg-white/[0.04] text-ink'
-						: 'text-ink-secondary hover:bg-white/[0.03]'}"
+					class="flex h-10 w-full items-center gap-3 px-4 text-left text-[14px] transition-colors duration-150 active:bg-tint/[0.06] active:duration-0 {selected
+						? 'bg-tint/[0.04] text-ink'
+						: 'text-ink-secondary hover:bg-tint/[0.03]'}"
 				>
 					<span class="min-w-0 flex-1 truncate">{option.label}</span>
 					<Icon

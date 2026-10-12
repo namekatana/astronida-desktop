@@ -19,12 +19,109 @@
 	--color-surface-raised: #2a2a2d;
 	--color-surface-line: rgba(255, 255, 255, 0.06);
 	--color-panel-edge: rgba(255, 255, 255, 0.05);
+	--color-tint: #ffffff;
+	--color-hud: #2c2c2e;
+	--color-avatar-face: #38383c;
+	--color-knob: #48484c;
+	--color-knob-hover: #525257;
+	--color-tab-pill: #f2f2f4;
+	--color-tab-label: #ffffff;
+	--color-tab-label-active: #ffffff;
+	--color-star: #ffffff;
+	--color-shimmer: rgba(255, 255, 255, 0.07);
+	--color-sky-top: #121216;
+	--color-sky-bottom: #0c0c0f;
+	--color-sky-glow: rgba(255, 255, 255, 0.07);
 
 	--font-sans:
 		'Geist Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 
 	--ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
 	--ease-move: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+[data-theme='cosmos'] {
+	--color-bg: #0a0a0b;
+	--color-ink: #f2f2f4;
+	--color-ink-hover: #dcdce0;
+	--color-ink-pressed: #c9c9ce;
+	--color-ink-secondary: #b1b1b8;
+	--color-muted: #75757c;
+	--color-online: #34d399;
+	--color-warning: #f0a04b;
+	--color-accent: #a8a8b0;
+	--color-line: rgba(255, 255, 255, 0.12);
+	--color-line-strong: rgba(255, 255, 255, 0.85);
+	--color-danger: #e0605f;
+	--color-surface: #18181b;
+	--color-surface-deep: #111114;
+	--color-surface-raised: #2a2a2d;
+	--color-surface-line: rgba(255, 255, 255, 0.06);
+	--color-panel-edge: rgba(255, 255, 255, 0.05);
+	--color-tint: #ffffff;
+	--color-hud: #2c2c2e;
+	--color-avatar-face: #38383c;
+	--color-knob: #48484c;
+	--color-knob-hover: #525257;
+	--color-tab-pill: #f2f2f4;
+	--color-tab-label: #ffffff;
+	--color-tab-label-active: #ffffff;
+	--color-star: #ffffff;
+	--color-shimmer: rgba(255, 255, 255, 0.07);
+	--color-sky-top: #121216;
+	--color-sky-bottom: #0c0c0f;
+	--color-sky-glow: rgba(255, 255, 255, 0.07);
+	--tab-label-blend: difference;
+}
+
+[data-theme='rose'] {
+	--color-bg: #6b3e47;
+	--color-ink: #fcf0f2;
+	--color-ink-hover: #f6e1e5;
+	--color-ink-pressed: #efd2d8;
+	--color-ink-secondary: #f4d6db;
+	--color-muted: #e2b3bb;
+	--color-online: #8ee6bd;
+	--color-warning: #ffd08a;
+	--color-accent: #e5aeb4;
+	--color-line: rgba(255, 228, 232, 0.22);
+	--color-line-strong: rgba(255, 240, 242, 0.9);
+	--color-danger: #ffa494;
+	--color-surface: #8a525c;
+	--color-surface-deep: #7b4851;
+	--color-surface-raised: #a96f79;
+	--color-surface-line: rgba(255, 228, 232, 0.12);
+	--color-panel-edge: rgba(255, 228, 232, 0.12);
+	--color-tint: #ffe4e8;
+	--color-hud: #a4636e;
+	--color-avatar-face: #aa6c75;
+	--color-knob: #b07a83;
+	--color-knob-hover: #bb868f;
+	--color-tab-pill: #e5aeb4;
+	--color-tab-label: #fcf0f2;
+	--color-tab-label-active: #5a2f37;
+	--color-star: #f6cfd5;
+	--color-shimmer: rgba(255, 228, 232, 0.12);
+	--color-sky-top: #a65f6c;
+	--color-sky-bottom: #6b3e47;
+	--color-sky-glow: rgba(229, 174, 180, 0.35);
+	--tab-label-blend: normal;
+}
+
+[data-theme='rose'] ::selection {
+	background-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+	animation-duration: 220ms;
+	animation-timing-function: ease-out;
+}
+
+.night-sky {
+	background:
+		radial-gradient(120% 140% at 50% 120%, var(--color-sky-glow), transparent 60%),
+		linear-gradient(180deg, var(--color-sky-top), var(--color-sky-bottom));
 }
 
 html,
@@ -233,14 +330,14 @@ input {
 
 @keyframes reply-flash {
 	0% {
-		background-color: rgba(255, 255, 255, 0);
+		background-color: color-mix(in srgb, var(--color-tint) 0%, transparent);
 	}
 	12%,
 	45% {
-		background-color: rgba(255, 255, 255, 0.08);
+		background-color: color-mix(in srgb, var(--color-tint) 8%, transparent);
 	}
 	100% {
-		background-color: rgba(255, 255, 255, 0);
+		background-color: color-mix(in srgb, var(--color-tint) 0%, transparent);
 	}
 }
 
@@ -355,7 +452,7 @@ input {
 	inset-block: 0;
 	left: 0;
 	width: 2px;
-	background-color: rgba(255, 255, 255, 0.6);
+	background-color: color-mix(in srgb, var(--color-tint) 60%, transparent);
 }
 
 .collapsible {
@@ -434,7 +531,7 @@ input {
 	background: linear-gradient(
 		to right,
 		var(--color-ink) var(--range-fill, 50%),
-		rgba(255, 255, 255, 0.12) var(--range-fill, 50%)
+		color-mix(in srgb, var(--color-tint) 12%, transparent) var(--range-fill, 50%)
 	);
 }
 
@@ -500,7 +597,7 @@ input {
 		background-image: linear-gradient(
 			100deg,
 			transparent 35%,
-			rgba(255, 255, 255, 0.07) 50%,
+			var(--color-shimmer) 50%,
 			transparent 65%
 		);
 		background-size: 640px 100%;

@@ -24,7 +24,7 @@
 	type="button"
 	onclick={(event) => onopenprofile?.(avatarIn(event.currentTarget))}
 	oncontextmenu={openMenu}
-	class="flex h-10 w-full items-center gap-2.5 rounded-lg px-2.5 text-left transition-[background-color,opacity] duration-200 hover:bg-white/[0.04] {member.online
+	class="flex h-10 w-full items-center gap-2.5 rounded-lg px-2.5 text-left transition-[background-color,opacity] duration-200 hover:bg-tint/[0.04] {member.online
 		? ''
 		: 'opacity-50'}"
 >

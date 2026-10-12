@@ -72,7 +72,7 @@
 	this={editable ? 'label' : 'section'}
 	data-widget-card
 	class="flex h-full min-w-0 flex-col overflow-hidden px-3.5 pt-3 pb-3.5 transition-[background-color,opacity] duration-150 {widgetTileClass} {editable
-		? 'focus-within:bg-white/[0.07]'
+		? 'focus-within:bg-tint/[0.07]'
 		: ''} {locked ? 'opacity-60' : ''}"
 >
 	<div bind:this={content} class="flex min-w-0 flex-col">

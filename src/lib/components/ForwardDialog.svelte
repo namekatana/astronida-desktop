@@ -167,7 +167,7 @@
 
 	<form id={formId} class="px-4 pt-1 pb-4" onsubmit={submit}>
 		<div
-			class="rounded-[14px] bg-white/[0.05] px-3.5 pt-2.5 pb-2 transition-colors duration-150 [corner-shape:squircle] focus-within:bg-white/[0.07]"
+			class="rounded-[14px] bg-tint/[0.05] px-3.5 pt-2.5 pb-2 transition-colors duration-150 [corner-shape:squircle] focus-within:bg-tint/[0.07]"
 		>
 			<p class="flex min-w-0 items-center gap-1.5 text-[12px] leading-4 text-muted">
 				<Icon name="forward" size={12} class="shrink-0" />
@@ -205,8 +205,8 @@
 		disabled={blocked || phase !== 'idle'}
 		onclick={() => toggle(target.channelId)}
 		class="flex h-11 w-full items-center gap-3 rounded-[10px] px-2.5 text-left transition-[background-color,opacity] duration-150 [corner-shape:squircle] disabled:cursor-default {checked
-			? 'bg-white/[0.06]'
-			: 'enabled:hover:bg-white/[0.04]'} {blocked ? 'opacity-40' : ''}"
+			? 'bg-tint/[0.06]'
+			: 'enabled:hover:bg-tint/[0.04]'} {blocked ? 'opacity-40' : ''}"
 	>
 		{#if target.kind === 'friend'}
 			<Avatar name={target.name} size={32} class="relative">
@@ -221,7 +221,7 @@
 			<span class="min-w-0 flex-1 truncate text-[14px] text-ink">@{target.username}</span>
 		{:else}
 			<span
-				class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.05] text-muted"
+				class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tint/[0.05] text-muted"
 			>
 				<Icon name="text" size={15} />
 			</span>
@@ -231,7 +231,7 @@
 		<span
 			class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors duration-150 {checked
 				? 'border-transparent'
-				: 'border-white/20'}"
+				: 'border-tint/20'}"
 		>
 			{#if checked}
 				<span class="absolute -inset-[1.5px] rounded-full bg-ink" in:fillIn out:fade={{ duration: 120 }}

@@ -147,7 +147,7 @@
 	<span data-avatar class="group/avatar pointer-events-auto relative block h-[88px] w-[88px]">
 		<span
 			data-avatar-face
-			class="relative flex h-full w-full items-center justify-center rounded-full bg-[#38383c] text-[30px] font-medium text-ink ring-[6px] ring-surface"
+			class="relative flex h-full w-full items-center justify-center rounded-full bg-avatar-face text-[30px] font-medium text-ink ring-[6px] ring-surface"
 		>
 			<span
 				data-avatar-initials

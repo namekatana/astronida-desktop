@@ -4,6 +4,7 @@ export type SettingsCategoryId =
 	| 'account'
 	| 'privacy'
 	| 'safety'
+	| 'appearance'
 	| 'notifications'
 	| 'voice'
 	| 'system';
@@ -22,6 +23,7 @@ export const settingsGroups: SettingsCategory[][] = [
 		{ id: 'safety', label: 'Безопасность', icon: 'safety', locked: true }
 	],
 	[
+		{ id: 'appearance', label: 'Оформление', icon: 'appearance', locked: false },
 		{ id: 'notifications', label: 'Уведомления', icon: 'notifications', locked: true },
 		{ id: 'voice', label: 'Голос и видео', icon: 'voiceVideo', locked: true },
 		{ id: 'system', label: 'Система', icon: 'system', locked: true }

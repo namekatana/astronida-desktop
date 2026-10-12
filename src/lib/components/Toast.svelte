@@ -22,7 +22,7 @@
 		<div
 			in:materialize={{ y: 8, scale: 0.96, blur: 4, duration: 320 }}
 			out:materialize={{ y: 4, scale: 0.98, duration: 180, easing: cubicOut }}
-			class="grid h-8 items-center rounded-full bg-[#2c2c2e] px-3.5 will-change-transform"
+			class="grid h-8 items-center rounded-full bg-hud px-3.5 will-change-transform"
 		>
 			{#key shown.version}
 				<span

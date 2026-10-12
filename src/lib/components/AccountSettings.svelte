@@ -39,7 +39,7 @@
 	<h4 id="account-information" class="px-1 pb-2 text-[13px] font-semibold text-muted">
 		Учётные данные
 	</h4>
-	<div class="rounded-[14px] bg-white/[0.05] [corner-shape:squircle]">
+	<div class="rounded-[14px] bg-tint/[0.05] [corner-shape:squircle]">
 		<div class="flex min-h-[60px] items-center gap-3 px-4 py-2.5">
 			<div class="min-w-0 flex-1">
 				<p class="text-[12px] leading-4 text-muted">Имя пользователя</p>
@@ -113,9 +113,9 @@
 	<h4 id="password-security" class="px-1 pb-2 text-[13px] font-semibold text-muted">
 		Пароль и безопасность
 	</h4>
-	<div class="mb-2 flex items-center gap-3 rounded-[14px] bg-white/[0.05] px-4 py-3 [corner-shape:squircle]">
+	<div class="mb-2 flex items-center gap-3 rounded-[14px] bg-tint/[0.05] px-4 py-3 [corner-shape:squircle]">
 		<div
-			class="grid size-9 shrink-0 place-items-center rounded-full bg-white/[0.08] text-ink opacity-40"
+			class="grid size-9 shrink-0 place-items-center rounded-full bg-tint/[0.08] text-ink opacity-40"
 		>
 			<Icon name="lock" size={16} />
 		</div>
@@ -128,7 +128,7 @@
 		</div>
 		{@render action('Включить')}
 	</div>
-	<div class="rounded-[14px] bg-white/[0.05] [corner-shape:squircle]">
+	<div class="rounded-[14px] bg-tint/[0.05] [corner-shape:squircle]">
 		<div class="flex min-h-[52px] items-center gap-3 px-4 py-2.5">
 			<p class="min-w-0 flex-1 truncate text-[14px] leading-5 text-ink opacity-40">Пароль</p>
 			{@render action('Изменить')}
@@ -139,7 +139,7 @@
 		<button
 			type="button"
 			onclick={onopensessions}
-			class="flex min-h-[52px] w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-white/[0.03]"
+			class="flex min-h-[52px] w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-tint/[0.03]"
 		>
 			<span class="min-w-0 flex-1 truncate text-[14px] leading-5 text-ink">Активные сеансы</span>
 			<Icon name="chevron" size={14} class="shrink-0 -rotate-90 text-muted" />
@@ -151,7 +151,7 @@
 	<h4 id="account-management" class="px-1 pb-2 text-[13px] font-semibold text-muted">
 		Управление
 	</h4>
-	<div class="rounded-[14px] bg-white/[0.05] [corner-shape:squircle]">
+	<div class="rounded-[14px] bg-tint/[0.05] [corner-shape:squircle]">
 		<div class="flex min-h-[60px] items-center gap-3 px-4 py-2.5">
 			<div class="min-w-0 flex-1">
 				<p class="truncate text-[14px] leading-5 text-ink">Выйти из учётной записи</p>
@@ -161,7 +161,7 @@
 				type="button"
 				disabled={signingOut}
 				onclick={onsignout}
-				class="pressable grid h-8 shrink-0 place-items-center rounded-full bg-white/[0.08] px-3.5 text-[12px] font-semibold text-ink duration-150 hover:bg-white/[0.12] disabled:pointer-events-none"
+				class="pressable grid h-8 shrink-0 place-items-center rounded-full bg-tint/[0.08] px-3.5 text-[12px] font-semibold text-ink duration-150 hover:bg-tint/[0.12] disabled:pointer-events-none"
 			>
 				<span
 					class="col-start-1 row-start-1 transition-opacity duration-150 {signingOut
@@ -254,5 +254,5 @@
 {/snippet}
 
 {#snippet divider()}
-	<div class="ml-4 h-px bg-white/[0.06]"></div>
+	<div class="ml-4 h-px bg-tint/[0.06]"></div>
 {/snippet}

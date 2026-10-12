@@ -90,7 +90,7 @@
 	/>
 
 	<div class="px-4">
-		<div class="overflow-hidden rounded-[14px] bg-white/[0.05] [corner-shape:squircle]">
+		<div class="overflow-hidden rounded-[14px] bg-tint/[0.05] [corner-shape:squircle]">
 			{@render row('Пинг', rtt === null ? '—' : `${rtt} мс`)}
 			<div class="mx-4 h-px bg-surface-line"></div>
 			{@render row('Потери', loss === null ? '—' : `${loss}%`)}
@@ -123,7 +123,7 @@
 		</div>
 
 		{#if voice.encrypted && groups.length > 0}
-			<div class="overflow-hidden rounded-[14px] bg-white/[0.05] [corner-shape:squircle]">
+			<div class="overflow-hidden rounded-[14px] bg-tint/[0.05] [corner-shape:squircle]">
 				<div class="grid grid-cols-3 gap-x-2 gap-y-2 px-4 py-3.5">
 					{#each groups as group, index (index)}
 						<span
@@ -137,7 +137,7 @@
 				<button
 					type="button"
 					onclick={copyCode}
-					class="flex h-11 w-full items-center gap-2.5 px-4 text-left text-[13px] transition-colors duration-150 hover:bg-white/[0.03] {copied
+					class="flex h-11 w-full items-center gap-2.5 px-4 text-left text-[13px] transition-colors duration-150 hover:bg-tint/[0.03] {copied
 						? 'text-online'
 						: 'text-ink'}"
 				>
@@ -150,7 +150,7 @@
 				ключом и медиасервер его не видит. Код меняется, когда кто-то выходит из канала.
 			</p>
 		{:else}
-			<div class="rounded-[14px] bg-white/[0.05] px-4 py-3 [corner-shape:squircle]">
+			<div class="rounded-[14px] bg-tint/[0.05] px-4 py-3 [corner-shape:squircle]">
 				<p class="text-[13px] leading-5 text-danger">Шифрование не установлено</p>
 			</div>
 		{/if}

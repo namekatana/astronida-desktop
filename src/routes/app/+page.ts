@@ -106,7 +106,6 @@ export async function load() {
 	if (!user) {
 		redirect(307, '/');
 	}
-
 	await history.open(user.id).catch(() => {});
 	const [cache] = await Promise.all([
 		workspaceCache.read(user.id),

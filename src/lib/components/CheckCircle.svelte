@@ -13,7 +13,7 @@
 	aria-hidden="true"
 	class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors duration-150 {checked
 		? 'border-transparent'
-		: 'border-white/20'}"
+		: 'border-tint/20'}"
 >
 	<span
 		class="absolute inset-0 rounded-full bg-ink transition-[scale,opacity] duration-180 ease-soft {checked

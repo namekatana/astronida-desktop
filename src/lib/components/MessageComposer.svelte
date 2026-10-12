@@ -235,7 +235,7 @@
 						type="button"
 						aria-label="Отменить ответ"
 						onclick={oncancelreply}
-						class="pressable flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted duration-150 hover:bg-white/[0.06] hover:text-ink"
+						class="pressable flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted duration-150 hover:bg-tint/[0.06] hover:text-ink"
 					>
 						<Icon name="close" size={16} />
 					</button>
@@ -259,7 +259,7 @@
 						type="button"
 						aria-label="Отменить редактирование"
 						onclick={oncanceledit}
-						class="pressable flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted duration-150 hover:bg-white/[0.06] hover:text-ink"
+						class="pressable flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted duration-150 hover:bg-tint/[0.06] hover:text-ink"
 					>
 						<Icon name="close" size={16} />
 					</button>
@@ -316,7 +316,7 @@
 				aria-label="Прикрепить фото"
 				disabled={editing !== null}
 				onclick={() => fileInput?.click()}
-				class="pressable flex h-8 w-8 items-center justify-center rounded-full text-muted duration-150 hover:bg-white/[0.06] hover:text-ink disabled:pointer-events-none disabled:opacity-40"
+				class="pressable flex h-8 w-8 items-center justify-center rounded-full text-muted duration-150 hover:bg-tint/[0.06] hover:text-ink disabled:pointer-events-none disabled:opacity-40"
 			>
 				<Icon name="paperclip" size={18} />
 			</button>
@@ -328,7 +328,7 @@
 				onclick={send}
 				class="pressable flex h-8 w-8 items-center justify-center rounded-full duration-200 ease-soft {canSend
 					? 'bg-ink text-bg hover:bg-ink-hover active:bg-ink-pressed'
-					: 'bg-white/[0.06] text-muted'}"
+					: 'bg-tint/[0.06] text-muted'}"
 			>
 				<Icon name={editing ? 'check' : 'arrow-up'} />
 			</button>

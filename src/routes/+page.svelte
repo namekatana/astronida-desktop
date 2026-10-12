@@ -7,6 +7,9 @@
 	import PillButton from '$lib/components/PillButton.svelte';
 	import PillInput from '$lib/components/PillInput.svelte';
 	import StarField from '$lib/components/StarField.svelte';
+	import { theme } from '$lib/ui/theme.svelte';
+
+	theme.enter('auth');
 
 	type Mode = 'login' | 'register';
 
@@ -95,10 +98,10 @@
 <div class="pointer-events-none absolute inset-0 overflow-hidden">
 	<StarField />
 	<div
-		class="absolute bottom-0 left-1/2 aspect-square w-[150%] -translate-x-1/2 translate-y-[62%] rounded-full border border-white/[0.045]"
+		class="absolute bottom-0 left-1/2 aspect-square w-[150%] -translate-x-1/2 translate-y-[62%] rounded-full border border-tint/[0.045]"
 	></div>
 	<div
-		class="absolute inset-x-0 bottom-0 h-1/2 bg-[radial-gradient(60%_100%_at_50%_120%,rgba(255,255,255,0.05),transparent_70%)]"
+		class="absolute inset-x-0 bottom-0 h-1/2 bg-[radial-gradient(60%_100%_at_50%_120%,color-mix(in_srgb,var(--color-tint)_5%,transparent),transparent_70%)]"
 	></div>
 </div>
 
@@ -219,7 +222,7 @@
 					{isRegister ? 'Уже есть аккаунт?' : 'Нет аккаунта?'}
 					<button
 						type="button"
-						class="link-underline font-medium text-ink transition-colors duration-200 hover:text-white"
+						class="link-underline font-medium text-ink transition-colors duration-200 hover:text-tint"
 						onclick={switchMode}
 					>
 						{isRegister ? 'Войти' : 'Зарегистрироваться'}

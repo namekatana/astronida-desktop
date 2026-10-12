@@ -37,12 +37,12 @@
 	aria-label={label}
 	tabindex="-1"
 	onkeydown={handleKeydown}
-	class="relative grid h-10 rounded-full bg-white/[0.05] p-1"
+	class="relative grid h-10 rounded-full bg-tint/[0.05] p-1"
 	style:grid-template-columns="repeat({options.length}, minmax(0, 1fr))"
 >
 	<span
 		aria-hidden="true"
-		class="absolute inset-y-1 left-1 rounded-full bg-white/[0.12] transition-[translate] duration-200 ease-move motion-reduce:transition-none"
+		class="absolute inset-y-1 left-1 rounded-full bg-tint/[0.12] transition-[translate] duration-200 ease-move motion-reduce:transition-none"
 		style:width="calc((100% - 0.5rem) / {options.length})"
 		style:translate="{selectedIndex * 100}% 0"
 	></span>

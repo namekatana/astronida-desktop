@@ -32,7 +32,7 @@
 	<div
 		bind:this={skyHost}
 		aria-hidden="true"
-		class="absolute inset-0 bg-[radial-gradient(120%_140%_at_50%_120%,rgba(255,255,255,0.07),transparent_60%),linear-gradient(180deg,#121216,#0c0c0f)]"
+		class="night-sky absolute inset-0"
 	>
 		<canvas bind:this={skyCanvas} class="absolute inset-0 h-full w-full"></canvas>
 	</div>

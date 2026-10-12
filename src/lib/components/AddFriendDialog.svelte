@@ -174,7 +174,7 @@
 		<ul class="flex flex-col gap-0.5">
 			{#each shownResults as result (result.id)}
 				<li
-					class="flex h-11 items-center gap-3 rounded-[10px] px-2.5 transition-colors duration-150 [corner-shape:squircle] hover:bg-white/[0.04]"
+					class="flex h-11 items-center gap-3 rounded-[10px] px-2.5 transition-colors duration-150 [corner-shape:squircle] hover:bg-tint/[0.04]"
 				>
 					<Avatar name={result.name} size={32} />
 					<span class="min-w-0 flex-1 truncate text-[14px] text-muted">
@@ -242,7 +242,7 @@
 			type="button"
 			disabled={pending.has(result.id)}
 			onclick={() => handleAdd(result.id)}
-			class="pressable flex h-7 items-center rounded-full bg-white/[0.08] px-3 text-[12px] font-semibold text-ink duration-150 hover:bg-white/[0.12] disabled:opacity-50"
+			class="pressable flex h-7 items-center rounded-full bg-tint/[0.08] px-3 text-[12px] font-semibold text-ink duration-150 hover:bg-tint/[0.12] disabled:opacity-50"
 		>
 			Добавить
 		</button>

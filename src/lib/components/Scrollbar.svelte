@@ -123,8 +123,8 @@
 			onpointerup={handleThumbPointerUp}
 			onpointercancel={handleThumbPointerUp}
 			class="absolute right-1 w-1.5 origin-right rounded-full transition-[background-color,scale] duration-150 {dragging
-				? 'scale-x-[1.3333] bg-white/[0.3]'
-				: 'bg-white/[0.14] hover:scale-x-[1.3333] hover:bg-white/[0.24]'}"
+				? 'scale-x-[1.3333] bg-tint/[0.3]'
+				: 'bg-tint/[0.14] hover:scale-x-[1.3333] hover:bg-tint/[0.24]'}"
 			style="top: {inset}px; height: {thumbHeight}px; translate: 0 {thumbOffset}px;"
 		></div>
 	</div>

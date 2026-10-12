@@ -54,7 +54,7 @@
 				title="Добавить ссылку"
 				disabled={locked}
 				onclick={(event) => onedit?.(event.currentTarget, null)}
-				class="pressable -mr-1 flex h-5 w-5 items-center justify-center rounded-full text-muted duration-150 hover:bg-white/[0.08] hover:text-ink disabled:opacity-40"
+				class="pressable -mr-1 flex h-5 w-5 items-center justify-center rounded-full text-muted duration-150 hover:bg-tint/[0.08] hover:text-ink disabled:opacity-40"
 			>
 				<Icon name="plus" size={12} />
 			</button>
@@ -84,10 +84,10 @@
 					onauxclick={(event) => {
 						if (event.button === 1 && !editable) openExternal(link.url);
 					}}
-					class="group/link flex h-9 w-full min-w-0 items-center gap-2.5 rounded-[10px] px-2 text-left transition-colors duration-150 [corner-shape:squircle] hover:bg-white/[0.05] active:bg-white/[0.07]"
+					class="group/link flex h-9 w-full min-w-0 items-center gap-2.5 rounded-[10px] px-2 text-left transition-colors duration-150 [corner-shape:squircle] hover:bg-tint/[0.05] active:bg-tint/[0.07]"
 				>
 					<span
-						class="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-white/[0.08] text-ink [corner-shape:squircle]"
+						class="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-tint/[0.08] text-ink [corner-shape:squircle]"
 					>
 						{#if brand}
 							<BrandIcon name={brand} size={14} />
@@ -114,7 +114,7 @@
 				{#if index < links.length - 1}
 					<span
 						aria-hidden="true"
-						class="pointer-events-none absolute right-2 bottom-0 left-[46px] h-px bg-white/[0.06]"
+						class="pointer-events-none absolute right-2 bottom-0 left-[46px] h-px bg-tint/[0.06]"
 					></span>
 				{/if}
 			</li>

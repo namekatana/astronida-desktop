@@ -33,7 +33,7 @@
 <div class="collapsible shrink-0 {open ? 'is-open' : ''}" inert={!open}>
 	<div>
 		<div class="px-2 pt-2">
-			<div class="flex h-12 items-center gap-1 rounded-[10px] bg-white/[0.04] pr-2">
+			<div class="flex h-12 items-center gap-1 rounded-[10px] bg-tint/[0.04] pr-2">
 				<button
 					type="button"
 					onclick={onopen}
@@ -70,7 +70,7 @@
 					type="button"
 					onclick={onhide}
 					aria-label="Скрыть закреплённые"
-					class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted transition-colors duration-150 hover:bg-white/[0.06] hover:text-ink"
+					class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted transition-colors duration-150 hover:bg-tint/[0.06] hover:text-ink"
 				>
 					<Icon name="chevron" size={16} class="rotate-180" />
 				</button>

@@ -25,8 +25,11 @@
 	const glideMs = 460;
 	const glideDelayMs = 80;
 	const glideBackMs = 340;
-	const surfaceRgb = '24 24 27';
 	const shadeAlpha = 0.8;
+
+	function surfaceShade(alpha: number): string {
+		return `color-mix(in srgb, var(--color-surface) ${alpha * 100}%, transparent)`;
+	}
 
 	let stage = $state<HTMLDivElement | null>(null);
 	let zoom = $state(1);
@@ -141,7 +144,7 @@
 			const motion = `transform: translate(${shift.x * u}px, ${shift.y * u}px) scale(${1 + (shift.scale - 1) * u})`;
 			if (!withShade) return motion;
 			const alpha = shadeAlpha + (1 - shadeAlpha) * u;
-			return `${motion}; box-shadow: 0 0 0 9999px rgb(${surfaceRgb} / ${alpha})`;
+			return `${motion}; box-shadow: 0 0 0 9999px ${surfaceShade(alpha)}`;
 		};
 	}
 
@@ -278,7 +281,7 @@
 			style:width="{frame.width}px"
 			style:height="{frame.height}px"
 			style:border-radius="{frame.radius}px"
-			style:box-shadow="0 0 0 9999px rgb({surfaceRgb} / {shadeAlpha})"
+			style:box-shadow="0 0 0 9999px {surfaceShade(shadeAlpha)}"
 			in:frameIn
 			out:frameOut
 		></div>
@@ -325,7 +328,7 @@
 				aria-label="Повернуть влево"
 				title="Повернуть (R)"
 				onclick={rotateLeft}
-				class="pressable flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted duration-150 hover:bg-white/[0.08] hover:text-ink"
+				class="pressable flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted duration-150 hover:bg-tint/[0.08] hover:text-ink"
 			>
 				<Icon name="rotate" size={16} />
 			</button>

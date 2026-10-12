@@ -50,7 +50,7 @@
 </script>
 
 <div class="pt-3">
-	<div class="overflow-hidden rounded-[14px] bg-white/[0.05] [corner-shape:squircle]">
+	<div class="overflow-hidden rounded-[14px] bg-tint/[0.05] [corner-shape:squircle]">
 		<SelectMenu
 			label="Срок действия"
 			options={lifetimes}

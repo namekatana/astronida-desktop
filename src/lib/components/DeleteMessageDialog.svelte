@@ -33,7 +33,7 @@
 	/>
 
 	<div class="px-4 pb-4">
-		<div class="rounded-[14px] bg-white/[0.05] px-3.5 py-2.5 [corner-shape:squircle]">
+		<div class="rounded-[14px] bg-tint/[0.05] px-3.5 py-2.5 [corner-shape:squircle]">
 			<p class="flex min-w-0 items-center gap-1.5 text-[12px] leading-4">
 				<span class="truncate font-semibold text-ink-secondary">@{message.author.username}</span>
 				{#if photoCount > 0}
@@ -59,7 +59,7 @@
 				type="button"
 				disabled={busy}
 				onclick={onclose}
-				class="h-11 rounded-[14px] bg-white/[0.05] text-[14px] font-medium text-ink transition-[background-color,opacity] duration-150 outline-none [corner-shape:squircle] hover:bg-white/[0.08] focus-visible:bg-white/[0.08] active:bg-white/[0.1] disabled:opacity-50 disabled:hover:bg-white/[0.05]"
+				class="h-11 rounded-[14px] bg-tint/[0.05] text-[14px] font-medium text-ink transition-[background-color,opacity] duration-150 outline-none [corner-shape:squircle] hover:bg-tint/[0.08] focus-visible:bg-tint/[0.08] active:bg-tint/[0.1] disabled:opacity-50 disabled:hover:bg-tint/[0.05]"
 			>
 				Отмена
 			</button>
@@ -68,7 +68,7 @@
 				disabled={busy}
 				aria-busy={busy}
 				onclick={onconfirm}
-				class="grid h-11 place-items-center rounded-[14px] bg-white/[0.05] text-[14px] font-semibold text-danger transition-colors duration-150 outline-none [corner-shape:squircle] hover:bg-danger/10 focus-visible:bg-danger/10 active:bg-danger/15 disabled:hover:bg-white/[0.05]"
+				class="grid h-11 place-items-center rounded-[14px] bg-tint/[0.05] text-[14px] font-semibold text-danger transition-colors duration-150 outline-none [corner-shape:squircle] hover:bg-danger/10 focus-visible:bg-danger/10 active:bg-danger/15 disabled:hover:bg-tint/[0.05]"
 			>
 				<span
 					class="col-start-1 row-start-1 transition-opacity duration-150 {busy
