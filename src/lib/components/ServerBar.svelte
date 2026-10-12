@@ -5,6 +5,7 @@
 	import { fade, scale } from 'svelte/transition';
 	import type { Server } from '$lib/servers/servers';
 	import type { SmoothScrollController } from '$lib/ui/smooth-scroll';
+	import DashedFrame from './DashedFrame.svelte';
 	import Icon from './Icon.svelte';
 	import ProfileButton from './ProfileButton.svelte';
 	import ServerTab from './ServerTab.svelte';
@@ -145,7 +146,7 @@
 				aria-pressed={isHome}
 				onclick={onhome}
 				class="group pressable relative flex h-10 items-center rounded-full px-3 duration-200 ease-soft {isHome
-					? 'bg-white/[0.08]'
+					? 'bg-tint/[0.08]'
 					: ''}"
 			>
 				<img
@@ -179,7 +180,7 @@
 			<div bind:this={rowElement} class="relative flex h-14 w-max items-center gap-1 px-2">
 				<span
 					aria-hidden="true"
-					class="pointer-events-none absolute top-1/2 h-10 -translate-y-1/2 rounded-full bg-ink {indicatorVisible
+					class="pointer-events-none absolute top-1/2 h-10 -translate-y-1/2 rounded-full bg-tab-pill {indicatorVisible
 						? 'opacity-100'
 						: 'opacity-0'}"
 					style="left: {indicatorLeft}px; right: {indicatorRight}px; transition: {moveTransition}opacity 220ms ease-out;"
@@ -199,8 +200,12 @@
 					type="button"
 					aria-label="Создать сервер"
 					onclick={oncreate}
-					class="pressable ml-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-line text-muted will-change-transform duration-200 hover:border-line-strong hover:text-ink"
+					class="group pressable relative ml-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted will-change-transform duration-200 hover:text-ink"
 				>
+					<DashedFrame
+						radius={20}
+						class="text-line transition-colors duration-200 group-hover:text-line-strong"
+					/>
 					<Icon name="plus" size={14} />
 				</button>
 
@@ -226,7 +231,7 @@
 				type="button"
 				aria-label="Настройки"
 				onclick={onsettings}
-				class="pressable flex h-10 w-10 items-center justify-center rounded-full text-muted duration-200 hover:bg-white/[0.06] hover:text-ink"
+				class="pressable flex h-10 w-10 items-center justify-center rounded-full text-muted duration-200 hover:bg-tint/[0.06] hover:text-ink"
 			>
 				<Icon name="gear" size={18} />
 			</button>

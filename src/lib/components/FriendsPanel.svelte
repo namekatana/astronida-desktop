@@ -13,6 +13,7 @@
 	import { reveal } from '$lib/ui/reveal';
 	import Avatar from './Avatar.svelte';
 	import ConnectionTitle from './ConnectionTitle.svelte';
+	import DashedFrame from './DashedFrame.svelte';
 	import Icon from './Icon.svelte';
 	import FriendItem from './FriendItem.svelte';
 	import ResizeHandle from './ResizeHandle.svelte';
@@ -160,8 +161,12 @@
 		<button
 			type="button"
 			onclick={onaddfriend}
-			class="pressable mb-3 flex h-10 w-full items-center justify-center gap-2 rounded-full border border-dashed border-line text-[13px] text-muted will-change-transform duration-200 hover:border-line-strong hover:text-ink"
+			class="group pressable relative mb-3 flex h-10 w-full items-center justify-center gap-2 rounded-full text-[13px] text-muted will-change-transform duration-200 hover:text-ink"
 		>
+			<DashedFrame
+				radius={20}
+				class="text-line transition-colors duration-200 group-hover:text-line-strong"
+			/>
 			<Icon name="plus" size={14} />
 			Добавить друга
 		</button>
@@ -170,7 +175,7 @@
 			<div class="pb-3" transition:reveal>
 				<section
 					aria-label="Запросы в друзья"
-					class="rounded-xl border border-surface-line bg-white/[0.03] p-1"
+					class="rounded-xl border border-surface-line bg-tint/[0.03] p-1"
 				>
 					<button
 						type="button"
@@ -252,7 +257,7 @@
 		<div class="relative flex flex-col gap-0.5">
 			<span
 				aria-hidden="true"
-				class="absolute inset-x-0 top-0 h-12 rounded-lg bg-white/[0.06] {highlightVisible
+				class="absolute inset-x-0 top-0 h-12 rounded-lg bg-tint/[0.06] {highlightVisible
 					? 'opacity-100'
 					: 'opacity-0'}"
 				style="translate: 0 {highlightY}px; scale: {highlightVisible
@@ -326,7 +331,7 @@
 
 	@keyframes request-glow {
 		from {
-			background-color: rgba(255, 255, 255, 0.1);
+			background-color: color-mix(in srgb, var(--color-tint) 10%, transparent);
 		}
 		to {
 			background-color: transparent;

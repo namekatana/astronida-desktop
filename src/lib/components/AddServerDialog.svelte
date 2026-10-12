@@ -16,6 +16,7 @@
 	import type { AddServerView } from './add-server';
 	import Avatar from './Avatar.svelte';
 	import Dialog from './Dialog.svelte';
+	import DashedFrame from './DashedFrame.svelte';
 	import Icon from './Icon.svelte';
 	import LengthCounter from './LengthCounter.svelte';
 	import SegmentedControl from './SegmentedControl.svelte';
@@ -173,15 +174,19 @@
 								type="button"
 								aria-label="Добавить фото"
 								title="Скоро"
-								class="pressable flex h-[72px] w-[72px] items-center justify-center rounded-full border border-dashed border-line text-muted will-change-transform duration-200 hover:border-line-strong hover:text-ink"
+								class="group pressable relative flex h-[72px] w-[72px] items-center justify-center rounded-full text-muted will-change-transform duration-200 hover:text-ink"
 							>
+								<DashedFrame
+									radius={36}
+									class="text-line transition-colors duration-200 group-hover:text-line-strong"
+								/>
 								<Icon name="camera" size={22} />
 							</button>
 						{:else if found}
 							<Avatar name={found.serverName} size={72} />
 						{:else}
 							<span
-								class="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-white/[0.05] text-muted {lookup.checking
+								class="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-tint/[0.05] text-muted {lookup.checking
 									? 'animate-pulse'
 									: ''}"
 							>
@@ -216,7 +221,7 @@
 		</div>
 
 		<label
-			class="relative mt-3 grid h-12 rounded-[14px] bg-white/[0.05] transition-colors duration-150 [corner-shape:squircle] focus-within:bg-white/[0.07]"
+			class="relative mt-3 grid h-12 rounded-[14px] bg-tint/[0.05] transition-colors duration-150 [corner-shape:squircle] focus-within:bg-tint/[0.07]"
 		>
 			<input
 				bind:value={() => fieldValue, setFieldValue}
@@ -281,7 +286,7 @@
 										aria-checked={checked}
 										disabled={busy}
 										onclick={() => toggleStarter(starter.kind)}
-										class="-mx-1 flex h-10 w-[calc(100%+0.5rem)] items-center gap-3 rounded-[10px] px-2 text-left transition-colors duration-150 [corner-shape:squircle] enabled:hover:bg-white/[0.04]"
+										class="-mx-1 flex h-10 w-[calc(100%+0.5rem)] items-center gap-3 rounded-[10px] px-2 text-left transition-colors duration-150 [corner-shape:squircle] enabled:hover:bg-tint/[0.04]"
 									>
 										<Icon name={starter.kind} size={16} class="text-muted" />
 										<span
@@ -294,7 +299,7 @@
 										<span
 											class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors duration-150 {checked
 												? 'border-transparent'
-												: 'border-white/20'}"
+												: 'border-tint/20'}"
 										>
 											<span
 												class="absolute inset-0 rounded-full bg-ink transition-[scale,opacity] duration-180 ease-soft {checked
@@ -347,7 +352,7 @@
 										onclick={() => useSuggestion(suggestion.code)}
 										class="pressable grid h-7 shrink-0 items-center rounded-full px-3 text-[12px] font-semibold duration-150 {chosen
 											? 'text-muted'
-											: 'bg-white/[0.08] text-ink hover:bg-white/[0.12]'}"
+											: 'bg-tint/[0.08] text-ink hover:bg-tint/[0.12]'}"
 									>
 										{#key chosen}
 											<span class="col-start-1 row-start-1" in:settle out:settle={{ duration: 100 }}>
