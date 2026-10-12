@@ -13,6 +13,8 @@
 		type MessageReply
 	} from '$lib/messages/messages';
 	import { clientIdOf } from '$lib/messages/outbox';
+	import { lookupProfileLink, type ProfileLinkHandlers } from '$lib/profile/profile-link-lookup';
+	import { profileUsernameInMessage } from '$lib/profile/profile-links';
 	import { inviteCodeInMessage } from '$lib/servers/invites';
 	import type { Server } from '$lib/servers/servers';
 	import { openExternal } from '$lib/ui/external-link';
@@ -21,6 +23,7 @@
 	import Icon from './Icon.svelte';
 	import InviteCard from './InviteCard.svelte';
 	import MessageAttachments from './MessageAttachments.svelte';
+	import ProfileLinkCard from './ProfileLinkCard.svelte';
 
 	interface Props {
 		messages: Message[];
@@ -32,6 +35,7 @@
 		onflashend?: () => void;
 		onjoinedinvite?: (server: Server) => void;
 		onopeninvite?: (code: string) => void;
+		profileLinks?: ProfileLinkHandlers;
 		onopenphoto?: (message: Message, index: number, element: HTMLElement) => void;
 		onopenprofile?: (author: MessageAuthor, source: HTMLElement | null) => void;
 		onauthormenu?: (author: MessageAuthor, source: HTMLElement | null, event: MouseEvent) => void;
@@ -47,13 +51,14 @@
 		onflashend,
 		onjoinedinvite,
 		onopeninvite,
+		profileLinks,
 		onopenphoto,
 		onopenprofile,
 		onauthormenu
 	}: Props = $props();
 
 	const linkClass =
-		'text-ink underline decoration-white/30 underline-offset-2 transition-[text-decoration-color] duration-150 hover:decoration-white/80';
+		'text-ink underline decoration-tint/30 underline-offset-2 transition-[text-decoration-color] duration-150 hover:decoration-tint/80';
 
 	function openLink(event: MouseEvent, href: string) {
 		event.preventDefault();
@@ -64,6 +69,23 @@
 	function openInvite(event: MouseEvent, code: string) {
 		event.preventDefault();
 		onopeninvite?.(code);
+	}
+
+	async function openProfileLink(event: MouseEvent, username: string) {
+		event.preventDefault();
+		if (!profileLinks) return;
+		const local = profileLinks.lookup(username);
+		if (local) {
+			profileLinks.open(local.target, null);
+			return;
+		}
+		const result = await lookupProfileLink(username);
+		if (result.ok) profileLinks.open(result.person.target, null);
+	}
+
+	function profileLinkIn(message: Message): string | null {
+		if (!profileLinks) return null;
+		return profileUsernameInMessage(message.text);
 	}
 
 	function singleLine(text: string): string {
@@ -88,10 +110,10 @@
 		const menuOpen = highlightedId === message.id;
 		if (repliesToSelf(message)) {
 			return menuOpen
-				? 'reply-mention rounded-l-none bg-white/[0.06]'
-				: 'reply-mention rounded-l-none bg-white/[0.04] hover:bg-white/[0.06]';
+				? 'reply-mention rounded-l-none bg-tint/[0.06]'
+				: 'reply-mention rounded-l-none bg-tint/[0.04] hover:bg-tint/[0.06]';
 		}
-		return menuOpen ? 'bg-white/[0.03]' : 'hover:bg-white/[0.03]';
+		return menuOpen ? 'bg-tint/[0.03]' : 'hover:bg-tint/[0.03]';
 	}
 
 	const author = $derived(messages[0].author);
@@ -120,8 +142,8 @@
 	>
 		<span
 			class="pointer-events-none absolute top-3 bottom-0 left-4 w-6 rounded-tl-[6px] border-t-[1.5px] border-l-[1.5px] transition-colors duration-150 {jumpable
-				? 'border-white/20 group-hover/reply:border-white/40'
-				: 'border-white/20'}"
+				? 'border-tint/20 group-hover/reply:border-tint/40'
+				: 'border-tint/20'}"
 		></span>
 		<button
 			type="button"
@@ -182,13 +204,23 @@
 		dir="auto"
 		class="py-0.5 text-[14px] leading-5 break-words whitespace-pre-wrap text-ink-secondary select-text [unicode-bidi:plaintext]"
 	>
-		{#each splitLinks(message.text) as segment, index (index)}{#if segment.kind === 'link'}<a href={segment.href} onclick={(event) => openLink(event, segment.href)} onauxclick={(event) => openLink(event, segment.href)} class={linkClass}>{segment.text}</a>{:else if segment.kind === 'invite' && onopeninvite}<a href={segment.text} onclick={(event) => openInvite(event, segment.code)} onauxclick={(event) => event.preventDefault()} class={linkClass}>{segment.text}</a>{:else}{segment.text}{/if}{/each}{#if message.edited && message.status === undefined}<span class="ml-1.5 text-[11px] text-muted select-none">изменено</span>{/if}
+		{#each splitLinks(message.text) as segment, index (index)}{#if segment.kind === 'link'}<a href={segment.href} onclick={(event) => openLink(event, segment.href)} onauxclick={(event) => openLink(event, segment.href)} class={linkClass}>{segment.text}</a>{:else if segment.kind === 'invite' && onopeninvite}<a href={segment.text} onclick={(event) => openInvite(event, segment.code)} onauxclick={(event) => event.preventDefault()} class={linkClass}>{segment.text}</a>{:else if segment.kind === 'profile' && profileLinks}<a href={segment.text} onclick={(event) => openProfileLink(event, segment.username)} onauxclick={(event) => event.preventDefault()} class={linkClass}>{segment.text}</a>{:else}{segment.text}{/if}{/each}{#if message.edited && message.status === undefined}<span class="ml-1.5 text-[11px] text-muted select-none">изменено</span>{/if}
 	</p>
+{/snippet}
+
+{#snippet linkCards(message: Message, inviteCode: string | null)}
+	{@const profileUsername = profileLinkIn(message)}
+	{#if inviteCode && onjoinedinvite}
+		<InviteCard code={inviteCode} onjoined={onjoinedinvite} />
+	{/if}
+	{#if profileUsername && profileLinks}
+		<ProfileLinkCard username={profileUsername} handlers={profileLinks} />
+	{/if}
 {/snippet}
 
 {#snippet forwardedCard(message: Message, username: string, inviteCode: string | null)}
 	<div
-		class="mt-1 mb-1 flex max-w-[520px] min-w-[min(240px,100%)] flex-col rounded-[12px] border border-white/10 bg-white/[0.02] px-3 pt-2 pb-1.5"
+		class="mt-1 mb-1 flex max-w-[520px] min-w-[min(240px,100%)] flex-col rounded-[12px] border border-tint/10 bg-tint/[0.02] px-3 pt-2 pb-1.5"
 	>
 		<p class="flex h-4 items-center gap-1 text-[11px] font-medium text-muted">
 			<Icon name="forward" size={12} class="shrink-0" />
@@ -215,14 +247,12 @@
 		{#if message.text !== ''}
 			{@render messageText(message)}
 		{/if}
-		{#if inviteCode && onjoinedinvite}
-			<InviteCard code={inviteCode} onjoined={onjoinedinvite} />
-		{/if}
+		{@render linkCards(message, inviteCode)}
 	</div>
 {/snippet}
 
 {#snippet messageBody(message: Message)}
-	{@const inviteCode = message.status === undefined ? inviteCodeInMessage(message.text) : null}
+	{@const inviteCode = inviteCodeInMessage(message.text)}
 	{@const attachments = message.attachments ?? []}
 	{@const waiting = isWaiting(message)}
 	<div
@@ -247,9 +277,7 @@
 						: ''}"
 				>
 					{@render messageText(message)}
-					{#if inviteCode && onjoinedinvite}
-						<InviteCard code={inviteCode} onjoined={onjoinedinvite} />
-					{/if}
+					{@render linkCards(message, inviteCode)}
 				</div>
 			{/if}
 		{/if}
@@ -293,7 +321,7 @@
 								type="button"
 								onclick={openAuthorProfile}
 								oncontextmenu={openAuthorMenu}
-								class="min-w-0 truncate text-left text-[14px] leading-5 font-medium text-ink decoration-white/30 underline-offset-2 hover:underline"
+								class="min-w-0 truncate text-left text-[14px] leading-5 font-medium text-ink decoration-tint/30 underline-offset-2 hover:underline"
 							>
 								@{author.username}
 							</button>

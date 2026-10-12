@@ -1,3 +1,4 @@
+import { profileLinkPreview } from '$lib/profile/profile-links';
 import { knownAvatars } from '$lib/profile/known-avatars.svelte';
 import { supabase } from '$lib/supabase/client';
 import { retryOnFreshToken } from '$lib/supabase/retry';
@@ -55,7 +56,8 @@ export const attachmentMaxCount = 10;
 const photoOnlyText = 'Фото';
 
 export function previewText(text: string): string {
-	return text.trim() === '' ? photoOnlyText : text;
+	if (text.trim() === '') return photoOnlyText;
+	return profileLinkPreview(text) ?? text;
 }
 
 interface AuthorPayload {

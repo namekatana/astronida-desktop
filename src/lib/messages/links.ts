@@ -1,9 +1,15 @@
+import { profileLinkSource, profileUsernameOfLink } from '$lib/profile/profile-links';
+
 export type TextSegment =
 	| { kind: 'text'; text: string }
 	| { kind: 'link'; text: string; href: string }
-	| { kind: 'invite'; text: string; code: string };
+	| { kind: 'invite'; text: string; code: string }
+	| { kind: 'profile'; text: string; username: string };
 
-const linkPattern = /https?:\/\/[^\s<>"]+|astronida:\/\/invite\/[A-Za-z0-9]{10}(?![A-Za-z0-9])/g;
+const linkPattern = new RegExp(
+	`https?:\\/\\/[^\\s<>"]+|astronida:\\/\\/invite\\/[A-Za-z0-9]{10}(?![A-Za-z0-9])|${profileLinkSource}`,
+	'g'
+);
 const invitePattern = /^astronida:\/\/invite\/([A-Za-z0-9]{10})$/;
 const trailingPunctuation = /[.,!?:;»"'\]]+$/;
 
@@ -18,6 +24,8 @@ function withoutTrailingPunctuation(raw: string): string {
 function linkSegment(link: string): TextSegment {
 	const invite = link.match(invitePattern);
 	if (invite) return { kind: 'invite', text: link, code: invite[1] };
+	const username = profileUsernameOfLink(link);
+	if (username) return { kind: 'profile', text: link, username };
 	try {
 		return { kind: 'link', text: link, href: new URL(link).href };
 	} catch {

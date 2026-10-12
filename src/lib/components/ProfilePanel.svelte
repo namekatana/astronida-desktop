@@ -16,6 +16,7 @@
 		messageBusy?: boolean;
 		onfriendaction?: () => Promise<boolean>;
 		onunfriend?: () => void;
+		onshare?: () => void;
 		actionError?: string | null;
 	}
 
@@ -28,6 +29,7 @@
 		messageBusy = false,
 		onfriendaction,
 		onunfriend,
+		onshare,
 		actionError = null
 	}: Props = $props();
 
@@ -52,6 +54,7 @@
 					{messageBusy}
 					{onfriendaction}
 					{onunfriend}
+					{onshare}
 					{actionError}
 				/>
 			</div>
@@ -63,9 +66,8 @@
 			type="button"
 			aria-label="Назад"
 			onclick={onback}
-			class="pressable absolute top-3 left-3 flex h-8 w-8 items-center justify-center rounded-full text-muted duration-150 hover:bg-white/[0.08] hover:text-ink"
+			class="pressable absolute top-3 left-3 flex h-8 w-8 items-center justify-center rounded-full text-muted duration-150 hover:bg-tint/[0.08] hover:text-ink"
 		>
 			<Icon name="chevron" size={16} class="rotate-90" />
 		</button>
-	{/if}
-</aside>
+	{/if}</aside>

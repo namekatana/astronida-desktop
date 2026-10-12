@@ -26,6 +26,8 @@
 	import KickMemberDialog from '$lib/components/KickMemberDialog.svelte';
 	import MemberMenu from '$lib/components/MemberMenu.svelte';
 	import RemoveFriendDialog from '$lib/components/RemoveFriendDialog.svelte';
+	import ShareProfileDialog from '$lib/components/ShareProfileDialog.svelte';
+	import DashedFrame from '$lib/components/DashedFrame.svelte';
 	import MemberPanel from '$lib/components/MemberPanel.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import {
@@ -82,6 +84,12 @@
 	import type { MemberListPreview } from '$lib/servers/member-list.svelte';
 	import { knownAvatars } from '$lib/profile/known-avatars.svelte';
 	import { profileDetails } from '$lib/profile/profile-details.svelte';
+	import {
+		forgetProfileLinks,
+		type ProfileLinkHandlers,
+		type ProfileLinkPerson
+	} from '$lib/profile/profile-link-lookup';
+	import { profileLinkOf } from '$lib/profile/profile-links';
 	import { widgetsFrom, type ProfileWidget } from '$lib/profile/widgets';
 	import {
 		describeProfile,
@@ -101,12 +109,15 @@
 	import { lastSelection } from '$lib/ui/last-selection.svelte';
 	import { panelLimits, panelWidths } from '$lib/ui/panel-widths.svelte';
 	import { settle } from '$lib/ui/settle';
+	import { theme } from '$lib/ui/theme.svelte';
 	import { windowTitle } from '$lib/ui/title.svelte';
 	import { createVoiceOccupants } from '$lib/voice/occupants.svelte';
 	import { voice } from '$lib/voice/voice.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
+
+	theme.enter('app');
 
 	// svelte-ignore state_referenced_locally
 	let servers = $state<Server[]>(data.account.servers);
@@ -722,6 +733,57 @@
 		return () => (unfriending = moderationTargetOf(person));
 	}
 
+	let sharingProfile = $state<ProfileTarget | null>(null);
+
+	function shareActionFor(person: ProfileTarget): (() => void) | undefined {
+		if (person.id === data.userId) return undefined;
+		return () => (sharingProfile = moderationTargetOf(person));
+	}
+
+	function shareProfile(channelIds: string[], comment: string) {
+		if (!sharingProfile) return;
+		const link = profileLinkOf(sharingProfile.username);
+		const note = comment.trim();
+		for (const channelId of channelIds) {
+			if (note !== '') sending.send(channelId, note);
+			sending.send(channelId, link);
+		}
+	}
+
+	function lookupProfileUser(handle: string): ProfileLinkPerson | null {
+		if (handle === username) {
+			return {
+				target: { id: data.userId, username: handle, name: displayName ?? handle, avatarId },
+				relation: 'self'
+			};
+		}
+		const friend = friends.list.find((known) => known.username === handle);
+		if (friend) return { target: friend, relation: 'friend' };
+		const request = friends.requests.find((known) => known.username === handle);
+		if (request) return { target: request, relation: 'incoming' };
+		const partner = conversations.list.find((known) => known.username === handle);
+		if (partner) {
+			return {
+				target: partner,
+				relation: friends.outgoingIds.has(partner.id) ? 'outgoing' : 'none'
+			};
+		}
+		return null;
+	}
+
+	const profileLinkHandlers: ProfileLinkHandlers = {
+		lookup: lookupProfileUser,
+		open: openProfile
+	};
+
+	function memberMenuServer(request: MemberMenuRequest): Server | null {
+		return servers.find((server) => server.id === request.serverId) ?? null;
+	}
+
+	function memberMenuSubtitle(request: MemberMenuRequest): string | null {
+		return friends.ids.has(request.target.id) ? 'В друзьях' : null;
+	}
+
 	function finishUnfriend() {
 		if (!unfriending) return;
 		const { username } = unfriending;
@@ -753,6 +815,9 @@
 	}
 
 	const voiceModeration: MemberModeration = {
+		get serverName() {
+			return selectedServer?.name ?? '';
+		},
 		allowed: (userId) => selectedServer !== null && mayModerate(selectedServer.id, userId),
 		onkick: (target) => selectedServer && startModeration('kick', target, selectedServer.id),
 		onban: (target) => selectedServer && startModeration('ban', target, selectedServer.id)
@@ -879,6 +944,7 @@
 		forgetImages();
 		forgetAvatars();
 		forgetBanners();
+		forgetProfileLinks();
 		profileDetails.clear();
 		knownAvatars.clear();
 		memberStatuses.clear();
@@ -973,6 +1039,8 @@
 		{@const request = memberMenu}
 		<MemberMenu
 			target={request.target}
+			subtitle={memberMenuSubtitle(request)}
+			serverName={memberMenuServer(request)?.name ?? null}
 			x={request.x}
 			y={request.y}
 			canModerate={mayModerate(request.serverId, request.target.id)}
@@ -981,6 +1049,16 @@
 			onkick={() => request.serverId && startModeration('kick', request.target, request.serverId)}
 			onban={() => request.serverId && startModeration('ban', request.target, request.serverId)}
 			onunfriend={unfriendActionFor(request.target)}
+			onshare={shareActionFor(request.target)}
+		/>
+	{/if}
+
+	{#if sharingProfile}
+		<ShareProfileDialog
+			target={sharingProfile}
+			friends={friends.withPresence}
+			onshare={shareProfile}
+			onclose={() => (sharingProfile = null)}
 		/>
 	{/if}
 
@@ -1154,8 +1232,9 @@
 			{#if openChatId && draggingFiles}
 				<div
 					transition:fade={{ duration: 150 }}
-					class="panel-deep pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-white/20"
+					class="panel-deep pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-2"
 				>
+					<DashedFrame radius={18} strokeWidth={2} dash={6} class="text-tint/20" />
 					<Icon name="image" size={28} class="text-ink-secondary" />
 					<p class="text-[15px] font-semibold text-ink">Отпустите, чтобы прикрепить фото</p>
 					<p class="text-[13px] text-muted">До 10 фото в одном сообщении</p>
@@ -1213,6 +1292,7 @@
 					onforward={menu.startForward}
 					onjoinedinvite={handleServerJoined}
 					onopeninvite={openInvite}
+					profileLinks={selectedChannel ? undefined : profileLinkHandlers}
 					onopenphoto={openPhoto}
 					onopenprofile={openProfile}
 					onauthormenu={selectedChannel ? openMemberMenu : undefined}
@@ -1279,6 +1359,7 @@
 							messageBusy={directOpening === sideCard.target.id}
 							onfriendaction={() => befriend(sideCard.target, sideCard.relation)}
 							onunfriend={unfriendActionFor(sideCard.target)}
+							onshare={shareActionFor(sideCard.target)}
 							actionError={errorFor(sideCard.target.id)}
 						/>
 					</div>
@@ -1308,6 +1389,7 @@
 								onopenserver={handleServerJoined}
 								onfriendaction={() => befriend(chatPartnerCard.target, chatPartnerCard.relation)}
 								onunfriend={unfriendActionFor(chatPartnerCard.target)}
+								onshare={shareActionFor(chatPartnerCard.target)}
 								actionError={errorFor(chatPartnerCard.target.id)}
 							/>
 						{:else}

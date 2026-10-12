@@ -2,6 +2,7 @@
 	import { tick, type Snippet } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { renderKeyOf, type Message, type MessageAuthor } from '$lib/messages/messages';
+	import type { ProfileLinkHandlers } from '$lib/profile/profile-link-lookup';
 	import type { Server } from '$lib/servers/servers';
 	import { createDelayedFlag } from '$lib/ui/delayed-flag.svelte';
 	import type { SmoothScrollController } from '$lib/ui/smooth-scroll';
@@ -27,6 +28,7 @@
 		onforward?: (message: Message) => void;
 		onjoinedinvite?: (server: Server) => void;
 		onopeninvite?: (code: string) => void;
+		profileLinks?: ProfileLinkHandlers;
 		onopenphoto?: (message: Message, index: number, element: HTMLElement) => void;
 		onopenprofile?: (author: MessageAuthor, source: HTMLElement | null) => void;
 		onauthormenu?: (author: MessageAuthor, source: HTMLElement | null, event: MouseEvent) => void;
@@ -54,6 +56,7 @@
 		onforward,
 		onjoinedinvite,
 		onopeninvite,
+		profileLinks,
 		onopenphoto,
 		onopenprofile,
 		onauthormenu,
@@ -298,9 +301,9 @@
 				{#each block.groups as group (group.key)}
 					{#if group.unreadStart}
 						<div data-unread-divider class="flex items-center gap-3 px-3 py-2">
-							<span class="h-px flex-1 bg-white/25"></span>
+							<span class="h-px flex-1 bg-tint/25"></span>
 							<span class="text-[13px] font-semibold text-ink">Новые сообщения</span>
-							<span class="h-px flex-1 bg-white/25"></span>
+							<span class="h-px flex-1 bg-tint/25"></span>
 						</div>
 					{/if}
 					<MessageGroup
@@ -313,6 +316,7 @@
 						onflashend={() => (flashId = null)}
 						{onjoinedinvite}
 						{onopeninvite}
+						{profileLinks}
 						{onopenphoto}
 						{onopenprofile}
 						{onauthormenu}
