@@ -38,6 +38,17 @@
 
 	--ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
 	--ease-move: cubic-bezier(0.77, 0, 0.175, 1);
+
+	--radius-tile: 8px;
+	--radius-row: 10px;
+	--radius-plate: 14px;
+}
+
+@theme inline {
+	--color-fill-faint: color-mix(in oklab, var(--color-tint) 4%, transparent);
+	--color-fill: color-mix(in oklab, var(--color-tint) 6%, transparent);
+	--color-fill-raised: color-mix(in oklab, var(--color-tint) 8%, transparent);
+	--color-fill-strong: color-mix(in oklab, var(--color-tint) 12%, transparent);
 }
 
 [data-theme='cosmos'] {
