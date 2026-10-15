@@ -8,11 +8,11 @@
 		type PreviewResult
 	} from '$lib/servers/invites';
 	import type { Server } from '$lib/servers/servers';
-	import { initials } from '$lib/ui/initials';
 	import { settle } from '$lib/ui/settle';
 	import Icon from './Icon.svelte';
 	import NightSky from './NightSky.svelte';
 	import Orbit from './Orbit.svelte';
+	import ServerIcon from './ServerIcon.svelte';
 
 	interface Props {
 		code: string;
@@ -105,9 +105,13 @@
 			>
 				{#if ready}
 					<span
-						class="grid size-12 place-items-center rounded-full bg-surface-raised text-[15px] font-semibold text-ink ring-4 ring-surface"
+						class="relative grid size-12 place-items-center rounded-full bg-surface-raised text-[15px] font-semibold text-ink ring-4 ring-surface"
 					>
-						{initials(ready.serverName)}
+						<ServerIcon
+							serverId={ready.serverId}
+							iconId={ready.iconId}
+							name={ready.serverName}
+						/>
 					</span>
 					<p class="mt-2 h-5 w-full truncate text-[15px] leading-5 font-semibold text-ink">
 						{ready.serverName}

@@ -9,10 +9,10 @@
 		type InvitePreview
 	} from '$lib/servers/invites';
 	import type { Server } from '$lib/servers/servers';
-	import { initials } from '$lib/ui/initials';
 	import { settle } from '$lib/ui/settle';
 	import Icon from './Icon.svelte';
 	import Orbit from './Orbit.svelte';
+	import ServerIcon from './ServerIcon.svelte';
 
 	interface Props {
 		serverId: string;
@@ -48,6 +48,7 @@
 	const known = $derived(knownServers.find((server) => server.id === serverId) ?? null);
 	const shownPreview = $derived(preview?.serverId === serverId ? preview : null);
 	const name = $derived(sample?.name ?? shownPreview?.serverName ?? known?.name ?? null);
+	const iconId = $derived(sample ? null : (shownPreview?.iconId ?? known?.iconId ?? null));
 	const memberCount = $derived(sample?.memberCount ?? shownPreview?.memberCount ?? null);
 	const unavailable = $derived(!sample && !editable && missing);
 	const actionLabel = $derived(shownPreview?.member ? 'Открыть' : 'Вступить');
@@ -98,9 +99,11 @@
 
 {#snippet emblem()}
 	<span
-		class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[15px] font-semibold text-ink"
+		class="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[15px] font-semibold text-ink"
 	>
-		{name ? initials(name) : ''}
+		{#if name}
+			<ServerIcon {serverId} {iconId} {name} />
+		{/if}
 	</span>
 {/snippet}
 

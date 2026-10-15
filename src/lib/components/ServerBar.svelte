@@ -188,6 +188,8 @@
 
 				{#each servers as server (server.id)}
 					<ServerTab
+						serverId={server.id}
+						iconId={server.iconId}
 						name={server.name}
 						active={server.id === selectedId}
 						unread={unreadServerIds.has(server.id)}

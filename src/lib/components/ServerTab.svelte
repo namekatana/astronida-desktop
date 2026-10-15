@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { cubicOut } from 'svelte/easing';
 	import { scale } from 'svelte/transition';
-	import { initials } from '$lib/ui/initials';
+	import ServerIcon from './ServerIcon.svelte';
 
 	interface Props {
+		serverId: string;
+		iconId?: string | null;
 		name: string;
 		active?: boolean;
 		unread?: boolean;
@@ -11,9 +13,15 @@
 		element?: HTMLButtonElement;
 	}
 
-	let { name, active = false, unread = false, onclick, element = $bindable() }: Props = $props();
-
-	const avatar = $derived(initials(name));
+	let {
+		serverId,
+		iconId,
+		name,
+		active = false,
+		unread = false,
+		onclick,
+		element = $bindable()
+	}: Props = $props();
 </script>
 
 <button
@@ -27,7 +35,7 @@
 	<span
 		class="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[12px] text-ink"
 	>
-		{avatar}
+		<ServerIcon {serverId} {iconId} {name} />
 		{#if unread}
 			<span
 				aria-hidden="true"

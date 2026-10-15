@@ -2,7 +2,7 @@ import { createCachedSection } from '$lib/cache/cached-section';
 import { failureMessage, getApi, postApi, type ApiResponse } from '$lib/realtime/api-request';
 import { asRecord } from '$lib/ui/record';
 import { rememberJoinedLayout } from './joined-layouts';
-import { serverFrom, type Server } from './servers';
+import { iconIdFrom, serverFrom, type Server } from './servers';
 
 export interface InviteLink {
 	link: string;
@@ -21,6 +21,7 @@ export type GenerateResult = { ok: true; invite: InviteLink } | { ok: false; mes
 export interface InvitePreview {
 	serverId: string;
 	serverName: string;
+	iconId: string | null;
 	memberCount: number;
 	member: boolean;
 }
@@ -220,6 +221,7 @@ function previewFrom(body: unknown): InvitePreview | null {
 	return {
 		serverId: server.id,
 		serverName: server.name,
+		iconId: iconIdFrom(server.icon_id),
 		memberCount: row.member_count,
 		member: row.member
 	};
@@ -236,6 +238,7 @@ function storedPreviewFrom(entry: unknown): [string, InvitePreview] | null {
 		{
 			serverId: preview.serverId,
 			serverName: preview.serverName,
+			iconId: iconIdFrom(preview.iconId),
 			memberCount: preview.memberCount,
 			member: preview.member
 		}
@@ -273,18 +276,6 @@ function remember(code: string, preview: InvitePreview) {
 function forget(code: string) {
 	missingCodes.set(code, Date.now());
 	if (storedPreviews.delete(code)) persistPreviews();
-}
-
-export function recentInvitePreviews(limit: number): { code: string; preview: InvitePreview }[] {
-	const seenServers = new Set<string>();
-	const recent: { code: string; preview: InvitePreview }[] = [];
-	for (const [code, preview] of [...storedPreviews].reverse()) {
-		if (recent.length >= limit) break;
-		if (preview.member || seenServers.has(preview.serverId)) continue;
-		seenServers.add(preview.serverId);
-		recent.push({ code, preview });
-	}
-	return recent;
 }
 
 export function cachedPreview(code: string): PreviewResult | null {

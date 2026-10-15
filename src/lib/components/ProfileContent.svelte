@@ -5,7 +5,6 @@
 	import { widgetTileClass } from '$lib/profile/widget-tile';
 	import type { Server } from '$lib/servers/servers';
 	import { createDelayedFlag } from '$lib/ui/delayed-flag.svelte';
-	import { initials } from '$lib/ui/initials';
 	import { materialize } from '$lib/ui/materialize';
 	import { settle } from '$lib/ui/settle';
 	import DrawnCheck from './DrawnCheck.svelte';
@@ -15,6 +14,7 @@
 	import ProfileAvatar from './ProfileAvatar.svelte';
 	import ProfileBanner from './ProfileBanner.svelte';
 	import ProfileWidgets from './ProfileWidgets.svelte';
+	import ServerIcon from './ServerIcon.svelte';
 	import StatusPicker from './StatusPicker.svelte';
 
 	interface Props {
@@ -283,9 +283,9 @@
 							class="flex h-6 max-w-full min-w-0 items-center gap-1.5 rounded-full bg-fill pr-2.5 pl-[3px] text-[12px] text-ink-secondary"
 						>
 							<span
-								class="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-surface-raised text-[10px] font-semibold text-ink"
+								class="relative flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-surface-raised text-[10px] font-semibold text-ink"
 							>
-								{initials(server.name)}
+								<ServerIcon serverId={server.id} iconId={server.iconId} name={server.name} />
 							</span>
 							<span class="truncate">{server.name}</span>
 						</span>

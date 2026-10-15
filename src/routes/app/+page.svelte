@@ -79,6 +79,7 @@
 	import { createServersPresence } from '$lib/presence/servers-presence.svelte';
 	import { forgetAvatars } from '$lib/profile/avatar-images';
 	import { forgetBanners } from '$lib/profile/banner-images';
+	import { forgetServerIcons } from '$lib/servers/server-icon-images';
 	import { memberStatuses } from '$lib/presence/member-statuses.svelte';
 	import { lookupStatus, watchMembers } from '$lib/presence/presence';
 	import type { MemberListPreview } from '$lib/servers/member-list.svelte';
@@ -944,6 +945,7 @@
 		forgetImages();
 		forgetAvatars();
 		forgetBanners();
+		forgetServerIcons();
 		forgetProfileLinks();
 		profileDetails.clear();
 		knownAvatars.clear();

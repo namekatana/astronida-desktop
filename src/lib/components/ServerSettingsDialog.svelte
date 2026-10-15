@@ -13,7 +13,6 @@
 		type ServerSettingsSectionId
 	} from '$lib/servers/server-settings';
 	import type { Server } from '$lib/servers/servers';
-	import { initials } from '$lib/ui/initials';
 	import { pop } from '$lib/ui/pop';
 	import { settle } from '$lib/ui/settle';
 	import ConstellationMark from './ConstellationMark.svelte';
@@ -22,6 +21,7 @@
 	import RevokeInviteDialog from './RevokeInviteDialog.svelte';
 	import ServerBanner from './ServerBanner.svelte';
 	import ServerBansSettings from './ServerBansSettings.svelte';
+	import ServerIcon from './ServerIcon.svelte';
 	import ServerInviteJoiners from './ServerInviteJoiners.svelte';
 	import ServerInvitesSettings from './ServerInvitesSettings.svelte';
 	import SmoothScroll from './SmoothScroll.svelte';
@@ -87,7 +87,12 @@
 					aria-hidden="true"
 					class="relative -mt-6 grid size-12 place-items-center rounded-full bg-surface-raised text-[15px] font-semibold text-ink ring-4 ring-surface"
 				>
-					{initials(server.name)}
+					<ServerIcon
+						serverId={server.id}
+						iconId={server.iconId}
+						name={server.name}
+						variant="large"
+					/>
 				</div>
 				<h2 class="mt-2.5 truncate text-[20px] leading-6 font-bold tracking-[-0.01em] text-ink">
 					{server.name}

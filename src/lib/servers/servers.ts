@@ -8,6 +8,7 @@ export interface Server {
 	id: string;
 	name: string;
 	ownerId: string;
+	iconId?: string | null;
 }
 
 export type CreateServerResult = { ok: true; server: Server } | { ok: false; message: string };
@@ -24,22 +25,30 @@ export function validateServerName(name: string): string {
 
 export async function loadServers(): Promise<Server[]> {
 	const { data, error } = await retryOnFreshToken(() =>
-		supabase.from('servers').select('id, name, owner_id').order('created_at', { ascending: true })
+		supabase
+			.from('servers')
+			.select('id, name, owner_id, icon_id')
+			.order('created_at', { ascending: true })
 	);
 
 	if (error || !data) return [];
 	return data.map((row) => ({
 		id: row.id,
 		name: row.name,
-		ownerId: row.owner_id
+		ownerId: row.owner_id,
+		iconId: row.icon_id
 	}));
+}
+
+export function iconIdFrom(value: unknown): string | null {
+	return typeof value === 'string' ? value : null;
 }
 
 export function serverFrom(body: unknown): Server | null {
 	const row = asRecord(body);
 	if (typeof row?.id !== 'string' || typeof row.name !== 'string') return null;
 	if (typeof row.owner_id !== 'string') return null;
-	return { id: row.id, name: row.name, ownerId: row.owner_id };
+	return { id: row.id, name: row.name, ownerId: row.owner_id, iconId: iconIdFrom(row.icon_id) };
 }
 
 export async function createServer(name: string): Promise<CreateServerResult> {
