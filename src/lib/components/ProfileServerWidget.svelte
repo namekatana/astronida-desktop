@@ -98,7 +98,7 @@
 
 {#snippet emblem()}
 	<span
-		class="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-surface-raised text-[15px] font-semibold text-ink [corner-shape:squircle]"
+		class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[15px] font-semibold text-ink"
 	>
 		{name ? initials(name) : ''}
 	</span>
@@ -112,8 +112,8 @@
 				{memberCount === null ? 'Ваш сервер' : memberCountLabel(memberCount)}
 			</span>
 		{:else}
-			<span class="h-3.5 w-24 rounded-full bg-tint/[0.08]"></span>
-			<span class="mt-1.5 h-3 w-16 rounded-full bg-tint/[0.05]"></span>
+			<span class="h-3.5 w-24 rounded-full bg-fill-raised"></span>
+			<span class="mt-1.5 h-3 w-16 rounded-full bg-fill"></span>
 		{/if}
 	</span>
 {/snippet}
@@ -124,7 +124,7 @@
 			type="button"
 			disabled={locked}
 			onclick={(event) => onpick?.(event.currentTarget)}
-			class="pressable flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full bg-tint/[0.08] px-3.5 text-[13px] font-medium text-ink duration-150 hover:bg-tint/[0.12] disabled:opacity-40"
+			class="pressable flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full bg-fill-raised px-3.5 text-[12px] font-semibold text-ink duration-150 hover:bg-fill-strong disabled:opacity-40"
 		>
 			Сменить сервер
 			<Icon name="chevron" size={12} class="text-muted" />
@@ -135,8 +135,8 @@
 			disabled={!ownerId && !sample}
 			aria-busy={joining}
 			onclick={open}
-			class="pressable grid h-8 shrink-0 place-items-center rounded-full px-4 text-[13px] font-semibold duration-150 {failed
-				? 'bg-tint/[0.08] text-danger'
+			class="pressable grid h-8 shrink-0 place-items-center rounded-full px-4 text-[12px] font-semibold duration-150 {failed
+				? 'bg-fill-raised text-danger'
 				: 'bg-ink text-bg hover:bg-ink-hover'}"
 		>
 			{#key joining ? 'joining' : failed ? 'failed' : actionLabel}

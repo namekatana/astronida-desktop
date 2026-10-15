@@ -23,7 +23,7 @@
 		type="button"
 		disabled={busy}
 		onclick={oncancel}
-		class="h-11 rounded-[14px] bg-tint/[0.05] text-[14px] font-medium text-ink transition-[background-color,opacity] duration-150 outline-none [corner-shape:squircle] hover:bg-tint/[0.08] focus-visible:bg-tint/[0.08] active:bg-tint/[0.1] disabled:opacity-50 disabled:hover:bg-tint/[0.05]"
+		class="pressable h-10 rounded-full bg-fill-raised text-[13px] font-semibold text-ink duration-150 outline-none hover:bg-fill-strong focus-visible:bg-fill-strong disabled:opacity-50 disabled:hover:bg-fill-raised"
 	>
 		Отмена
 	</button>
@@ -32,7 +32,7 @@
 		disabled={busy}
 		aria-busy={busy}
 		onclick={onconfirm}
-		class="grid h-11 place-items-center rounded-[14px] bg-tint/[0.05] text-[14px] font-semibold text-danger transition-colors duration-150 outline-none [corner-shape:squircle] hover:bg-danger/10 focus-visible:bg-danger/10 active:bg-danger/15 disabled:hover:bg-tint/[0.05]"
+		class="pressable grid h-10 place-items-center rounded-full bg-fill-raised text-[13px] font-semibold text-danger duration-150 outline-none hover:bg-danger/10 focus-visible:bg-danger/10 active:bg-danger/15 disabled:hover:bg-fill-raised"
 	>
 		<span
 			class="col-start-1 row-start-1 transition-opacity duration-150 {busy

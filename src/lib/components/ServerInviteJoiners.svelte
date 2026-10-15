@@ -35,7 +35,7 @@
 </script>
 
 <div
-	class="flex min-h-[60px] items-center gap-3 rounded-[14px] bg-tint/[0.05] px-4 py-2.5 [corner-shape:squircle]"
+	class="flex min-h-[60px] items-center gap-3 rounded-plate bg-fill px-4 py-2.5 [corner-shape:squircle]"
 >
 	<InviteLinkSummary {invite} />
 </div>
@@ -43,7 +43,7 @@
 <section aria-labelledby="invite-joiners" class="mt-6">
 	<CountedHeading id="invite-joiners" label="Вступили" count={joiners?.length ?? null} {error} />
 
-	<div class="grid min-h-[132px] grid-cols-1 rounded-[14px] bg-tint/[0.05] [corner-shape:squircle]">
+	<div class="grid min-h-[132px] grid-cols-1 rounded-plate bg-fill [corner-shape:squircle]">
 		{#if joiners === null}
 			{#if slowLoading.current}
 				<div class="col-start-1 row-start-1 grid place-items-center" in:fade={{ duration: 150 }}>
@@ -55,7 +55,7 @@
 				class="col-start-1 row-start-1 flex flex-col items-center justify-center px-6 py-6 text-center"
 				in:fade={{ duration: 150 }}
 			>
-				<div class="grid size-10 place-items-center rounded-full bg-tint/[0.08] text-ink-secondary">
+				<div class="grid size-10 place-items-center rounded-full bg-fill-raised text-ink-secondary">
 					<Icon name="users" size={18} />
 				</div>
 				<p class="mt-3 text-[14px] leading-5 font-semibold text-ink">Пока никто не вступил</p>
@@ -65,7 +65,7 @@
 				{#each joiners as joiner, index (joiner.id)}
 					<li>
 						{#if index > 0}
-							<div class="ml-[60px] h-px bg-tint/[0.06]"></div>
+							<div class="ml-[60px] h-px bg-surface-line"></div>
 						{/if}
 						<div class="flex min-h-[60px] items-center gap-3 px-4 py-2.5">
 							<Avatar name={joiner.name} size={32} userId={joiner.id} avatarId={joiner.avatarId} />

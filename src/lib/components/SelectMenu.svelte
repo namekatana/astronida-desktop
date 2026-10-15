@@ -17,9 +17,9 @@
 	let { label, options, value = $bindable(), disabled = false }: Props = $props();
 
 	const menuWidth = 208;
-	const rowHeight = 36;
+	const rowHeight = 32;
 	const maxVisibleRows = 8;
-	const menuPadding = 8;
+	const menuPadding = 6;
 	const gap = 6;
 	const edge = 8;
 
@@ -121,8 +121,8 @@
 		aria-expanded={open}
 		{disabled}
 		onclick={toggle}
-		class="flex h-12 w-full items-center gap-3 px-4 text-left transition-colors duration-150 hover:bg-tint/[0.03] disabled:pointer-events-none disabled:opacity-60 {open
-			? 'bg-tint/[0.03]'
+		class="flex h-12 w-full items-center gap-3 px-4 text-left transition-colors duration-150 hover:bg-fill-faint disabled:pointer-events-none disabled:opacity-60 {open
+			? 'bg-fill-faint'
 			: ''}"
 	>
 		<span class="min-w-0 flex-1 truncate text-[13px] text-ink">{label}</span>
@@ -157,7 +157,7 @@
 				: 'origin-top-right'}"
 			style="left: {position.left}px; top: {position.top}px; width: {menuWidth}px; max-height: {menuHeight}px"
 		>
-			<SmoothScroll class="min-h-0" contentClass="p-2">
+			<SmoothScroll class="min-h-0" contentClass="p-1.5">
 				{@render optionList()}
 			</SmoothScroll>
 		</div>
@@ -173,9 +173,9 @@
 			aria-selected={index === selectedIndex}
 			onpointerenter={() => (highlighted = index)}
 			onclick={() => pick(index)}
-			class="flex h-9 w-full items-center gap-2.5 rounded-[10px] px-3 text-left [corner-shape:squircle] text-[13px] transition-colors duration-150 {index ===
+			class="flex h-8 w-full items-center gap-2.5 rounded-row px-2.5 text-left [corner-shape:squircle] text-[13px] transition-colors duration-150 {index ===
 			highlighted
-				? 'bg-tint/[0.06] text-ink'
+				? 'bg-fill text-ink'
 				: 'text-ink-secondary'}"
 		>
 			<span class="min-w-0 flex-1 truncate tabular-nums">{option.label}</span>

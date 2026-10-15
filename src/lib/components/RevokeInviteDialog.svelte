@@ -35,7 +35,7 @@
 
 	<div class="px-4 pb-4">
 		<div
-			class="flex items-center gap-3 rounded-[14px] bg-tint/[0.05] px-3.5 py-2.5 [corner-shape:squircle]"
+			class="flex items-center gap-3 rounded-plate bg-fill px-3.5 py-2.5 [corner-shape:squircle]"
 		>
 			<InviteLinkSummary {invite} />
 		</div>

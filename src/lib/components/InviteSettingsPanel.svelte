@@ -50,14 +50,14 @@
 </script>
 
 <div class="pt-3">
-	<div class="overflow-hidden rounded-[14px] bg-tint/[0.05] [corner-shape:squircle]">
+	<div class="overflow-hidden rounded-plate bg-fill [corner-shape:squircle]">
 		<SelectMenu
 			label="Срок действия"
 			options={lifetimes}
 			bind:value={maxAge}
 			disabled={submitting}
 		/>
-		<div class="mx-4 h-px bg-surface-line"></div>
+		<div class="ml-4 h-px bg-surface-line"></div>
 		<SelectMenu
 			label="Максимум использований"
 			options={useLimits}

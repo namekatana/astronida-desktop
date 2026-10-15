@@ -178,7 +178,7 @@
 						onanimationend={(event) => {
 							if (event.target === event.currentTarget) flashing.delete(person.id);
 						}}
-						class="flex h-11 items-center gap-3 rounded-[10px] px-2.5 transition-colors duration-150 [corner-shape:squircle] hover:bg-tint/[0.04] {flashing.has(
+						class="flex h-11 items-center gap-3 rounded-row px-2.5 transition-colors duration-150 [corner-shape:squircle] hover:bg-fill-faint {flashing.has(
 							person.id
 						)
 							? 'invite-flash'
@@ -215,7 +215,7 @@
 			onanimationend={(event) => {
 				if (event.target === event.currentTarget) linkFlashing = false;
 			}}
-			class="flex h-11 items-center gap-2.5 rounded-full bg-tint/[0.05] pr-1.5 pl-4 {linkFlashing
+			class="flex h-12 items-center gap-2.5 rounded-plate bg-fill pr-2 pl-4 [corner-shape:squircle] {linkFlashing
 				? 'link-flash'
 				: ''}"
 		>
@@ -246,7 +246,7 @@
 				onclick={copyLink}
 				class="pressable grid h-8 shrink-0 items-center rounded-full px-3.5 text-[12px] font-semibold duration-150 disabled:opacity-50 {copied
 					? 'bg-online/10 text-online'
-					: 'bg-tint/[0.08] text-ink hover:bg-tint/[0.12]'}"
+					: 'bg-fill-raised text-ink hover:bg-fill-strong'}"
 			>
 				<span
 					aria-hidden={copied}
@@ -312,9 +312,9 @@
 
 {#snippet action(friend: Friend)}
 	{#if memberIds.has(friend.id)}
-		<span class="flex h-7 items-center px-1 text-[12px] text-muted">На сервере</span>
+		<span class="flex h-8 items-center px-1 text-[12px] text-muted">На сервере</span>
 	{:else if invited.has(friend.id)}
-		<span class="flex h-7 items-center gap-1.5 px-1 text-[12px] text-muted">
+		<span class="flex h-8 items-center gap-1.5 px-1 text-[12px] text-muted">
 			<DrawnCheck
 				size={13}
 				duration={flashing.has(friend.id) ? 320 : 0}
@@ -328,7 +328,7 @@
 			type="button"
 			disabled={linkUnavailable || !friend.channelId}
 			onclick={() => inviteFriend(friend)}
-			class="pressable flex h-7 items-center rounded-full bg-tint/[0.08] px-3 text-[12px] font-semibold text-ink duration-150 hover:bg-tint/[0.12] disabled:opacity-50"
+			class="pressable flex h-8 items-center rounded-full bg-fill-raised px-3 text-[12px] font-semibold text-ink duration-150 hover:bg-fill-strong disabled:opacity-50"
 		>
 			Пригласить
 		</button>
@@ -349,7 +349,7 @@
 			background-color: color-mix(in srgb, var(--color-tint) 14%, transparent);
 		}
 		100% {
-			background-color: color-mix(in srgb, var(--color-tint) 5%, transparent);
+			background-color: var(--color-fill);
 		}
 	}
 

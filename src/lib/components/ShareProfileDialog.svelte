@@ -113,9 +113,9 @@
 								aria-checked={checked}
 								disabled={blocked || sent}
 								onclick={() => toggle(channelId)}
-								class="flex h-11 w-full items-center gap-3 rounded-[10px] px-2.5 text-left transition-[background-color,opacity] duration-150 [corner-shape:squircle] disabled:cursor-default {checked
-									? 'bg-tint/[0.06]'
-									: 'enabled:hover:bg-tint/[0.04]'} {blocked ? 'opacity-40' : ''}"
+								class="flex h-11 w-full items-center gap-3 rounded-row px-2.5 text-left transition-[background-color,opacity] duration-150 [corner-shape:squircle] disabled:cursor-default {checked
+									? 'bg-fill'
+									: 'enabled:hover:bg-fill-faint'} {blocked ? 'opacity-40' : ''}"
 							>
 								<Avatar
 									name={friend.name}
@@ -147,7 +147,7 @@
 
 	<form id={formId} class="px-4 pt-1 pb-4" onsubmit={submit}>
 		<div
-			class="rounded-[14px] bg-tint/[0.05] px-3.5 pt-2.5 pb-2 transition-colors duration-150 [corner-shape:squircle] focus-within:bg-tint/[0.07]"
+			class="rounded-plate bg-fill px-3.5 pt-2.5 pb-2 transition-colors duration-150 [corner-shape:squircle] focus-within:bg-fill-raised"
 		>
 			<p class="flex min-w-0 items-center gap-1.5 text-[12px] leading-4 text-muted">
 				<Icon name="share" size={12} class="shrink-0" />

@@ -25,7 +25,7 @@
 </script>
 
 <label
-	class="flex h-9 items-center gap-2 rounded-full bg-tint/[0.06] pr-1.5 pl-3.5 text-muted transition-colors duration-150 focus-within:bg-tint/[0.08]"
+	class="flex h-9 items-center gap-2 rounded-full bg-fill pr-1.5 pl-3.5 text-muted transition-colors duration-150 focus-within:bg-fill-raised"
 >
 	{#if prefix}
 		<span class="w-[15px] shrink-0 text-center text-[14px] {value ? 'text-ink' : ''}">{prefix}</span>

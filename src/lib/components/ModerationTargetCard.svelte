@@ -11,7 +11,7 @@
 </script>
 
 <div
-	class="flex items-center gap-3 rounded-[14px] bg-tint/[0.05] px-3.5 py-2.5 [corner-shape:squircle]"
+	class="flex items-center gap-3 rounded-plate bg-fill px-3.5 py-2.5 [corner-shape:squircle]"
 >
 	<Avatar name={target.name} size={32} userId={target.id} avatarId={target.avatarId} />
 	<div class="min-w-0">

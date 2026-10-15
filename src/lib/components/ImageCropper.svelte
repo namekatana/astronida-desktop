@@ -255,7 +255,7 @@
 		bind:this={stage}
 		in:stageIn
 		out:stageOut
-		class="relative min-h-0 flex-1 touch-none overflow-hidden rounded-[12px] select-none [corner-shape:squircle] {dragging
+		class="relative min-h-0 flex-1 touch-none overflow-hidden rounded-plate select-none [corner-shape:squircle] {dragging
 			? 'cursor-grabbing'
 			: 'cursor-grab'}"
 	>
@@ -328,7 +328,7 @@
 				aria-label="Повернуть влево"
 				title="Повернуть (R)"
 				onclick={rotateLeft}
-				class="pressable flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted duration-150 hover:bg-tint/[0.08] hover:text-ink"
+				class="pressable flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted duration-150 hover:bg-fill hover:text-ink"
 			>
 				<Icon name="rotate" size={16} />
 			</button>

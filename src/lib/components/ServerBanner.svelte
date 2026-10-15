@@ -27,7 +27,7 @@
 
 <div
 	title="Баннер сервера — скоро"
-	class="group relative aspect-[4/1] w-full overflow-hidden rounded-[12px] [corner-shape:squircle]"
+	class="group relative aspect-[4/1] w-full overflow-hidden rounded-plate [corner-shape:squircle]"
 >
 	<div
 		bind:this={skyHost}

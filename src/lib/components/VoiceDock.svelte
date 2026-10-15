@@ -77,9 +77,9 @@
 		aria-label={label}
 		aria-pressed={off}
 		{onclick}
-		class="pressable relative flex h-9 w-9 items-center justify-center rounded-full duration-200 {off
+		class="pressable relative flex h-9 w-9 items-center justify-center rounded-full duration-150 {off
 			? 'bg-surface-raised text-ink'
-			: 'text-muted hover:bg-tint/[0.06] hover:text-ink'}"
+			: 'text-muted hover:bg-fill hover:text-ink'}"
 	>
 		<Icon name={icon} size={18} />
 		{#if off}
@@ -127,8 +127,8 @@
 							aria-expanded={detailsOpen}
 							onclick={() => (detailsOpen = !detailsOpen)}
 							class="pressable ml-auto flex h-6 shrink-0 items-center gap-1.5 rounded-full px-2 text-[11px] whitespace-nowrap duration-200 {detailsOpen
-								? 'bg-tint/[0.08]'
-								: 'bg-tint/[0.04] hover:bg-tint/[0.08]'}"
+								? 'bg-fill-raised'
+								: 'bg-fill-faint hover:bg-fill-raised'}"
 						>
 							<span class="flex items-center gap-1.5 {rttColor}">
 								{#if voice.quality !== null}
@@ -173,7 +173,7 @@
 					aria-label="Отключиться"
 					onclick={disconnect}
 					transition:fade={{ duration: 150 }}
-					class="pressable flex h-9 w-9 items-center justify-center rounded-full text-muted duration-200 hover:bg-tint/[0.06] hover:text-danger"
+					class="pressable flex h-9 w-9 items-center justify-center rounded-full text-muted duration-150 hover:bg-fill hover:text-danger"
 				>
 					<Icon name="phone-off" size={18} />
 				</button>

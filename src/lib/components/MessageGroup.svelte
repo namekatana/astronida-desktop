@@ -18,7 +18,6 @@
 	import { inviteCodeInMessage } from '$lib/servers/invites';
 	import type { Server } from '$lib/servers/servers';
 	import { openExternal } from '$lib/ui/external-link';
-	import { initials } from '$lib/ui/initials';
 	import Avatar from './Avatar.svelte';
 	import Icon from './Icon.svelte';
 	import InviteCard from './InviteCard.svelte';
@@ -110,10 +109,10 @@
 		const menuOpen = highlightedId === message.id;
 		if (repliesToSelf(message)) {
 			return menuOpen
-				? 'reply-mention rounded-l-none bg-tint/[0.06]'
-				: 'reply-mention rounded-l-none bg-tint/[0.04] hover:bg-tint/[0.06]';
+				? 'reply-mention rounded-l-none bg-fill'
+				: 'reply-mention rounded-l-none bg-fill-faint hover:bg-fill';
 		}
-		return menuOpen ? 'bg-tint/[0.03]' : 'hover:bg-tint/[0.03]';
+		return menuOpen ? 'bg-fill-faint' : 'hover:bg-fill-faint';
 	}
 
 	const author = $derived(messages[0].author);
@@ -172,11 +171,12 @@
 					>
 				</span>
 			{:else if reply.original}
-				<span
-					class="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[7px] font-semibold text-ink"
-				>
-					{initials(reply.original.author.name)}
-				</span>
+				<Avatar
+					name={reply.original.author.name}
+					size={16}
+					userId={reply.original.author.id}
+					avatarId={reply.original.author.avatarId}
+				/>
 				<span
 					class="shrink-0 font-semibold text-ink-secondary transition-colors duration-150 {jumpable
 						? 'group-hover/reply:text-ink'
@@ -220,18 +220,14 @@
 
 {#snippet forwardedCard(message: Message, username: string, inviteCode: string | null)}
 	<div
-		class="mt-1 mb-1 flex max-w-[520px] min-w-[min(240px,100%)] flex-col rounded-[12px] border border-tint/10 bg-tint/[0.02] px-3 pt-2 pb-1.5"
+		class="mt-1 mb-1 flex max-w-[520px] min-w-[min(240px,100%)] flex-col rounded-plate border border-tint/10 bg-surface px-3 pt-2 pb-1.5 [corner-shape:squircle]"
 	>
 		<p class="flex h-4 items-center gap-1 text-[11px] font-medium text-muted">
 			<Icon name="forward" size={12} class="shrink-0" />
 			Переслано
 		</p>
 		<div class="mt-1.5 flex h-5 min-w-0 items-center gap-2">
-			<span
-				class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[8px] font-semibold text-ink"
-			>
-				{initials(username)}
-			</span>
+			<Avatar name={username} size={20} />
 			<span class="truncate text-[13px] font-semibold text-ink">@{username}</span>
 		</div>
 		{#if message.attachments && message.attachments.length > 0}
@@ -294,7 +290,7 @@
 			onanimationend={(event) => {
 				if (event.target === event.currentTarget && flashId === message.id) onflashend?.();
 			}}
-			class="rounded-lg px-3 py-0.5 transition-colors duration-150 {index === 0
+			class="rounded-row px-3 py-0.5 [corner-shape:squircle] transition-colors duration-150 {index === 0
 				? ''
 				: 'pl-14'} {rowBackground(message)} {flashId === message.id ? 'reply-flash' : ''}"
 		>

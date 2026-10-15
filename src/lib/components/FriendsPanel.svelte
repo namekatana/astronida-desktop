@@ -175,7 +175,7 @@
 			<div class="pb-3" transition:reveal>
 				<section
 					aria-label="Запросы в друзья"
-					class="rounded-xl border border-surface-line bg-tint/[0.03] p-1"
+					class="rounded-plate border border-surface-line bg-fill-faint p-1 [corner-shape:squircle]"
 				>
 					<button
 						type="button"
@@ -205,7 +205,7 @@
 										onanimationend={(event) => {
 											if (event.animationName.endsWith('request-glow')) onrequestseen(request.id);
 										}}
-										class="flex h-12 items-center gap-2.5 rounded-lg px-2 transition-[opacity] duration-150 {freshRequestIds.has(
+										class="flex h-12 items-center gap-2.5 rounded-row px-2 transition-[opacity] duration-150 [corner-shape:squircle] {freshRequestIds.has(
 											request.id
 										)
 											? 'request-fresh'
@@ -257,7 +257,7 @@
 		<div class="relative flex flex-col gap-0.5">
 			<span
 				aria-hidden="true"
-				class="absolute inset-x-0 top-0 h-12 rounded-lg bg-tint/[0.06] {highlightVisible
+				class="absolute inset-x-0 top-0 h-12 rounded-row bg-fill [corner-shape:squircle] {highlightVisible
 					? 'opacity-100'
 					: 'opacity-0'}"
 				style="translate: 0 {highlightY}px; scale: {highlightVisible
@@ -289,7 +289,7 @@
 								event.preventDefault();
 								onmenu(item.member, avatarIn(event.currentTarget), event);
 							}}
-							class="relative block w-full rounded-lg text-left"
+							class="relative block w-full rounded-row text-left [corner-shape:squircle]"
 						>
 							<FriendItem
 								member={item.member}

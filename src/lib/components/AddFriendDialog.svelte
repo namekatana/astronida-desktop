@@ -174,7 +174,7 @@
 		<ul class="flex flex-col gap-0.5">
 			{#each shownResults as result (result.id)}
 				<li
-					class="flex h-11 items-center gap-3 rounded-[10px] px-2.5 transition-colors duration-150 [corner-shape:squircle] hover:bg-tint/[0.04]"
+					class="flex h-11 items-center gap-3 rounded-row px-2.5 transition-colors duration-150 [corner-shape:squircle] hover:bg-fill-faint"
 				>
 					<Avatar name={result.name} size={32} />
 					<span class="min-w-0 flex-1 truncate text-[14px] text-muted">
@@ -202,7 +202,7 @@
 				<span class="min-w-0 flex-1">
 					<span class="skeleton h-2.5 rounded-full" style="width: {row.width}%"></span>
 				</span>
-				<span class="skeleton h-7 w-[84px] shrink-0 rounded-full"></span>
+				<span class="skeleton h-8 w-[84px] shrink-0 rounded-full"></span>
 			</li>
 		{/each}
 	</ul>
@@ -242,7 +242,7 @@
 			type="button"
 			disabled={pending.has(result.id)}
 			onclick={() => handleAdd(result.id)}
-			class="pressable flex h-7 items-center rounded-full bg-tint/[0.08] px-3 text-[12px] font-semibold text-ink duration-150 hover:bg-tint/[0.12] disabled:opacity-50"
+			class="pressable flex h-8 items-center rounded-full bg-fill-raised px-3 text-[12px] font-semibold text-ink duration-150 hover:bg-fill-strong disabled:opacity-50"
 		>
 			Добавить
 		</button>
@@ -251,12 +251,12 @@
 			type="button"
 			disabled={pending.has(result.id)}
 			onclick={() => handleAccept(result.id)}
-			class="pressable flex h-7 items-center rounded-full bg-ink px-3 text-[12px] font-semibold text-bg duration-150 hover:bg-ink-hover disabled:opacity-50"
+			class="pressable flex h-8 items-center rounded-full bg-ink px-3 text-[12px] font-semibold text-bg duration-150 hover:bg-ink-hover disabled:opacity-50"
 		>
 			Принять
 		</button>
 	{:else if result.relation === 'outgoing'}
-		<span class="flex h-7 items-center gap-1.5 px-1 text-[12px] text-muted">
+		<span class="flex h-8 items-center gap-1.5 px-1 text-[12px] text-muted">
 			<DrawnCheck
 				size={13}
 				duration={justSent.has(result.id) ? 320 : 0}
@@ -266,6 +266,6 @@
 			Запрос отправлен
 		</span>
 	{:else}
-		<span class="flex h-7 items-center px-1 text-[12px] text-muted">В друзьях</span>
+		<span class="flex h-8 items-center px-1 text-[12px] text-muted">В друзьях</span>
 	{/if}
 {/snippet}

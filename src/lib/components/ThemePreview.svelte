@@ -35,7 +35,7 @@
 			<span class="h-1.5 w-[60%] rounded-full bg-ink/70"></span>
 			{#each channels as width, index (index)}
 				<span
-					class="flex h-2.5 items-center rounded-[3px] px-1 {index === 0 ? 'bg-tint/[0.08]' : ''}"
+					class="flex h-2.5 items-center rounded-[3px] px-1 {index === 0 ? 'bg-fill' : ''}"
 				>
 					<span class="h-1 rounded-full {index === 0 ? 'bg-ink/60' : 'bg-tint/25'} {width}"></span>
 				</span>
@@ -53,7 +53,7 @@
 					</div>
 				</div>
 			{/each}
-			<span class="mt-0.5 flex h-3 shrink-0 items-center rounded-full bg-tint/[0.06] px-1">
+			<span class="mt-0.5 flex h-3 shrink-0 items-center rounded-full bg-fill px-1">
 				<span class="h-1 w-[30%] rounded-full bg-tint/20"></span>
 				<span class="ml-auto h-1.5 w-1.5 rounded-full bg-ink/70"></span>
 			</span>

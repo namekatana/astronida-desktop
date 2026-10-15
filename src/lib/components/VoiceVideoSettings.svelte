@@ -94,7 +94,7 @@
 
 <section aria-labelledby="voice-microphone">
 	<h4 id="voice-microphone" class={headingClass}>Микрофон <LockMark size={12} /></h4>
-	<div inert class="overflow-hidden rounded-[14px] bg-tint/[0.05] opacity-40 [corner-shape:squircle]">
+	<div inert class="overflow-hidden rounded-plate bg-fill opacity-40 [corner-shape:squircle]">
 		<SelectMenu label="Устройство" options={devices.audioinput} bind:value={preferences.microphone} />
 		{@render divider()}
 		{@render volume('Громкость микрофона', preferences.inputVolume, (value) => {
@@ -119,8 +119,8 @@
 						aria-pressed={recordingKey}
 						onclick={() => (recordingKey = !recordingKey)}
 						class="pressable grid h-8 min-w-[96px] shrink-0 rounded-full px-3.5 text-[12px] font-semibold duration-150 {recordingKey
-							? 'bg-tint/[0.14] text-ink ring-1 ring-tint/25'
-							: 'bg-tint/[0.08] text-ink hover:bg-tint/[0.12]'}"
+							? 'bg-fill-strong text-ink ring-1 ring-tint/25'
+							: 'bg-fill-raised text-ink hover:bg-fill-strong'}"
 					>
 						{#key recordingKey ? 'recording' : preferences.pushToTalkKey}
 							<span
@@ -153,7 +153,7 @@
 
 <section aria-labelledby="voice-output" class="mt-6">
 	<h4 id="voice-output" class={headingClass}>Звук <LockMark size={12} /></h4>
-	<div inert class="overflow-hidden rounded-[14px] bg-tint/[0.05] opacity-40 [corner-shape:squircle]">
+	<div inert class="overflow-hidden rounded-plate bg-fill opacity-40 [corner-shape:squircle]">
 		<SelectMenu label="Устройство" options={devices.audiooutput} bind:value={preferences.speaker} />
 		{@render divider()}
 		{@render volume('Громкость звука', preferences.outputVolume, (value) => {
@@ -164,7 +164,7 @@
 
 <section aria-labelledby="voice-processing" class="mt-6">
 	<h4 id="voice-processing" class={headingClass}>Обработка <LockMark size={12} /></h4>
-	<div inert class="overflow-hidden rounded-[14px] bg-tint/[0.05] opacity-40 [corner-shape:squircle]">
+	<div inert class="overflow-hidden rounded-plate bg-fill opacity-40 [corner-shape:squircle]">
 		{#each processingOptions as option, index (option.id)}
 			{@const checked = preferences.processing[option.id]}
 			{#if index > 0}
@@ -175,7 +175,7 @@
 				role="checkbox"
 				aria-checked={checked}
 				onclick={() => toggleProcessing(option.id)}
-				class="flex min-h-[60px] w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-tint/[0.03]"
+				class="flex min-h-[60px] w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-fill-faint"
 			>
 				<span class="min-w-0 flex-1">
 					<span
@@ -197,14 +197,14 @@
 
 <section aria-labelledby="voice-video" class="mt-6">
 	<h4 id="voice-video" class={headingClass}>Видео <LockMark size={12} /></h4>
-	<div inert class="overflow-hidden rounded-[14px] bg-tint/[0.05] opacity-40 [corner-shape:squircle]">
+	<div inert class="overflow-hidden rounded-plate bg-fill opacity-40 [corner-shape:squircle]">
 		<SelectMenu label="Камера" options={devices.videoinput} bind:value={preferences.camera} />
 		{@render divider()}
 		<div class="flex h-12 items-center gap-3 px-4">
 			<span class="min-w-0 flex-1 truncate text-[13px] text-ink">Проверка камеры</span>
 			<button
 				type="button"
-				class="pressable h-8 shrink-0 rounded-full bg-tint/[0.08] px-3.5 text-[12px] font-semibold text-ink duration-150 hover:bg-tint/[0.12]"
+				class="pressable h-8 shrink-0 rounded-full bg-fill-raised px-3.5 text-[12px] font-semibold text-ink duration-150 hover:bg-fill-strong"
 			>
 				Проверить
 			</button>
@@ -233,5 +233,5 @@
 {/snippet}
 
 {#snippet divider()}
-	<div class="ml-4 h-px bg-tint/[0.06]"></div>
+	<div class="ml-4 h-px bg-surface-line"></div>
 {/snippet}

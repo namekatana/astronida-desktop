@@ -122,7 +122,7 @@
 		<SegmentedControl label="Тип канала" options={kinds} bind:value={kind} disabled={busy} />
 
 		<div
-			class="mt-3 overflow-hidden rounded-[14px] bg-tint/[0.05] transition-colors duration-150 [corner-shape:squircle] has-[input:focus]:bg-tint/[0.07]"
+			class="mt-3 overflow-hidden rounded-plate bg-fill transition-colors duration-150 [corner-shape:squircle] has-[input:focus]:bg-fill-raised"
 		>
 			<label class="flex h-12 items-center gap-3 pl-4">
 				<span class="grid shrink-0 text-muted">

@@ -76,10 +76,10 @@
 		{onclick}
 		onmouseenter={onprefetch}
 		onfocus={onprefetch}
-		class="relative z-10 flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] transition-colors duration-150 {active ||
+		class="relative z-10 flex h-9 w-full items-center gap-2.5 rounded-row px-2.5 text-left text-[13px] transition-colors duration-150 [corner-shape:squircle] {active ||
 		hasUnread
 			? 'text-ink'
-			: 'text-ink-secondary hover:bg-tint/[0.04] hover:text-ink'} {hasUnread ? 'font-medium' : ''}"
+			: 'text-ink-secondary hover:bg-fill-faint hover:text-ink'} {hasUnread ? 'font-medium' : ''}"
 	>
 		{#if hasUnread}
 			<span
@@ -114,10 +114,10 @@
 							type="button"
 							onclick={(event) => onopenprofile?.(occupant, avatarIn(event.currentTarget))}
 							oncontextmenu={(event) => openMenu(event, occupant)}
-							class="flex h-8 w-full items-center gap-2 rounded-md px-1.5 text-left transition-[background-color,opacity] duration-200 hover:bg-tint/[0.05] {occupant.quality ===
+							class="flex h-8 w-full items-center gap-2 rounded-row px-1.5 text-left transition-[background-color,opacity] duration-150 [corner-shape:squircle] hover:bg-fill-faint {occupant.quality ===
 							'lost'
 								? 'opacity-40'
-								: ''} {menu?.occupant.id === occupant.id ? 'bg-tint/[0.05]' : ''}"
+								: ''} {menu?.occupant.id === occupant.id ? 'bg-fill-faint' : ''}"
 						>
 							<Avatar
 								name={occupant.name}

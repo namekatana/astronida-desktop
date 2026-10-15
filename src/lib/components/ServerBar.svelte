@@ -146,7 +146,7 @@
 				aria-pressed={isHome}
 				onclick={onhome}
 				class="group pressable relative flex h-10 items-center rounded-full px-3 duration-200 ease-soft {isHome
-					? 'bg-tint/[0.08]'
+					? 'bg-fill'
 					: ''}"
 			>
 				<img
@@ -231,7 +231,7 @@
 				type="button"
 				aria-label="Настройки"
 				onclick={onsettings}
-				class="pressable flex h-10 w-10 items-center justify-center rounded-full text-muted duration-200 hover:bg-tint/[0.06] hover:text-ink"
+				class="pressable flex h-10 w-10 items-center justify-center rounded-full text-muted duration-150 hover:bg-fill hover:text-ink"
 			>
 				<Icon name="gear" size={18} />
 			</button>

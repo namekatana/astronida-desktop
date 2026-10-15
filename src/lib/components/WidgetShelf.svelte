@@ -85,8 +85,8 @@
 					role="presentation"
 					onpointerdown={(event) => grab(event, type)}
 					style:--widget-backdrop="var(--color-surface-deep)"
-					class="group flex items-center justify-center rounded-[14px] bg-surface-deep py-[11px] transition-colors duration-200 ease-soft [corner-shape:squircle] motion-reduce:transition-none {available
-						? 'cursor-grab hover:bg-[color-mix(in_srgb,var(--color-surface-deep)_96%,white)]'
+					class="group flex items-center justify-center rounded-plate bg-surface-deep py-[11px] transition-colors duration-200 ease-soft [corner-shape:squircle] motion-reduce:transition-none {available
+						? 'cursor-grab hover:bg-[color-mix(in_srgb,var(--color-surface-deep)_96%,var(--color-tint))]'
 						: ''}"
 				>
 					<div class="relative w-[200px] shrink-0" style:height="{previewHeight}px">
@@ -142,7 +142,7 @@
 										disabled={locked}
 										aria-label={`Добавить виджет «${widgetTitles[type]}»`}
 										onclick={() => onadd(type)}
-										class="pressable h-6 rounded-full bg-tint/[0.08] px-2.5 text-[12px] font-semibold text-ink hover:bg-tint/[0.12] disabled:opacity-40"
+										class="pressable h-8 rounded-full bg-fill-raised px-3 text-[12px] font-semibold text-ink duration-150 hover:bg-fill-strong disabled:opacity-40"
 									>
 										Добавить
 									</button>

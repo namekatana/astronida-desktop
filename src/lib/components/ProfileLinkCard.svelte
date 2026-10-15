@@ -70,10 +70,10 @@
 
 <div
 	bind:this={root}
-	class="mt-1.5 mb-1 w-[300px] max-w-full rounded-[16px] border border-tint/10 bg-surface p-1.5 [corner-shape:squircle]"
+	class="mt-1.5 mb-1 w-[300px] max-w-full rounded-plate border border-tint/10 bg-surface p-1.5 [corner-shape:squircle]"
 >
 	<NightSky
-		class="aspect-[4/1] w-full rounded-[10px] transition-opacity duration-200 ease-soft [corner-shape:squircle] {view ===
+		class="aspect-[4/1] w-full rounded-row transition-opacity duration-200 ease-soft [corner-shape:squircle] {view ===
 		'not_found'
 			? 'opacity-40'
 			: ''}"
@@ -136,8 +136,8 @@
 				onclick={runAction}
 				class="grid h-9 w-full place-items-center rounded-full text-[13px] font-semibold transition-colors duration-150 {action ===
 				'unavailable'
-					? 'cursor-default bg-tint/[0.04] text-muted'
-					: 'pressable bg-tint/[0.08] text-ink hover:bg-tint/[0.12]'}"
+					? 'cursor-default bg-fill-faint text-muted'
+					: 'pressable bg-fill-raised text-ink hover:bg-fill-strong'}"
 			>
 				{#key action}
 					<span in:settle out:settle={{ duration: 100 }} class="col-start-1 row-start-1">

@@ -14,7 +14,7 @@
 	<h4 id="safety-lock" class="px-1 pb-2 text-[13px] font-semibold text-muted">
 		Защита приложения
 	</h4>
-	<div class="overflow-hidden rounded-[14px] bg-tint/[0.05] [corner-shape:squircle]">
+	<div class="overflow-hidden rounded-plate bg-fill [corner-shape:squircle]">
 		<div class="flex min-h-[60px] items-center gap-3 px-4 py-2.5">
 			<div class="min-w-0 flex-1 opacity-40">
 				<p class="truncate text-[14px] leading-5 text-ink">Код-пароль</p>
@@ -35,7 +35,7 @@
 
 <section aria-labelledby="safety-sign-in" class="mt-6">
 	<h4 id="safety-sign-in" class="px-1 pb-2 text-[13px] font-semibold text-muted">Вход</h4>
-	<div class="overflow-hidden rounded-[14px] bg-tint/[0.05] [corner-shape:squircle]">
+	<div class="overflow-hidden rounded-plate bg-fill [corner-shape:squircle]">
 		{@render checkbox(
 			'newDeviceAlert',
 			'Сообщать о входе с нового устройства',
@@ -46,7 +46,7 @@
 
 <section aria-labelledby="safety-content" class="mt-6">
 	<h4 id="safety-content" class="px-1 pb-2 text-[13px] font-semibold text-muted">Контент</h4>
-	<div class="overflow-hidden rounded-[14px] bg-tint/[0.05] [corner-shape:squircle]">
+	<div class="overflow-hidden rounded-plate bg-fill [corner-shape:squircle]">
 		{@render checkbox('blurAdultMedia', 'Размывать фото 18+', 'Откроется по нажатию')}
 		{@render divider()}
 		{@render checkbox(
@@ -73,5 +73,5 @@
 {/snippet}
 
 {#snippet divider()}
-	<div class="ml-4 h-px bg-tint/[0.06]"></div>
+	<div class="ml-4 h-px bg-surface-line"></div>
 {/snippet}

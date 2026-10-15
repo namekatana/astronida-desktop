@@ -28,10 +28,10 @@
 				tabindex={selected ? 0 : -1}
 				onclick={() => theme.choose(option.id)}
 				onkeydown={(event) => handleKeydown(event, index)}
-				class="group flex flex-col gap-3 rounded-[14px] bg-tint/[0.05] p-2 pb-3 text-left transition-colors duration-150 outline-none [corner-shape:squircle] hover:bg-tint/[0.07] focus-visible:bg-tint/[0.08]"
+				class="group flex flex-col gap-3 rounded-plate bg-fill p-2 pb-3 text-left transition-colors duration-150 outline-none [corner-shape:squircle] hover:bg-fill-raised focus-visible:bg-fill-raised"
 			>
 				<span
-					class="block overflow-hidden rounded-[10px] outline-2 outline-offset-2 transition-[outline-color] duration-150 [corner-shape:squircle] {selected
+					class="block overflow-hidden rounded-row outline-2 outline-offset-2 transition-[outline-color] duration-150 [corner-shape:squircle] {selected
 						? 'outline-ink'
 						: 'outline-transparent group-hover:outline-tint/20'}"
 				>

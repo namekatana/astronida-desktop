@@ -143,8 +143,8 @@
 				aria-expanded={actionsOpen}
 				aria-busy={actionsBusy}
 				onclick={() => (actionsOpen = !actionsOpen)}
-				class="group/name flex max-w-full min-w-0 items-center gap-1 rounded-full py-0.5 pr-2.5 pl-3.5 transition-colors duration-150 hover:bg-tint/[0.05] {actionsOpen
-					? 'bg-tint/[0.05]'
+				class="group/name flex max-w-full min-w-0 items-center gap-1 rounded-full py-0.5 pr-2.5 pl-3.5 transition-colors duration-150 hover:bg-fill {actionsOpen
+					? 'bg-fill'
 					: ''}"
 			>
 				<span
@@ -280,10 +280,10 @@
 				<div class="mt-2 flex flex-wrap gap-1.5">
 					{#each card.mutualServers as server (server.id)}
 						<span
-							class="flex h-6 max-w-full min-w-0 items-center gap-1.5 rounded-full bg-tint/[0.05] pr-2.5 pl-[3px] text-[12px] text-ink-secondary"
+							class="flex h-6 max-w-full min-w-0 items-center gap-1.5 rounded-full bg-fill pr-2.5 pl-[3px] text-[12px] text-ink-secondary"
 						>
 							<span
-								class="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-surface-raised text-[9px] font-semibold text-ink"
+								class="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-surface-raised text-[10px] font-semibold text-ink"
 							>
 								{initials(server.name)}
 							</span>

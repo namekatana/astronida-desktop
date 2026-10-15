@@ -1,16 +1,13 @@
 <script lang="ts">
-	import { quintOut } from 'svelte/easing';
-	import { prefersReducedMotion } from 'svelte/motion';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { draw, fade } from 'svelte/transition';
 	import type { Workspace } from '$lib/cache/workspace-cache';
 	import type { Friend } from '$lib/friends/friends';
 	import { buildForwardSections, type ForwardTarget } from '$lib/messages/forward-targets';
 	import { forwardMaxTargets, type ForwardResult } from '$lib/messages/message-actions';
 	import { messageMaxLength, type Message } from '$lib/messages/messages';
 	import type { Server } from '$lib/servers/servers';
-	import { statusDotClass } from '$lib/presence/status';
 	import Avatar from './Avatar.svelte';
+	import CheckCircle from './CheckCircle.svelte';
 	import Dialog from './Dialog.svelte';
 	import Icon from './Icon.svelte';
 	import SearchField from './SearchField.svelte';
@@ -103,17 +100,6 @@
 	function singleLine(text: string): string {
 		return text.replace(/\s+/g, ' ').trim();
 	}
-
-	function fillIn(_node: Element) {
-		if (prefersReducedMotion.current) {
-			return { duration: 120, css: (t: number) => `opacity: ${t}` };
-		}
-		return {
-			duration: 180,
-			easing: quintOut,
-			css: (t: number) => `opacity: ${t}; transform: scale(${0.6 + 0.4 * t})`
-		};
-	}
 </script>
 
 <Dialog label="Переслать сообщение" wide flush pinTop {onclose}>
@@ -167,7 +153,7 @@
 
 	<form id={formId} class="px-4 pt-1 pb-4" onsubmit={submit}>
 		<div
-			class="rounded-[14px] bg-tint/[0.05] px-3.5 pt-2.5 pb-2 transition-colors duration-150 [corner-shape:squircle] focus-within:bg-tint/[0.07]"
+			class="rounded-plate bg-fill px-3.5 pt-2.5 pb-2 transition-colors duration-150 [corner-shape:squircle] focus-within:bg-fill-raised"
 		>
 			<p class="flex min-w-0 items-center gap-1.5 text-[12px] leading-4 text-muted">
 				<Icon name="forward" size={12} class="shrink-0" />
@@ -204,57 +190,22 @@
 		aria-checked={checked}
 		disabled={blocked || phase !== 'idle'}
 		onclick={() => toggle(target.channelId)}
-		class="flex h-11 w-full items-center gap-3 rounded-[10px] px-2.5 text-left transition-[background-color,opacity] duration-150 [corner-shape:squircle] disabled:cursor-default {checked
-			? 'bg-tint/[0.06]'
-			: 'enabled:hover:bg-tint/[0.04]'} {blocked ? 'opacity-40' : ''}"
+		class="flex h-11 w-full items-center gap-3 rounded-row px-2.5 text-left transition-[background-color,opacity] duration-150 [corner-shape:squircle] disabled:cursor-default {checked
+			? 'bg-fill'
+			: 'enabled:hover:bg-fill-faint'} {blocked ? 'opacity-40' : ''}"
 	>
 		{#if target.kind === 'friend'}
-			<Avatar name={target.name} size={32} class="relative">
-				{#if target.online}
-					<span
-						class="absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border-2 border-surface {statusDotClass[
-							target.status
-						]}"
-					></span>
-				{/if}
-			</Avatar>
+			<Avatar name={target.name} size={32} online={target.online} status={target.status} />
 			<span class="min-w-0 flex-1 truncate text-[14px] text-ink">@{target.username}</span>
 		{:else}
 			<span
-				class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tint/[0.05] text-muted"
+				class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fill text-muted"
 			>
 				<Icon name="text" size={15} />
 			</span>
 			<span class="min-w-0 flex-1 truncate text-[14px] text-ink">{target.name}</span>
 		{/if}
 
-		<span
-			class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors duration-150 {checked
-				? 'border-transparent'
-				: 'border-tint/20'}"
-		>
-			{#if checked}
-				<span class="absolute -inset-[1.5px] rounded-full bg-ink" in:fillIn out:fade={{ duration: 120 }}
-				></span>
-				<svg
-					width="12"
-					height="12"
-					viewBox="0 0 16 16"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2.25"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					aria-hidden="true"
-					class="relative text-bg"
-					out:fade={{ duration: 100 }}
-				>
-					<path
-						d="M3.25 8.5 6.5 11.75 12.75 4.75"
-						in:draw={{ duration: prefersReducedMotion.current ? 0 : 220, delay: 60 }}
-					/>
-				</svg>
-			{/if}
-		</span>
+		<CheckCircle {checked} />
 	</button>
 {/snippet}

@@ -498,10 +498,10 @@
 				title="Подробности"
 				subtitle={hasAlbum ? `Фото ${index + 1} из ${attachments.length}` : undefined}
 			/>
-			<div class="mx-4 overflow-hidden rounded-[14px] bg-tint/[0.05] [corner-shape:squircle]">
+			<div class="mx-4 overflow-hidden rounded-plate bg-fill [corner-shape:squircle]">
 				{#each details as [label, value], rowIndex (label)}
 					{#if rowIndex > 0}
-						<div class="mx-4 h-px bg-surface-line"></div>
+						<div class="ml-4 h-px bg-surface-line"></div>
 					{/if}
 					<div class="flex h-10 items-center gap-3 px-4">
 						<span class="min-w-0 flex-1 truncate text-[13px] text-ink">{label}</span>
@@ -537,7 +537,7 @@
 							type="button"
 							data-viewer-control
 							onclick={() => reveal(path)}
-							class="pressable pointer-events-auto h-7 rounded-full bg-tint/[0.08] px-3 text-[12px] font-semibold text-ink hover:bg-tint/[0.14]"
+							class="pressable pointer-events-auto h-7 rounded-full bg-fill-raised px-3 text-[12px] font-semibold text-ink duration-150 hover:bg-fill-strong"
 						>
 							Показать
 						</button>
@@ -555,7 +555,7 @@
 			onclick={() => step(-1)}
 			in:fade|global={{ duration: 200 }}
 			out:fade|global={{ duration: 120 }}
-			class="pressable absolute top-1/2 left-4 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-tint/[0.08] text-ink hover:bg-tint/[0.14]"
+			class="pressable absolute top-1/2 left-4 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-fill-raised text-ink duration-150 hover:bg-fill-strong"
 		>
 			<Icon name="chevron" size={16} class="rotate-90" />
 		</button>
@@ -566,7 +566,7 @@
 			onclick={() => step(1)}
 			in:fade|global={{ duration: 200 }}
 			out:fade|global={{ duration: 120 }}
-			class="pressable absolute top-1/2 right-4 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-tint/[0.08] text-ink hover:bg-tint/[0.14]"
+			class="pressable absolute top-1/2 right-4 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-fill-raised text-ink duration-150 hover:bg-fill-strong"
 		>
 			<Icon name="chevron" size={16} class="-rotate-90" />
 		</button>
@@ -587,8 +587,8 @@
 		{disabled}
 		{onclick}
 		class="pressable flex h-10 w-10 items-center justify-center rounded-full text-ink disabled:opacity-50 {active
-			? 'bg-tint/[0.16]'
-			: 'bg-tint/[0.08] hover:bg-tint/[0.14]'}"
+			? 'bg-fill-strong ring-1 ring-tint/25'
+			: 'bg-fill-raised hover:bg-fill-strong'}"
 	>
 		<Icon name={icon} size={16} />
 	</button>

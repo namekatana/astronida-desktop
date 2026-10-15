@@ -9,7 +9,7 @@
 	let { invite }: Props = $props();
 </script>
 
-<div class="grid size-8 shrink-0 place-items-center rounded-full bg-tint/[0.08] text-ink-secondary">
+<div class="grid size-8 shrink-0 place-items-center rounded-full bg-fill-raised text-ink-secondary">
 	<Icon name="link" size={16} />
 </div>
 <div class="min-w-0 flex-1">

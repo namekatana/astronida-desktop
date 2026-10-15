@@ -79,8 +79,8 @@
 	style:width="{width}px"
 >
 	<form onsubmit={submit}>
-		<div class="rounded-[12px] bg-tint/[0.05] [corner-shape:squircle]">
-			<label class="flex h-10 items-center gap-2 px-3">
+		<div class="rounded-plate bg-fill [corner-shape:squircle]">
+			<label class="flex h-12 items-center gap-2 px-4">
 				<span class="w-[68px] shrink-0 text-[12px] text-muted">Адрес</span>
 				<input
 					bind:this={urlField}
@@ -95,8 +95,8 @@
 					class="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-muted"
 				/>
 			</label>
-			<div class="ml-3 h-px bg-tint/[0.06]"></div>
-			<label class="flex h-10 items-center gap-2 px-3">
+			<div class="ml-4 h-px bg-surface-line"></div>
+			<label class="flex h-12 items-center gap-2 px-4">
 				<span class="w-[68px] shrink-0 text-[12px] text-muted">Подпись</span>
 				<input
 					bind:value={label}

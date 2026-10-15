@@ -5,7 +5,7 @@
 
 <section aria-labelledby="sessions-current">
 	<h4 id="sessions-current" class="px-1 pb-2 text-[13px] font-semibold text-muted">Этот сеанс</h4>
-	<div class="overflow-hidden rounded-[14px] bg-tint/[0.05] [corner-shape:squircle]">
+	<div class="overflow-hidden rounded-plate bg-fill [corner-shape:squircle]">
 		<div class="flex min-h-[60px] items-center gap-3 px-4 py-2.5">
 			<div class="min-w-0 flex-1">
 				<p class="truncate text-[14px] leading-5 text-ink">Astronida для Windows</p>
@@ -14,7 +14,7 @@
 				</p>
 			</div>
 		</div>
-		<div class="ml-4 h-px bg-tint/[0.06]"></div>
+		<div class="ml-4 h-px bg-surface-line"></div>
 		<div aria-disabled="true" class="flex h-11 w-full items-center gap-3 px-4">
 			<span class="min-w-0 flex-1 truncate text-[14px] text-danger opacity-40">
 				Завершить другие сеансы

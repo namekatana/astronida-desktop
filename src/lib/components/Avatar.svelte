@@ -6,7 +6,7 @@
 	import { avatarIdOf } from '$lib/profile/known-avatars.svelte';
 	import { initials } from '$lib/ui/initials';
 
-	type AvatarSize = 24 | 28 | 32 | 48 | 72;
+	type AvatarSize = 16 | 20 | 24 | 28 | 32 | 48 | 72;
 
 	interface Props {
 		name: string;
@@ -31,7 +31,9 @@
 	}: Props = $props();
 
 	const sizeClasses: Record<AvatarSize, string> = {
-		24: 'h-6 w-6 text-[10px]',
+		16: 'h-4 w-4 text-[8px]',
+		20: 'h-5 w-5 text-[9px]',
+		24:'h-6 w-6 text-[10px]',
 		28: 'h-7 w-7 text-[11px]',
 		32: 'h-8 w-8 text-[11px]',
 		48: 'h-12 w-12 text-[15px]',

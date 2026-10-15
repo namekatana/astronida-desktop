@@ -101,7 +101,7 @@
 
 	<span
 		aria-hidden="true"
-		class="absolute inset-x-0 top-0 h-9 rounded-lg bg-tint/[0.06] {highlightVisible
+		class="absolute inset-x-0 top-0 h-9 rounded-row bg-fill [corner-shape:squircle] {highlightVisible
 			? 'opacity-100'
 			: 'opacity-0'}"
 		style="translate: 0 {highlightY}px; scale: {highlightVisible ? 1 : 0.96}; transition: {transition};"

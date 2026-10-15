@@ -97,7 +97,7 @@
 	class="group relative block h-full w-full overflow-hidden disabled:cursor-default {instantUrl ||
 	loadedUrl
 		? ''
-		: 'bg-tint/[0.04]'} {covered
+		: 'bg-fill-faint'} {covered
 		? revealable
 			? 'cursor-pointer'
 			: 'cursor-default'

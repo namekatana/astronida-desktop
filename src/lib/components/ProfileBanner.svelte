@@ -53,7 +53,7 @@
 
 <div
 	data-banner
-	class="relative aspect-[4/1] w-full shrink-0 overflow-hidden rounded-[12px] bg-tint/[0.06] [corner-shape:squircle]"
+	class="relative aspect-[4/1] w-full shrink-0 overflow-hidden rounded-plate bg-fill [corner-shape:squircle]"
 >
 	{#if withoutPicture}
 		<div

@@ -82,7 +82,7 @@
 			onclick={oninvite}
 			onpointerenter={onprefetchinvite}
 			onfocus={onprefetchinvite}
-			class="pressable flex h-8 w-8 items-center justify-center rounded-full text-muted duration-200 hover:bg-tint/[0.06] hover:text-ink"
+			class="pressable flex h-8 w-8 items-center justify-center rounded-full text-muted duration-150 hover:bg-fill hover:text-ink"
 		>
 			<Icon name="user-plus" size={16} />
 		</button>
@@ -142,7 +142,7 @@
 				type="button"
 				aria-expanded={!isCollapsed}
 				onclick={() => toggle(category.id)}
-				class="flex h-7 w-full items-center gap-1.5 px-2 text-[12px] font-bold text-muted transition-colors duration-150 hover:text-ink"
+				class="flex h-7 w-full items-center gap-1.5 px-2 text-[12px] font-semibold text-muted transition-colors duration-150 hover:text-ink"
 			>
 				<Icon
 					name="chevron"

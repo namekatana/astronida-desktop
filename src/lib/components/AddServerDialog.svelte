@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { prefersReducedMotion } from 'svelte/motion';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { draw } from 'svelte/transition';
 	import { createChannel, type ChannelKind } from '$lib/channels/channels';
 	import { createInviteLookup } from '$lib/servers/invite-lookup.svelte';
 	import { inviteLinkOf, memberCountLabel, recentInvitePreviews } from '$lib/servers/invites';
@@ -15,6 +13,7 @@
 	import { settle } from '$lib/ui/settle';
 	import type { AddServerView } from './add-server';
 	import Avatar from './Avatar.svelte';
+	import CheckCircle from './CheckCircle.svelte';
 	import Dialog from './Dialog.svelte';
 	import DashedFrame from './DashedFrame.svelte';
 	import Icon from './Icon.svelte';
@@ -186,7 +185,7 @@
 							<Avatar name={found.serverName} size={72} />
 						{:else}
 							<span
-								class="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-tint/[0.05] text-muted {lookup.checking
+								class="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-fill text-muted {lookup.checking
 									? 'animate-pulse'
 									: ''}"
 							>
@@ -221,7 +220,7 @@
 		</div>
 
 		<label
-			class="relative mt-3 grid h-12 rounded-[14px] bg-tint/[0.05] transition-colors duration-150 [corner-shape:squircle] focus-within:bg-tint/[0.07]"
+			class="relative mt-3 grid h-12 rounded-plate bg-fill transition-colors duration-150 [corner-shape:squircle] focus-within:bg-fill-raised"
 		>
 			<input
 				bind:value={() => fieldValue, setFieldValue}
@@ -286,7 +285,7 @@
 										aria-checked={checked}
 										disabled={busy}
 										onclick={() => toggleStarter(starter.kind)}
-										class="-mx-1 flex h-10 w-[calc(100%+0.5rem)] items-center gap-3 rounded-[10px] px-2 text-left transition-colors duration-150 [corner-shape:squircle] enabled:hover:bg-tint/[0.04]"
+										class="-mx-1 flex h-10 w-[calc(100%+0.5rem)] items-center gap-3 rounded-row px-2 text-left transition-colors duration-150 [corner-shape:squircle] enabled:hover:bg-fill-faint"
 									>
 										<Icon name={starter.kind} size={16} class="text-muted" />
 										<span
@@ -296,36 +295,7 @@
 										>
 											{starter.name}
 										</span>
-										<span
-											class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors duration-150 {checked
-												? 'border-transparent'
-												: 'border-tint/20'}"
-										>
-											<span
-												class="absolute inset-0 rounded-full bg-ink transition-[scale,opacity] duration-180 ease-soft {checked
-													? 'scale-100 opacity-100'
-													: 'scale-60 opacity-0'}"
-											></span>
-											{#if checked}
-												<svg
-													width="11"
-													height="11"
-													viewBox="0 0 16 16"
-													fill="none"
-													stroke="currentColor"
-													stroke-width="2.4"
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													aria-hidden="true"
-													class="relative text-bg"
-												>
-													<path
-														d="M3.25 8.5 6.5 11.75 12.75 4.75"
-														in:draw={{ duration: prefersReducedMotion.current ? 0 : 220 }}
-													/>
-												</svg>
-											{/if}
-										</span>
+										<CheckCircle {checked} />
 									</button>
 								</li>
 							{/each}
@@ -335,7 +305,7 @@
 							{#each suggestions as suggestion (suggestion.code)}
 								{@const chosen = lookup.input === inviteLinkOf(suggestion.code)}
 								<li
-									class="-mx-1 flex h-11 items-center gap-3 rounded-[10px] px-2 [corner-shape:squircle]"
+									class="-mx-1 flex h-11 items-center gap-3 rounded-row px-2 [corner-shape:squircle]"
 								>
 									<Avatar name={suggestion.preview.serverName} size={32} />
 									<span class="flex min-w-0 flex-1 flex-col">
@@ -350,9 +320,9 @@
 										type="button"
 										disabled={chosen || busy}
 										onclick={() => useSuggestion(suggestion.code)}
-										class="pressable grid h-7 shrink-0 items-center rounded-full px-3 text-[12px] font-semibold duration-150 {chosen
+										class="pressable grid h-8 shrink-0 items-center rounded-full px-3 text-[12px] font-semibold duration-150 {chosen
 											? 'text-muted'
-											: 'bg-tint/[0.08] text-ink hover:bg-tint/[0.12]'}"
+											: 'bg-fill-raised text-ink hover:bg-fill-strong'}"
 									>
 										{#key chosen}
 											<span class="col-start-1 row-start-1" in:settle out:settle={{ duration: 100 }}>

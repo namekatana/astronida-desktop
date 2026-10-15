@@ -35,9 +35,9 @@
 			aria-haspopup="dialog"
 			aria-expanded={open}
 			onclick={() => (open = !open)}
-			class="pressable relative flex h-10 w-10 items-center justify-center rounded-full duration-200 {open
-				? 'bg-tint/[0.06] text-ink'
-				: 'text-muted hover:bg-tint/[0.06] hover:text-ink'}"
+			class="pressable relative flex h-10 w-10 items-center justify-center rounded-full duration-150 {open
+				? 'bg-fill text-ink'
+				: 'text-muted hover:bg-fill hover:text-ink'}"
 		>
 			<Icon name="download" size={18} />
 			<span
@@ -63,7 +63,7 @@
 
 				<div class="px-4">
 					{#if updates.available.notes}
-						<div class="rounded-[14px] bg-tint/[0.05] px-4 py-3 [corner-shape:squircle]">
+						<div class="rounded-plate bg-fill px-4 py-3 [corner-shape:squircle]">
 							<p class="line-clamp-6 text-[13px] leading-5 text-ink-secondary">
 								{updates.available.notes}
 							</p>

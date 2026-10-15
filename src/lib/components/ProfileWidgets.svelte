@@ -299,7 +299,7 @@
 					<div
 						data-drag-chrome
 						aria-hidden="true"
-						class="pointer-events-none absolute inset-0 rounded-[14px] bg-tint/[0.02] [corner-shape:squircle]"
+						class="pointer-events-none absolute inset-0 rounded-plate bg-fill-faint [corner-shape:squircle]"
 					>
 						<DashedFrame radius={14} class="text-tint/20" />
 					</div>

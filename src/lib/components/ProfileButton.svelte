@@ -25,7 +25,7 @@
 	aria-label="Мой профиль"
 	title={username ? `@${username}` : undefined}
 	onclick={() => onprofile(avatarElement)}
-	class="pressable flex h-10 w-10 items-center justify-center rounded-full duration-200 hover:bg-tint/[0.06]"
+	class="pressable flex h-10 w-10 items-center justify-center rounded-full duration-150 hover:bg-fill"
 >
 	<span bind:this={avatarElement} data-avatar class="relative h-8 w-8">
 		<span

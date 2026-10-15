@@ -35,9 +35,9 @@
 		aria-haspopup="menu"
 		aria-expanded={open}
 		onclick={() => (open = !open)}
-		class="pressable flex h-8 w-8 items-center justify-center rounded-full duration-200 {open
-			? 'bg-tint/[0.06] text-ink'
-			: 'text-muted hover:bg-tint/[0.06] hover:text-ink'}"
+		class="pressable flex h-8 w-8 items-center justify-center rounded-full duration-150 {open
+			? 'bg-fill text-ink'
+			: 'text-muted hover:bg-fill hover:text-ink'}"
 	>
 		<Icon name="dots" size={16} />
 	</button>

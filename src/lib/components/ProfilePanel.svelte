@@ -66,7 +66,7 @@
 			type="button"
 			aria-label="Назад"
 			onclick={onback}
-			class="pressable absolute top-3 left-3 flex h-8 w-8 items-center justify-center rounded-full text-muted duration-150 hover:bg-tint/[0.08] hover:text-ink"
+			class="pressable absolute top-3 left-3 flex h-8 w-8 items-center justify-center rounded-full text-muted duration-150 hover:bg-fill hover:text-ink"
 		>
 			<Icon name="chevron" size={16} class="rotate-90" />
 		</button>

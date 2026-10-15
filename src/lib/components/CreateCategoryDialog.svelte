@@ -90,7 +90,7 @@
 
 	<form id={formId} class="flex h-[396px] flex-col px-4 pt-1 pb-4" onsubmit={handleSubmit}>
 		<div
-			class="flex items-center gap-2 rounded-[14px] bg-tint/[0.05] pr-4 transition-colors duration-150 [corner-shape:squircle] focus-within:bg-tint/[0.07]"
+			class="flex items-center gap-2 rounded-plate bg-fill pr-4 transition-colors duration-150 [corner-shape:squircle] focus-within:bg-fill-raised"
 		>
 			<input
 				bind:value={name}

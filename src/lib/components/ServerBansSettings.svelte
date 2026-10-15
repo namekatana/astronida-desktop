@@ -28,7 +28,7 @@
 		error={serverBans.error}
 	/>
 
-	<div class="grid min-h-[132px] grid-cols-1 rounded-[14px] bg-tint/[0.05] [corner-shape:squircle]">
+	<div class="grid min-h-[132px] grid-cols-1 rounded-plate bg-fill [corner-shape:squircle]">
 		{#if bans === null}
 			{#if slowLoading.current}
 				<div class="col-start-1 row-start-1 grid place-items-center" in:fade={{ duration: 150 }}>
@@ -40,7 +40,7 @@
 				class="col-start-1 row-start-1 flex flex-col items-center justify-center px-6 py-6 text-center"
 				in:fade={{ duration: 150 }}
 			>
-				<div class="grid size-10 place-items-center rounded-full bg-tint/[0.08] text-ink-secondary">
+				<div class="grid size-10 place-items-center rounded-full bg-fill-raised text-ink-secondary">
 					<Icon name="member-ban" size={18} />
 				</div>
 				<p class="mt-3 text-[14px] leading-5 font-semibold text-ink">Никто не заблокирован</p>
@@ -50,7 +50,7 @@
 				{#each bans as member, index (member.id)}
 					<li transition:reveal>
 						{#if index > 0}
-							<div class="ml-[60px] h-px bg-tint/[0.06]"></div>
+							<div class="ml-[60px] h-px bg-surface-line"></div>
 						{/if}
 						<div class="flex min-h-[60px] items-center gap-3 px-4 py-2.5">
 							<Avatar name={member.name} size={32} userId={member.id} avatarId={member.avatarId} />
@@ -64,7 +64,7 @@
 								type="button"
 								disabled={unbanning !== null}
 								onclick={() => serverBans.unban(member)}
-								class="pressable grid h-8 shrink-0 place-items-center rounded-full bg-tint/[0.08] px-3.5 text-[12px] font-semibold text-ink duration-150 hover:bg-tint/[0.12] disabled:opacity-50"
+								class="pressable grid h-8 shrink-0 place-items-center rounded-full bg-fill-raised px-3.5 text-[12px] font-semibold text-ink duration-150 hover:bg-fill-strong disabled:opacity-50"
 							>
 								<span
 									class="col-start-1 row-start-1 transition-opacity duration-150 {unbanning ===

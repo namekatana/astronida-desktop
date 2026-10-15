@@ -258,7 +258,7 @@
 
 		<div class="px-4 pt-3 pb-4">
 			<div
-				class="flex items-end gap-1.5 rounded-[22px] bg-tint/[0.05] p-1.5 [corner-shape:round]"
+				class="flex items-end gap-1.5 rounded-plate bg-fill p-1.5 transition-colors duration-150 [corner-shape:squircle] focus-within:bg-fill-raised"
 			>
 				<textarea
 					bind:this={textarea}
@@ -279,7 +279,7 @@
 					class="pressable grid h-8 w-8 shrink-0 place-items-center rounded-full duration-200 ease-soft {drafts.ready ||
 					sendRequested
 						? 'bg-ink text-bg hover:bg-ink-hover active:bg-ink-pressed'
-						: 'bg-tint/[0.06] text-muted'}"
+						: 'bg-fill text-muted'}"
 				>
 					<span
 						class="col-start-1 row-start-1 transition-opacity duration-150 {sendRequested
@@ -309,8 +309,8 @@
 			aria-expanded={optionsOpen}
 			onclick={() => (optionsOpen = !optionsOpen)}
 			class="pressable flex h-8 w-8 items-center justify-center rounded-full duration-150 {optionsOpen
-				? 'bg-tint/[0.08] text-ink'
-				: 'text-ink-secondary hover:bg-tint/[0.06] hover:text-ink'}"
+				? 'bg-fill text-ink'
+				: 'text-ink-secondary hover:bg-fill hover:text-ink'}"
 		>
 			<Icon name="dots" size={16} />
 		</button>
@@ -350,7 +350,7 @@
 {/snippet}
 
 {#snippet tile(draft: PhotoDraft)}
-	<div class="group relative h-full w-full overflow-hidden bg-tint/[0.04]">
+	<div class="group relative h-full w-full overflow-hidden bg-fill-faint">
 		{#if draft.previewUrl}
 			<img
 				src={draft.previewUrl}
@@ -360,7 +360,7 @@
 				class="absolute inset-0 h-full w-full object-cover"
 			/>
 		{:else}
-			<span class="absolute inset-0 animate-pulse bg-tint/[0.04]"></span>
+			<span class="absolute inset-0 animate-pulse bg-fill-faint"></span>
 		{/if}
 		{#if drafts.spoiler && draft.image}
 			<span transition:fade={{ duration: 200 }} class="absolute inset-0 block">

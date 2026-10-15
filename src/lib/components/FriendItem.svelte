@@ -15,7 +15,7 @@
 </script>
 
 <div
-	class="flex h-12 items-center gap-2.5 rounded-lg px-2.5 transition-[background-color,opacity] duration-200 hover:bg-tint/[0.04] {member.online ||
+	class="flex h-12 items-center gap-2.5 rounded-row px-2.5 transition-[background-color,opacity] duration-150 [corner-shape:squircle] hover:bg-fill-faint {member.online ||
 	!presenceKnown
 		? ''
 		: 'opacity-50'}"

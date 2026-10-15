@@ -157,7 +157,7 @@
 	bind:this={root}
 	class="relative h-7 overflow-hidden rounded-full {measured
 		? 'transition-[width,background-color,scale] duration-[260ms] ease-soft motion-reduce:transition-[background-color]'
-		: ''} {open ? 'bg-tint/[0.08]' : 'bg-tint/[0.05] hover:bg-tint/[0.08] active:scale-[0.97]'}"
+		: ''} {open ? 'bg-fill-raised' : 'bg-fill hover:bg-fill-raised active:scale-[0.97]'}"
 	style:width="{open ? expandedWidth : collapsedWidth}px"
 >
 	<button
@@ -203,7 +203,7 @@
 		>
 			<span
 				aria-hidden="true"
-				class="absolute top-0.5 left-px h-6 w-6 rounded-full bg-tint/[0.12] transition-[translate] duration-[180ms] ease-soft motion-reduce:transition-none"
+				class="absolute top-0.5 left-px h-6 w-6 rounded-full bg-fill-strong transition-[translate] duration-[180ms] ease-soft motion-reduce:transition-none"
 				style:translate="{highlighted * optionWidth}px 0"
 			></span>
 			{#each userStatuses as option, index (option)}
