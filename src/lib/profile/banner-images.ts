@@ -1,3 +1,4 @@
+import { onAccountReset } from '$lib/auth/account-reset';
 import { mediaStore } from '$lib/media/media-store';
 import { supabase } from '$lib/supabase/client';
 
@@ -91,12 +92,12 @@ export async function preloadBanner(bannerId: string): Promise<void> {
 	await image.decode().catch(() => {});
 }
 
-export function forgetBanners() {
+onAccountReset(() => {
 	for (const url of urls.values()) URL.revokeObjectURL(url);
 	urls.clear();
 	loading.clear();
 	unavailable.clear();
-}
+});
 
 export function adoptBanner(bannerId: string, image: Blob) {
 	const key = keyOf(bannerId);

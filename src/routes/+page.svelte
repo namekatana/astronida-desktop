@@ -3,10 +3,10 @@
 	import { goto } from '$app/navigation';
 	import { checkUsernameAvailable, signIn, signUp } from '$lib/auth/auth';
 	import { firstFailedRule } from '$lib/auth/password-rules';
-	import PasswordHint from '$lib/components/PasswordHint.svelte';
-	import PillButton from '$lib/components/PillButton.svelte';
-	import PillInput from '$lib/components/PillInput.svelte';
-	import StarField from '$lib/components/StarField.svelte';
+	import PasswordHint from '$lib/auth/PasswordHint.svelte';
+	import PillButton from '$lib/auth/PillButton.svelte';
+	import PillInput from '$lib/auth/PillInput.svelte';
+	import StarField from '$lib/auth/StarField.svelte';
 	import { theme } from '$lib/ui/theme.svelte';
 
 	theme.enter('auth');

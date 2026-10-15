@@ -11,6 +11,8 @@ import {
 } from './message-actions';
 import type { Message, MessageReply } from './messages';
 
+export type MessageMenuMode = 'pending' | 'received' | 'own';
+
 interface Deleting {
 	chatId: string;
 	message: Message;

@@ -1,4 +1,5 @@
 import { SvelteMap } from 'svelte/reactivity';
+import { onAccountReset } from '$lib/auth/account-reset';
 import type { PresenceStatus } from './status';
 
 const statuses = new SvelteMap<string, PresenceStatus | null>();
@@ -13,8 +14,7 @@ export const memberStatuses = {
 	learn(userId: string, status: PresenceStatus | null) {
 		if (statuses.get(userId) === status && statuses.has(userId)) return;
 		statuses.set(userId, status);
-	},
-	clear() {
-		statuses.clear();
 	}
 };
+
+onAccountReset(() => statuses.clear());

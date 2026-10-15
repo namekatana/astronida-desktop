@@ -1,0 +1,189 @@
+<script lang="ts">
+	import { fade } from 'svelte/transition';
+	import type { IconName } from '$lib/ui/icons';
+	import type { VoiceOccupant } from './occupant';
+	import { voice, type VoiceConnection, type VoiceFailure } from './voice.svelte';
+	import { qualityColorClass } from './quality';
+	import AvatarStack from './AvatarStack.svelte';
+	import ConnectionDetails from './ConnectionDetails.svelte';
+	import Icon from '$lib/ui/Icon.svelte';
+	import SignalBars from './SignalBars.svelte';
+
+	interface Props {
+		occupants?: VoiceOccupant[];
+		ondisconnect?: () => void;
+	}
+
+	let { occupants = [], ondisconnect }: Props = $props();
+
+	const connected = $derived(voice.connected !== null);
+
+	function disconnect() {
+		voice.disconnect();
+		ondisconnect?.();
+	}
+
+	let detailsOpen = $state(false);
+	let detailsAnchor = $state<HTMLButtonElement | null>(null);
+	let shown = $state<VoiceConnection | null>(null);
+	let shownOccupants = $state<VoiceOccupant[]>([]);
+	$effect(() => {
+		if (voice.connected) {
+			shown = voice.connected;
+			shownOccupants = occupants;
+		}
+	});
+	$effect(() => {
+		if (voice.status !== 'connected') detailsOpen = false;
+	});
+
+	const failureLabels: Record<VoiceFailure, string> = {
+		duplicate: 'Уже в этом канале из другого окна',
+		removed: 'Отключён от канала',
+		error: 'Не удалось подключиться'
+	};
+
+	const statusLabel = $derived(
+		voice.status === 'connecting'
+			? 'Подключаюсь…'
+			: voice.status === 'reconnecting'
+				? 'Переподключение…'
+				: voice.status === 'failed'
+					? failureLabels[voice.failure ?? 'error']
+					: 'Подключено'
+	);
+	const statusColor = $derived(
+		voice.status === 'connected'
+			? 'text-online'
+			: voice.status === 'failed'
+				? 'text-danger'
+				: 'text-muted'
+	);
+	const dotPulse = $derived(voice.status === 'connecting' || voice.status === 'reconnecting');
+
+	const rtt = $derived(
+		voice.stats?.rttMs === null || voice.stats?.rttMs === undefined
+			? null
+			: Math.max(1, voice.stats.rttMs)
+	);
+	const rttColor = $derived(
+		voice.quality === null ? 'text-muted' : qualityColorClass(voice.quality)
+	);
+</script>
+
+{#snippet toggle(icon: IconName, label: string, off: boolean, onclick: () => void)}
+	<button
+		type="button"
+		aria-label={label}
+		aria-pressed={off}
+		{onclick}
+		class="pressable relative flex h-9 w-9 items-center justify-center rounded-full duration-150 {off
+			? 'bg-surface-raised text-ink'
+			: 'text-muted hover:bg-fill hover:text-ink'}"
+	>
+		<Icon name={icon} size={18} />
+		{#if off}
+			<svg
+				width="18"
+				height="18"
+				viewBox="0 0 16 16"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.33"
+				stroke-linecap="round"
+				aria-hidden="true"
+				class="absolute"
+			>
+				<path d="M3 3l10 10" class="stroke-surface-raised" stroke-width="4" />
+				<path d="M3 3l10 10" />
+			</svg>
+		{/if}
+	</button>
+{/snippet}
+
+<div class="panel relative shrink-0 px-4 py-3">
+	<div class="collapsible {connected ? 'is-open' : ''}" inert={!connected}>
+		<div>
+			<div class="pb-2.5">
+				<div class="flex h-6 items-center gap-2">
+					<div
+						class="flex min-w-0 flex-1 items-center gap-1.5 text-[13px] font-semibold transition-colors duration-200 {statusColor}"
+					>
+						<Icon
+							name="voice"
+							size={14}
+							class="{voice.status === 'connected' ? 'voice-live' : ''} {dotPulse
+								? 'animate-pulse'
+								: ''}"
+						/>
+						<span class="min-w-0 truncate">{statusLabel}</span>
+					</div>
+					{#if voice.status === 'connected'}
+						<button
+							bind:this={detailsAnchor}
+							type="button"
+							aria-label="Сведения о соединении"
+							aria-haspopup="dialog"
+							aria-expanded={detailsOpen}
+							onclick={() => (detailsOpen = !detailsOpen)}
+							class="pressable ml-auto flex h-6 shrink-0 items-center gap-1.5 rounded-full px-2 text-[11px] whitespace-nowrap duration-200 {detailsOpen
+								? 'bg-fill-raised'
+								: 'bg-fill-faint hover:bg-fill-raised'}"
+						>
+							<span class="flex items-center gap-1.5 {rttColor}">
+								{#if voice.quality !== null}
+									<SignalBars quality={voice.quality} />
+								{/if}
+								<span class="tabular-nums">{rtt === null ? '—' : `${rtt} мс`}</span>
+							</span>
+							<span class="flex text-muted">
+								<Icon name="lock" size={11} />
+							</span>
+						</button>
+					{/if}
+				</div>
+				<div class="mt-0.5 truncate text-[13px] font-medium text-ink">{shown?.channelName ?? ''}</div>
+				<div class="truncate text-[12px] text-muted">{shown?.serverName ?? ''}</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="flex h-9 items-center justify-between gap-3">
+		<div class="grid min-w-0 flex-1 items-center">
+			{#key connected}
+				<div
+					class="col-start-1 row-start-1 flex min-w-0 items-center"
+					in:fade={{ duration: 200, delay: 120 }}
+					out:fade={{ duration: 120 }}
+				>
+					{#if connected}
+						{#if shownOccupants.length > 0}
+							<AvatarStack members={shownOccupants} />
+						{/if}
+					{:else}
+						<span class="min-w-0 truncate text-[12px] text-muted">Голос не подключён</span>
+					{/if}
+				</div>
+			{/key}
+		</div>
+		<div class="flex shrink-0 items-center gap-1">
+			{#if connected}
+				<button
+					type="button"
+					aria-label="Отключиться"
+					onclick={disconnect}
+					transition:fade={{ duration: 150 }}
+					class="pressable flex h-9 w-9 items-center justify-center rounded-full text-muted duration-150 hover:bg-fill hover:text-danger"
+				>
+					<Icon name="phone-off" size={18} />
+				</button>
+			{/if}
+			{@render toggle('mic', 'Микрофон', voice.micMuted, voice.toggleMic)}
+			{@render toggle('headphones', 'Наушники', voice.deafened, voice.toggleDeafen)}
+		</div>
+	</div>
+
+	{#if detailsOpen}
+		<ConnectionDetails anchor={detailsAnchor} onclose={() => (detailsOpen = false)} />
+	{/if}
+</div>

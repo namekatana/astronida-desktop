@@ -1,3 +1,4 @@
+import { onAccountReset } from '$lib/auth/account-reset';
 import type { MessageAttachment } from '$lib/messages/messages';
 import { supabase } from '$lib/supabase/client';
 import { mediaStore } from './media-store';
@@ -143,12 +144,12 @@ export function prefetchImages(attachments: AttachmentRef[] | undefined) {
 	}
 }
 
-export function forgetImages() {
+onAccountReset(() => {
 	for (const url of urls.values()) URL.revokeObjectURL(url);
 	urls.clear();
 	storedKeys = null;
 	indexLoad = null;
-}
+});
 
 export function adoptSentImage(
 	attachmentId: string,

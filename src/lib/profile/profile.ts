@@ -3,12 +3,12 @@ import type { Friend } from '$lib/friends/friends';
 import { memberStatuses } from '$lib/presence/member-statuses.svelte';
 import type { ServerPresence } from '$lib/presence/presence';
 import type { UserStatus } from '$lib/presence/status';
-import type { Member } from '$lib/servers/members';
+import type { Member } from '$lib/members/members';
 import type { Server } from '$lib/servers/servers';
 import { knownAvatars } from './known-avatars.svelte';
 import type { ProfileDetails } from './profile-details.svelte';
-import type { WidgetDrag } from './widget-drag.svelte';
-import type { ProfileWidget, WidgetType } from './widgets';
+import type { WidgetDrag } from './widgets/widget-drag.svelte';
+import type { ProfileWidget, WidgetType } from './widgets/widgets';
 
 export interface ProfileTarget {
 	id: string;

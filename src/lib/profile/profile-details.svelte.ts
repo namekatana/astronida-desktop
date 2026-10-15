@@ -1,7 +1,8 @@
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+import { onAccountReset } from '$lib/auth/account-reset';
 import { supabase } from '$lib/supabase/client';
 import { asRecord } from '$lib/ui/record';
-import { widgetsFrom, type ProfileWidget } from './widgets';
+import { widgetsFrom, type ProfileWidget } from './widgets/widgets';
 
 export interface ProfileDetails {
 	bannerId: string | null;
@@ -105,11 +106,12 @@ export const profileDetails = {
 	},
 	markStale() {
 		requested.clear();
-	},
-	clear() {
-		known.clear();
-		requested.clear();
-		requestedAt.clear();
-		versions.clear();
 	}
 };
+
+onAccountReset(() => {
+	known.clear();
+	requested.clear();
+	requestedAt.clear();
+	versions.clear();
+});

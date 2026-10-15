@@ -2,7 +2,7 @@ import type { Category, Channel } from '$lib/channels/channels';
 import { history } from '$lib/history/history';
 import type { Friend } from '$lib/friends/friends';
 import type { ServerPresence, VoiceMember } from '$lib/presence/presence';
-import type { MemberListPreview } from '$lib/servers/member-list.svelte';
+import type { MemberListPreview } from '$lib/members/member-list.svelte';
 import type { Server } from '$lib/servers/servers';
 import { createCachedSection } from './cached-section';
 

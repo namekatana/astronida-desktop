@@ -2,8 +2,8 @@
 	import type { Snippet } from 'svelte';
 	import { dev } from '$app/environment';
 	import '../app.css';
-	import SmoothScroll from '$lib/components/SmoothScroll.svelte';
-	import TitleBar from '$lib/components/TitleBar.svelte';
+	import SmoothScroll from '$lib/ui/SmoothScroll.svelte';
+	import TitleBar from '$lib/ui/TitleBar.svelte';
 	import { updates } from '$lib/updates/updates.svelte';
 
 	let { children }: { children: Snippet } = $props();

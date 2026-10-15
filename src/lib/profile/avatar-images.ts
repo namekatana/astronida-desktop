@@ -1,3 +1,4 @@
+import { onAccountReset } from '$lib/auth/account-reset';
 import type { AvatarImages } from '$lib/media/avatar-image';
 import { mediaStore } from '$lib/media/media-store';
 import { supabase } from '$lib/supabase/client';
@@ -129,12 +130,12 @@ export function loadAvatar(
 	return pending;
 }
 
-export function forgetAvatars() {
+onAccountReset(() => {
 	for (const url of urls.values()) URL.revokeObjectURL(url);
 	urls.clear();
 	loading.clear();
 	unavailable.clear();
-}
+});
 
 export function adoptAvatar(avatarId: string, images: AvatarImages) {
 	for (const variant of ['large', 'small'] as const) {

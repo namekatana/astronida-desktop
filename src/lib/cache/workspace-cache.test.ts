@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ServerPresence, VoiceMember } from '$lib/presence/presence';
-import type { MemberListPreview, MemberRow } from '$lib/servers/member-list.svelte';
+import type { MemberListPreview, MemberRow } from '$lib/members/member-list.svelte';
 
 const storage = vi.hoisted(() => ({
 	disk: new Map<string, string>(),

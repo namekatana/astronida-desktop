@@ -1,0 +1,187 @@
+<script lang="ts" generics="T">
+	import { on } from 'svelte/events';
+	import { fade } from 'svelte/transition';
+	import { pop } from './pop';
+	import { portal } from './portal';
+	import { settle } from './settle';
+	import Icon from './Icon.svelte';
+	import SmoothScroll from './SmoothScroll.svelte';
+
+	interface Props {
+		label: string;
+		options: { value: T; label: string }[];
+		value: T;
+		disabled?: boolean;
+	}
+
+	let { label, options, value = $bindable(), disabled = false }: Props = $props();
+
+	const menuWidth = 208;
+	const rowHeight = 32;
+	const maxVisibleRows = 8;
+	const menuPadding = 6;
+	const gap = 6;
+	const edge = 8;
+
+	let open = $state(false);
+	let highlighted = $state(0);
+	let root = $state<HTMLDivElement | null>(null);
+	let trigger = $state<HTMLButtonElement | null>(null);
+	let list = $state<HTMLDivElement | null>(null);
+	let optionButtons = $state<HTMLButtonElement[]>([]);
+
+	const menuHeight = $derived(Math.min(options.length, maxVisibleRows) * rowHeight + menuPadding * 2);
+	let position = $state({ left: 0, top: 0, above: false });
+
+	const selectedIndex = $derived(options.findIndex((option) => Object.is(option.value, value)));
+	const selectedLabel = $derived(options[selectedIndex]?.label ?? '');
+
+	function place() {
+		if (!trigger) return;
+		const rect = trigger.getBoundingClientRect();
+		const height = menuHeight;
+		const fitsBelow = window.innerHeight - rect.bottom >= height + gap + edge;
+		const above = !fitsBelow && rect.top >= height + gap + edge;
+		const left = Math.min(
+			Math.max(rect.right - menuWidth, edge),
+			window.innerWidth - menuWidth - edge
+		);
+		position = { left, top: above ? rect.top - gap - height : rect.bottom + gap, above };
+	}
+
+	function toggle() {
+		if (open) {
+			open = false;
+			return;
+		}
+		place();
+		highlighted = Math.max(selectedIndex, 0);
+		open = true;
+	}
+
+	function pick(index: number) {
+		value = options[index].value;
+		open = false;
+		trigger?.focus();
+	}
+
+	function handleKey(event: KeyboardEvent) {
+		if (event.key === 'Escape') {
+			event.preventDefault();
+			event.stopPropagation();
+			open = false;
+			trigger?.focus();
+		} else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+			event.preventDefault();
+			const step = event.key === 'ArrowDown' ? 1 : -1;
+			highlighted = (highlighted + step + options.length) % options.length;
+		} else if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			pick(highlighted);
+		} else if (event.key === 'Tab') {
+			open = false;
+		}
+	}
+
+	$effect(() => {
+		if (!open) return;
+		const close = () => (open = false);
+		const offKey = on(window, 'keydown', handleKey, { capture: true });
+		const offPointer = on(document, 'pointerdown', (event) => {
+			const target = event.target as Node;
+			if (!root?.contains(target) && !list?.contains(target)) close();
+		});
+		const offResize = on(window, 'resize', close);
+		const offScroll = on(
+			window,
+			'scroll',
+			(event) => {
+				if (!list?.contains(event.target as Node)) close();
+			},
+			{ capture: true }
+		);
+		return () => {
+			offKey();
+			offPointer();
+			offResize();
+			offScroll();
+		};
+	});
+
+	$effect(() => {
+		if (open) optionButtons[highlighted]?.scrollIntoView({ block: 'nearest' });
+	});
+</script>
+
+<div bind:this={root}>
+	<button
+		bind:this={trigger}
+		type="button"
+		aria-haspopup="listbox"
+		aria-expanded={open}
+		{disabled}
+		onclick={toggle}
+		class="flex h-12 w-full items-center gap-3 px-4 text-left transition-colors duration-150 hover:bg-fill-faint disabled:pointer-events-none disabled:opacity-60 {open
+			? 'bg-fill-faint'
+			: ''}"
+	>
+		<span class="min-w-0 flex-1 truncate text-[13px] text-ink">{label}</span>
+		<span class="grid max-w-[55%] min-w-0 shrink-0 justify-items-end">
+			{#key selectedLabel}
+				<span
+					class="col-start-1 row-start-1 max-w-full truncate text-[13px] text-ink-secondary tabular-nums"
+					in:settle
+					out:settle={{ duration: 100 }}
+				>
+					{selectedLabel}
+				</span>
+			{/key}
+		</span>
+		<Icon
+			name="chevron"
+			size={12}
+			class="text-muted transition-transform duration-200 ease-soft {open ? 'rotate-180' : ''}"
+		/>
+	</button>
+
+	{#if open}
+		<div
+			bind:this={list}
+			use:portal
+			role="listbox"
+			aria-label={label}
+			in:pop={{ y: position.above ? 6 : -6, duration: 200 }}
+			out:fade={{ duration: 100 }}
+			class="panel panel-floating fixed z-50 flex flex-col overflow-hidden {position.above
+				? 'origin-bottom-right'
+				: 'origin-top-right'}"
+			style="left: {position.left}px; top: {position.top}px; width: {menuWidth}px; max-height: {menuHeight}px"
+		>
+			<SmoothScroll class="min-h-0" contentClass="p-1.5">
+				{@render optionList()}
+			</SmoothScroll>
+		</div>
+	{/if}
+</div>
+
+{#snippet optionList()}
+	{#each options as option, index (index)}
+		<button
+			bind:this={optionButtons[index]}
+			type="button"
+			role="option"
+			aria-selected={index === selectedIndex}
+			onpointerenter={() => (highlighted = index)}
+			onclick={() => pick(index)}
+			class="flex h-8 w-full items-center gap-2.5 rounded-row px-2.5 text-left [corner-shape:squircle] text-[13px] transition-colors duration-150 {index ===
+			highlighted
+				? 'bg-fill text-ink'
+				: 'text-ink-secondary'}"
+		>
+			<span class="min-w-0 flex-1 truncate tabular-nums">{option.label}</span>
+			{#if index === selectedIndex}
+				<Icon name="check" size={14} class="text-ink" />
+			{/if}
+		</button>
+	{/each}
+{/snippet}

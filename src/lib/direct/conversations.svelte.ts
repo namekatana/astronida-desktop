@@ -4,7 +4,7 @@ import type { Friend, FriendActivity } from '$lib/friends/friends';
 import type { Feeds } from '$lib/messages/feeds.svelte';
 import type { MessageAuthor } from '$lib/messages/messages';
 import { unread } from '$lib/notifications/unread.svelte';
-import type { Member } from '$lib/servers/members';
+import type { Member } from '$lib/members/members';
 import { visibleConversations } from './conversation-list';
 
 export type Conversations = ReturnType<typeof createConversations>;

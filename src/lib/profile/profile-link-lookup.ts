@@ -1,3 +1,4 @@
+import { onAccountReset } from '$lib/auth/account-reset';
 import { searchUsers } from '$lib/friends/channel';
 import type { ProfileRelation, ProfileTarget } from './profile';
 
@@ -41,6 +42,4 @@ export function lookupProfileLink(username: string): Promise<ProfileLinkResult> 
 	return request;
 }
 
-export function forgetProfileLinks() {
-	lookups.clear();
-}
+onAccountReset(() => lookups.clear());

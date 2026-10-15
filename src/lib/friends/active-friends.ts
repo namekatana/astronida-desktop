@@ -1,6 +1,6 @@
 import type { Workspace } from '$lib/cache/workspace-cache';
 import type { ServerPresence } from '$lib/presence/presence';
-import type { Member } from '$lib/servers/members';
+import type { Member } from '$lib/members/members';
 import type { Server } from '$lib/servers/servers';
 
 export interface ActiveFriend {

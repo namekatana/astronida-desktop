@@ -1,3 +1,4 @@
+import { onAccountReset } from '$lib/auth/account-reset';
 import type { AvatarImages } from '$lib/media/avatar-image';
 import { mediaStore } from '$lib/media/media-store';
 import { supabase } from '$lib/supabase/client';
@@ -122,9 +123,9 @@ export function adoptServerIcon(iconId: string, images: AvatarImages) {
 	}
 }
 
-export function forgetServerIcons() {
+onAccountReset(() => {
 	for (const url of urls.values()) URL.revokeObjectURL(url);
 	urls.clear();
 	loading.clear();
 	unavailable.clear();
-}
+});
