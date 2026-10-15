@@ -163,6 +163,12 @@
 	const viewport = $derived({ width: viewportWidth, height: viewportHeight });
 	const zoomed = $derived(zoom.scale > 1);
 
+	let shown = { attachmentId: '', zoomed: false };
+
+	$effect(() => {
+		shown = { attachmentId: attachment.id, zoomed };
+	});
+
 	$effect(() => {
 		void index;
 		void viewportWidth;
@@ -354,7 +360,7 @@
 
 	function shrinkHome(node: HTMLElement): TransitionConfig {
 		if (prefersReducedMotion.current) return { duration: 120, css: (t) => `opacity: ${t}` };
-		const home = zoomed ? null : visibleTileOf(attachment.id);
+		const home = shown.zoomed ? null : visibleTileOf(shown.attachmentId);
 		if (!home) {
 			return {
 				duration: 180,

@@ -436,10 +436,10 @@ export function createAppState(input: { data: AppData; overlays: Overlays }) {
 		voice.disconnect();
 		await signOut();
 		workspaceCache.clear(data.userId);
-		resetAccount();
 		await history.clear().catch(() => {});
 		signingOut = false;
 		await goto('/');
+		resetAccount();
 	}
 
 	function selectChannel(channelId: string) {
