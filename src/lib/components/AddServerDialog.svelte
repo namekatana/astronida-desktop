@@ -1,9 +1,15 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { SvelteSet } from 'svelte/reactivity';
-	import { createChannel, type ChannelKind } from '$lib/channels/channels';
+	import { renderAvatar, type AvatarImages } from '$lib/media/avatar-image';
+	import { createImageEditor } from '$lib/profile/image-editor.svelte';
 	import { createInviteLookup } from '$lib/servers/invite-lookup.svelte';
-	import { inviteLinkOf, memberCountLabel, recentInvitePreviews } from '$lib/servers/invites';
+	import { inviteLinkOf, memberCountLabel } from '$lib/servers/invites';
+	import { uploadServerIcon } from '$lib/servers/server-icon';
+	import {
+		applyServerTemplate,
+		serverTemplates,
+		type ServerTemplate
+	} from '$lib/servers/server-templates';
 	import {
 		createServer,
 		serverNameMaxLength,
@@ -12,13 +18,13 @@
 	} from '$lib/servers/servers';
 	import { settle } from '$lib/ui/settle';
 	import type { AddServerView } from './add-server';
-	import Avatar from './Avatar.svelte';
-	import CheckCircle from './CheckCircle.svelte';
-	import Dialog from './Dialog.svelte';
 	import DashedFrame from './DashedFrame.svelte';
+	import Dialog from './Dialog.svelte';
 	import Icon from './Icon.svelte';
+	import ImageCropper from './ImageCropper.svelte';
 	import LengthCounter from './LengthCounter.svelte';
 	import SegmentedControl from './SegmentedControl.svelte';
+	import ServerIcon from './ServerIcon.svelte';
 	import SheetHeader from './SheetHeader.svelte';
 
 	interface Props {
@@ -33,7 +39,9 @@
 
 	const formId = 'add-server-form';
 	const closeDelayMs = 450;
-	const suggestionLimit = 2;
+	const exampleCode = 'hTKzmak3Qp';
+	const inviteExamples = [inviteLinkOf(exampleCode), exampleCode];
+	const iconFrame = { width: 280, height: 280, radius: 140, rotatable: true };
 
 	const views: { value: AddServerView; label: string }[] = [
 		{ value: 'create', label: 'Создать' },
@@ -47,70 +55,115 @@
 
 	const notes: Record<AddServerView, string> = {
 		create: 'Создавая сервер, вы принимаете правила сообщества',
-		join: 'Подойдёт ссылка astronida://invite/… или код из 10 символов'
+		join: 'Вступая на сервер, вы принимаете правила сообщества'
 	};
 
-	const sectionTitles: Record<AddServerView, string> = {
-		create: 'Сразу создать',
-		join: 'Приглашения из чатов'
-	};
-
-	const starterChannels: { kind: ChannelKind; name: string }[] = [
-		{ kind: 'text', name: 'общий' },
-		{ kind: 'voice', name: 'Голосовой' }
-	];
-
-	const chosenStarters = new SvelteSet<ChannelKind>(['text', 'voice']);
-
-	function toggleStarter(kind: ChannelKind) {
-		if (chosenStarters.has(kind)) chosenStarters.delete(kind);
-		else chosenStarters.add(kind);
-	}
-
-	async function createStarterChannels(serverId: string) {
-		for (const starter of starterChannels) {
-			if (!chosenStarters.has(starter.kind)) continue;
-			await createChannel({ serverId, categoryId: null, name: starter.name, kind: starter.kind });
-		}
-	}
-
-	const suggestions = recentInvitePreviews(suggestionLimit);
 	const lookup = createInviteLookup(untrack(() => initialValue));
 
+	let createdServerId = '';
+	const iconEditor = createImageEditor<AvatarImages>({
+		render: renderAvatar,
+		previewOf: (images) => images.large,
+		upload: (images) => uploadServerIcon(createdServerId, images),
+		remove: async () => ({ ok: true, id: null })
+	});
+
 	let view = $state<AddServerView>(untrack(() => initialView));
+	let template = $state<ServerTemplate>(serverTemplates[0]);
+	let templateButtons = $state<HTMLButtonElement[]>([]);
+	let iconButton = $state<HTMLButtonElement | null>(null);
+	let fileInput = $state<HTMLInputElement | null>(null);
+	let cropper = $state<ReturnType<typeof ImageCropper>>();
+	let cropExit = $state<'apply' | 'cancel'>('apply');
 	let name = $state('');
 	let submitted = $state(false);
 	let submitting = $state(false);
 	let done = $state(false);
 	let serverError = $state('');
 
+	const cropping = $derived(iconEditor.step === 'crop' && iconEditor.source !== null);
+	const iconPreview = $derived(iconEditor.draft.kind === 'new' ? iconEditor.draft.url : null);
 	const busy = $derived(submitting || lookup.joining || done);
-	const createError = $derived((submitted ? validateServerName(name) : '') || serverError);
+	const createError = $derived(
+		(submitted ? validateServerName(name) : '') || serverError || (iconEditor.error ?? '')
+	);
 	const error = $derived(view === 'create' ? createError : lookup.error);
 	const found = $derived(lookup.found);
 	const fieldValue = $derived(view === 'create' ? name : lookup.input);
 
-	const title = $derived(view === 'create' ? 'Новый сервер' : 'Присоединиться');
-	const actionLabel = $derived(
-		view === 'create' ? 'Создать' : found?.member ? 'Открыть' : 'Вступить'
+	const title = $derived(
+		cropping ? 'Фото сервера' : view === 'create' ? 'Новый сервер' : 'Присоединиться'
 	);
-	const actionDisabled = $derived(view === 'create' ? name.trim() === '' : found === null);
+	const actionLabel = $derived.by(() => {
+		if (cropping) return 'Готово';
+		if (view === 'create') return 'Создать';
+		return found?.member ? 'Открыть' : 'Вступить';
+	});
+	const actionDisabled = $derived(
+		cropping ? false : view === 'create' ? name.trim() === '' : found === null
+	);
 	const subtitle = $derived.by(() => {
+		if (cropping) return null;
 		if (error) return error;
 		return view === 'join' && lookup.checking ? 'Проверяем приглашение…' : null;
 	});
 
 	const identityKey = $derived(
+		view === 'create'
+			? `create:${iconPreview ?? ''}`
+			: found
+				? `found:${found.serverId}:${found.member}`
+				: 'join'
+	);
+	const sectionKey = $derived(
 		view === 'create' ? 'create' : found ? `found:${found.serverId}:${found.member}` : 'join'
 	);
+	const sectionTitle = $derived(
+		view === 'create' ? 'Шаблон' : found ? 'Сервер' : 'Приглашение выглядит так'
+	);
+
+	$effect(() => () => iconEditor.reset());
 
 	function setFieldValue(next: string) {
 		if (view === 'create') name = next;
 		else lookup.input = next;
 	}
 
-	function useSuggestion(code: string) {
-		lookup.input = inviteLinkOf(code);
+	function handleTemplateKeydown(event: KeyboardEvent, index: number) {
+		const step = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0;
+		if (step === 0) return;
+		event.preventDefault();
+		const nextIndex = (index + step + serverTemplates.length) % serverTemplates.length;
+		template = serverTemplates[nextIndex];
+		templateButtons[nextIndex]?.focus();
+	}
+
+	function takeFile(input: HTMLInputElement) {
+		const file = input.files?.[0];
+		input.value = '';
+		if (!file) return;
+		cropExit = 'apply';
+		void iconEditor.pick(file);
+	}
+
+	function cancelCrop() {
+		cropExit = 'cancel';
+		iconEditor.cancelCrop();
+	}
+
+	function applyCrop() {
+		if (!cropper) return;
+		cropExit = 'apply';
+		void iconEditor.applyCrop(cropper.cropArea());
+	}
+
+	function iconRect(): DOMRect | null {
+		return iconButton?.getBoundingClientRect() ?? null;
+	}
+
+	function handleClose() {
+		if (cropping) cancelCrop();
+		else onclose();
 	}
 
 	async function create() {
@@ -124,9 +177,14 @@
 			serverError = result.message;
 			return;
 		}
-		await createStarterChannels(result.server.id);
+		createdServerId = result.server.id;
+		const [, icon] = await Promise.all([
+			applyServerTemplate(result.server.id, template),
+			iconEditor.save()
+		]);
 		submitting = false;
-		finish(() => oncreated(result.server));
+		const iconId = icon?.ok ? icon.id : null;
+		finish(() => oncreated({ ...result.server, iconId }));
 	}
 
 	async function join() {
@@ -142,204 +200,207 @@
 
 	function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
+		if (cropping) return;
 		void (view === 'create' ? create() : join());
 	}
 </script>
 
-<Dialog label={title} wide flush pinTop locked={busy} {onclose}>
+<Dialog label={title} wide flush pinTop locked={busy || iconEditor.busy} onclose={handleClose}>
 	<SheetHeader
 		{title}
 		{subtitle}
 		subtitleDanger={error !== ''}
 		cancelLabel="Отмена"
-		cancelDisabled={busy}
-		oncancel={onclose}
+		cancelDisabled={busy || iconEditor.busy}
+		oncancel={handleClose}
 		{actionLabel}
-		actionForm={formId}
+		actionForm={cropping ? undefined : formId}
+		onaction={cropping ? applyCrop : undefined}
 		{actionDisabled}
-		actionBusy={submitting || lookup.joining}
+		actionBusy={submitting || lookup.joining || iconEditor.busy}
 		actionDone={done}
 	/>
 
-	<form id={formId} class="flex h-[396px] flex-col px-4 pt-1 pb-4" onsubmit={handleSubmit}>
+	<form
+		id={formId}
+		class="relative flex h-[396px] flex-col px-4 pt-1 pb-4"
+		onsubmit={handleSubmit}
+	>
 		<SegmentedControl label="Сервер" options={views} bind:value={view} disabled={busy} />
 
-		<div class="mt-4 flex flex-col items-center">
-			<div class="grid h-[72px] w-[72px]">
+		<div class="mt-4 flex items-center gap-3">
+			<div class="grid h-12 w-12 shrink-0">
 				{#key identityKey}
 					<div class="col-start-1 row-start-1" in:settle out:settle={{ duration: 100 }}>
 						{#if view === 'create'}
 							<button
+								bind:this={iconButton}
 								type="button"
-								aria-label="Добавить фото"
-								title="Скоро"
-								class="group pressable relative flex h-[72px] w-[72px] items-center justify-center rounded-full text-muted will-change-transform duration-200 hover:text-ink"
+								aria-label={iconPreview ? 'Сменить фото сервера' : 'Добавить фото сервера'}
+								disabled={busy}
+								onclick={() => fileInput?.click()}
+								class="group pressable relative flex h-12 w-12 items-center justify-center rounded-full text-muted will-change-transform duration-200 hover:text-ink"
 							>
-								<DashedFrame
-									radius={36}
-									class="text-line transition-colors duration-200 group-hover:text-line-strong"
-								/>
-								<Icon name="camera" size={22} />
+								{#if iconPreview}
+									<img
+										src={iconPreview}
+										alt=""
+										class="absolute inset-0 h-full w-full rounded-full object-cover"
+									/>
+									<span
+										class="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+									>
+										<Icon name="camera" size={16} />
+									</span>
+								{:else}
+									<DashedFrame
+										radius={24}
+										class="text-line transition-colors duration-200 group-hover:text-line-strong"
+									/>
+									<Icon name="camera" size={18} />
+								{/if}
 							</button>
 						{:else if found}
-							<Avatar name={found.serverName} size={72} />
+							<span
+								class="relative flex h-12 w-12 items-center justify-center rounded-full bg-surface-raised text-[15px] font-semibold text-ink"
+							>
+								<ServerIcon serverId={found.serverId} iconId={found.iconId} name={found.serverName} />
+							</span>
 						{:else}
 							<span
-								class="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-fill text-muted {lookup.checking
+								class="flex h-12 w-12 items-center justify-center rounded-full bg-fill text-muted {lookup.checking
 									? 'animate-pulse'
 									: ''}"
 							>
-								<Icon name="link" size={22} />
+								<Icon name="link" size={18} />
 							</span>
 						{/if}
 					</div>
 				{/key}
 			</div>
 
-			<div class="mt-2 grid h-5 w-full grid-cols-1 justify-items-center px-4">
-				{#key identityKey}
-					<span
-						class="col-start-1 row-start-1 max-w-full truncate text-[13px] leading-5 {view ===
-							'create' || found
-							? 'text-ink-secondary'
-							: 'text-muted'}"
-						in:settle
-						out:settle={{ duration: 100 }}
-					>
-						{#if view === 'create'}
-							Добавить фото
-						{:else if found}
-							<span class="font-semibold text-ink">{found.serverName}</span>
-							· {found.member ? 'вы уже участник' : memberCountLabel(found.memberCount)}
-						{:else}
-							По приглашению
-						{/if}
+			<label
+				class="relative grid h-12 min-w-0 flex-1 rounded-plate bg-fill transition-colors duration-150 [corner-shape:squircle] focus-within:bg-fill-raised"
+			>
+				<input
+					bind:value={() => fieldValue, setFieldValue}
+					type="text"
+					maxlength={view === 'create' ? serverNameMaxLength : undefined}
+					aria-label={placeholders[view]}
+					aria-invalid={error !== ''}
+					spellcheck="false"
+					autocomplete="off"
+					disabled={busy}
+					class="col-start-1 row-start-1 h-12 w-full bg-transparent pr-16 pl-4 text-[14px] text-ink outline-none"
+				/>
+				{#if view === 'create'}
+					<span class="pointer-events-none absolute inset-y-0 right-4 flex items-center">
+						<LengthCounter value={name} max={serverNameMaxLength} />
 					</span>
-				{/key}
-			</div>
+				{/if}
+				{#if fieldValue === ''}
+					{#key view}
+						<span
+							aria-hidden="true"
+							class="pointer-events-none col-start-1 row-start-1 flex items-center px-4 text-[14px] text-muted"
+							in:settle
+							out:settle={{ duration: 100 }}
+						>
+							{placeholders[view]}
+						</span>
+					{/key}
+				{/if}
+			</label>
 		</div>
 
-		<label
-			class="relative mt-3 grid h-12 rounded-plate bg-fill transition-colors duration-150 [corner-shape:squircle] focus-within:bg-fill-raised"
-		>
-			<input
-				bind:value={() => fieldValue, setFieldValue}
-				type="text"
-				maxlength={view === 'create' ? serverNameMaxLength : undefined}
-				aria-label={placeholders[view]}
-				aria-invalid={error !== ''}
-				spellcheck="false"
-				autocomplete="off"
-				disabled={busy}
-				class="col-start-1 row-start-1 h-12 w-full bg-transparent pr-16 pl-4 text-[14px] text-ink outline-none"
-			/>
-			{#if view === 'create'}
-				<span class="pointer-events-none absolute inset-y-0 right-4 flex items-center">
-					<LengthCounter value={name} max={serverNameMaxLength} />
-				</span>
-			{/if}
-			{#if fieldValue === ''}
-				{#key view}
-					<span
-						aria-hidden="true"
-						class="pointer-events-none col-start-1 row-start-1 flex items-center px-4 text-[14px] text-muted"
-						in:settle
-						out:settle={{ duration: 100 }}
-					>
-						{placeholders[view]}
-					</span>
-				{/key}
-			{/if}
-		</label>
-
-		<div class="mt-2 grid h-4 grid-cols-1 px-4">
-			{#key view}
-				<p
-					class="col-start-1 row-start-1 truncate text-[12px] leading-4 text-muted"
-					in:settle
-					out:settle={{ duration: 100 }}
-				>
-					{notes[view]}
-				</p>
-			{/key}
-		</div>
-
-		<div class="mt-5 grid min-h-0 flex-1 grid-cols-1">
-			{#key view}
+		<div class="mt-5 grid grid-cols-1">
+			{#key sectionKey}
 				<section
-					class="col-start-1 row-start-1 flex min-h-0 flex-col"
+					class="col-start-1 row-start-1 flex flex-col"
 					in:settle
 					out:settle={{ duration: 100 }}
 				>
 					<h3 class="px-1 pb-1.5 text-[12px] leading-4 font-semibold text-muted">
-						{sectionTitles[view]}
+						{sectionTitle}
 					</h3>
-					{#if view === 'create'}
-						<ul class="flex flex-col gap-0.5">
-							{#each starterChannels as starter (starter.kind)}
-								{@const checked = chosenStarters.has(starter.kind)}
-								<li>
+					<div class="overflow-hidden rounded-plate bg-fill [corner-shape:squircle]">
+						{#if view === 'create'}
+							<div role="radiogroup" aria-label="Шаблон">
+								{#each serverTemplates as option, index (option.id)}
+									{@const selected = template.id === option.id}
+									{#if index > 0}
+										<div class="ml-[52px] h-px bg-surface-line"></div>
+									{/if}
 									<button
+										bind:this={templateButtons[index]}
 										type="button"
-										role="checkbox"
-										aria-checked={checked}
+										role="radio"
+										aria-checked={selected}
+										tabindex={selected ? 0 : -1}
 										disabled={busy}
-										onclick={() => toggleStarter(starter.kind)}
-										class="-mx-1 flex h-10 w-[calc(100%+0.5rem)] items-center gap-3 rounded-row px-2 text-left transition-colors duration-150 [corner-shape:squircle] enabled:hover:bg-fill-faint"
+										onclick={() => (template = option)}
+										onkeydown={(event) => handleTemplateKeydown(event, index)}
+										class="flex h-11 w-full items-center gap-3 px-3 text-left transition-colors duration-150 outline-none enabled:hover:bg-fill-faint focus-visible:bg-fill-faint"
 									>
-										<Icon name={starter.kind} size={16} class="text-muted" />
 										<span
-											class="min-w-0 flex-1 truncate text-[13px] transition-colors duration-150 {checked
-												? 'text-ink'
-												: 'text-ink-secondary'}"
+											class="flex h-7 w-7 shrink-0 items-center justify-center rounded-tile bg-fill-raised text-ink-secondary [corner-shape:squircle]"
 										>
-											{starter.name}
+											<Icon name={option.icon} size={15} />
 										</span>
-										<CheckCircle {checked} />
+										<span class="min-w-0 flex-1 truncate text-[14px] text-ink">{option.label}</span>
+										<Icon
+											name="check"
+											size={16}
+											class="text-ink transition-opacity duration-150 {selected
+												? 'opacity-100'
+												: 'opacity-0'}"
+										/>
 									</button>
-								</li>
-							{/each}
-						</ul>
-					{:else if suggestions.length > 0}
-						<ul class="flex flex-col gap-0.5">
-							{#each suggestions as suggestion (suggestion.code)}
-								{@const chosen = lookup.input === inviteLinkOf(suggestion.code)}
-								<li
-									class="-mx-1 flex h-11 items-center gap-3 rounded-row px-2 [corner-shape:squircle]"
-								>
-									<Avatar name={suggestion.preview.serverName} size={32} />
-									<span class="flex min-w-0 flex-1 flex-col">
-										<span class="truncate text-[13px] leading-4 font-semibold text-ink">
-											{suggestion.preview.serverName}
-										</span>
-										<span class="text-[12px] leading-4 text-muted">
-											{memberCountLabel(suggestion.preview.memberCount)}
-										</span>
+								{/each}
+							</div>
+						{:else if found}
+							<div class="flex h-11 items-center px-4">
+								<span class="min-w-0 flex-1 truncate text-[14px] text-ink">
+									{found.serverName}
+									<span class="text-[12px] text-muted">
+										· {found.member ? 'вы уже участник' : memberCountLabel(found.memberCount)}
 									</span>
-									<button
-										type="button"
-										disabled={chosen || busy}
-										onclick={() => useSuggestion(suggestion.code)}
-										class="pressable grid h-8 shrink-0 items-center rounded-full px-3 text-[12px] font-semibold duration-150 {chosen
-											? 'text-muted'
-											: 'bg-fill-raised text-ink hover:bg-fill-strong'}"
-									>
-										{#key chosen}
-											<span class="col-start-1 row-start-1" in:settle out:settle={{ duration: 100 }}>
-												{chosen ? 'Выбрано' : 'Вставить'}
-											</span>
-										{/key}
-									</button>
-								</li>
+								</span>
+							</div>
+						{:else}
+							{#each inviteExamples as example, index (example)}
+								{#if index > 0}
+									<div class="ml-4 h-px bg-surface-line"></div>
+								{/if}
+								<p
+									class="flex h-10 items-center truncate px-4 text-[13px] text-ink-secondary select-text"
+								>
+									{example}
+								</p>
 							{/each}
-						</ul>
-					{:else}
-						<p class="px-1 pt-1 text-[13px] leading-5 text-muted">
-							Приглашения, которые вам пришлют, появятся здесь
-						</p>
-					{/if}
+						{/if}
+					</div>
+					<p class="mt-2 px-4 text-[12px] leading-4 text-muted">{notes[view]}</p>
 				</section>
 			{/key}
 		</div>
+
+		{#if cropping && iconEditor.source}
+			<ImageCropper
+				bind:this={cropper}
+				source={iconEditor.source}
+				frame={iconFrame}
+				exit={cropExit}
+				targetRect={iconRect}
+			/>
+		{/if}
 	</form>
+
+	<input
+		bind:this={fileInput}
+		type="file"
+		accept="image/*"
+		class="hidden"
+		onchange={(event) => takeFile(event.currentTarget)}
+	/>
 </Dialog>
